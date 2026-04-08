@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RotaFlow SaaS | Gerador de rotas</title>
+  <style>
+    :root {
+      --bg: #f3eee5;
+      --panel: rgba(255, 251, 245, 0.9);
+      --panel-strong: #fffdf8;
+      --ink: #182220;
+      --muted: #62716b;
+      --accent: #c95f3d;
+      --accent-soft: #f8ddc9;
+      --green: #2f7a5f;
+      --green-soft: #dcefe6;
+      --blue: #2c5a7b;
+      --blue-soft: #dce8f1;
+      --line: rgba(24, 34, 32, 0.08);
+      --shadow: 0 24px 70px rgba(24, 34, 32, 0.14);
+      --radius: 28px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(201, 95, 61, 0.18), transparent 26%),
+        radial-gradient(circle at bottom right, rgba(47, 122, 95, 0.14), transparent 24%),
+        linear-gradient(145deg, #eee7dc 0%, #faf7f1 42%, #ebe4d8 100%);
+    }
+
+    .shell {
+      width: min(1340px, calc(100% - 32px));
+      margin: 24px auto 40px;
+    }
+
+    .hero,
+    .card,
+    .panel,
+    .metric,
+    .map-shell,
+    .route-item,
+    .dropzone,
+    .status {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+
+    .hero {
+      padding: 28px;
+      margin-bottom: 22px;
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: 22px;
+      align-items: center;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(255, 253, 248, 0.72);
+      border: 1px solid var(--line);
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    h1 {
+      margin: 18px 0 14px;
+      font-size: clamp(42px, 6vw, 78px);
+      line-height: 0.92;
+      letter-spacing: -0.05em;
+      max-width: 11ch;
+    }
+
+    .hero-copy p,
+    .card p,
+    .status p,
+    .helper {
+      color: var(--muted);
+      line-height: 1.6;
+      margin: 0;
+    }
+
+    .actions,
+    .metrics,
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .actions {
+      margin-top: 24px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+      padding: 12px 18px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      background: #fffdf8;
+      color: var(--ink);
+      text-decoration: none;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 160ms ease, box-shadow 160ms ease;
+    }
+
+    .button:hover {
+      transform: translateY(-1px);
+    }
+
+    .button.primary {
+      background: linear-gradient(180deg, #17342d 0%, #21463d 100%);
+      color: #f9f6f0;
+    }
+
+    .button.secondary {
+      background: var(--green-soft);
+      color: #1f5d49;
+    }
+
+    .button.ghost {
+      border-color: var(--line);
+    }
+
+    .button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .chips {
+      margin-top: 22px;
+    }
+
+    .chip {
+      padding: 12px 16px;
+      border-radius: 999px;
+      background: rgba(255, 253, 248, 0.76);
+      border: 1px solid var(--line);
+      font-size: 14px;
+    }
+
+    .metrics {
+      margin-top: 22px;
+    }
+
+    .metric {
+      flex: 1;
+      min-width: 160px;
+      padding: 18px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 30px;
+      letter-spacing: -0.04em;
+      margin-bottom: 6px;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      gap: 22px;
+      align-items: start;
+    }
+
+    .panel {
+      padding: 22px;
+    }
+
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .section-head strong {
+      font-size: 20px;
+      letter-spacing: -0.03em;
+    }
+
+    .section-head span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .dropzone {
+      padding: 16px;
+      border-style: dashed;
+      margin-bottom: 14px;
+      background: rgba(255, 253, 248, 0.78);
+    }
+
+    .dropzone label {
+      display: block;
+      margin-bottom: 10px;
+      font-weight: 700;
+    }
+
+    input[type="file"] {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: var(--panel-strong);
+      color: var(--muted);
+    }
+
+    .inline-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .status {
+      margin-top: 16px;
+      padding: 16px;
+      background: rgba(255, 253, 248, 0.8);
+    }
+
+    .status strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 15px;
+    }
+
+    .template-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .template-links a {
+      color: var(--blue);
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    .content {
+      display: grid;
+      gap: 18px;
+    }
+
+    .map-shell {
+      padding: 18px;
+    }
+
+    .summary-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .mini {
+      background: rgba(255, 253, 248, 0.78);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 14px;
+    }
+
+    .mini strong {
+      display: block;
+      font-size: 22px;
+      margin-bottom: 4px;
+      letter-spacing: -0.04em;
+    }
+
+    .mini span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .map-canvas {
+      width: 100%;
+      height: 400px;
+      border-radius: 24px;
+      border: 1px solid var(--line);
+      background:
+        linear-gradient(180deg, rgba(44, 90, 123, 0.08), rgba(44, 90, 123, 0.02)),
+        linear-gradient(90deg, rgba(24, 34, 32, 0.03) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(24, 34, 32, 0.03) 1px, transparent 1px),
+        #fcfaf5;
+      background-size: auto, 32px 32px, 32px 32px, auto;
+      overflow: hidden;
+    }
+
+    .map-note {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .route-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .route-item {
+      padding: 16px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      background: rgba(255, 253, 248, 0.82);
+    }
+
+    .route-number {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      background: rgba(24, 34, 32, 0.06);
+      font-weight: 800;
+    }
+
+    .route-copy {
+      flex: 1;
+    }
+
+    .route-copy strong {
+      display: block;
+      font-size: 16px;
+      margin-bottom: 4px;
+    }
+
+    .route-copy span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .route-actions {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+    }
+
+    .route-actions .eta {
+      color: var(--green);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .route-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 88px;
+      padding: 8px 12px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink);
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .empty {
+      padding: 18px;
+      border-radius: 20px;
+      border: 1px dashed var(--line);
+      background: rgba(255, 253, 248, 0.7);
+      color: var(--muted);
+      text-align: center;
+    }
+
+    @media (max-width: 1080px) {
+      .hero,
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .summary-bar {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .inline-actions {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div class="hero-copy">
+        <div class="eyebrow">Versao SaaS Operacional</div>
+        <h1>Suba os CSVs e gere a rota em um clique.</h1>
+        <p>
+          Esta demo simula o fluxo vendavel do produto: subir `CSV` de entregas, subir `CSV` de veiculos,
+          clicar em `Gerar rota`, visualizar no mapa, abrir cada parada no Google Maps e baixar o PDF automaticamente.
+        </p>
+        <div class="actions">
+          <button class="button primary" id="generate-main">Gerar rota</button>
+          <button class="button secondary" id="load-demo">Carregar exemplo</button>
+          <a class="button ghost" href="./saas.html">Abrir landing SaaS</a>
+        </div>
+        <div class="chips">
+          <div class="chip">Upload de arquivos</div>
+          <div class="chip">Mapa sem backend</div>
+          <div class="chip">Google Maps integrado</div>
+          <div class="chip">PDF automatico</div>
+        </div>
+        <div class="metrics">
+          <div class="metric">
+            <strong id="metric-deliveries">0</strong>
+            <span>paradas no plano</span>
+          </div>
+          <div class="metric">
+            <strong id="metric-assigned">0%</strong>
+            <span>roteirizacao concluida</span>
+          </div>
+          <div class="metric">
+            <strong id="metric-distance">0 km</strong>
+            <span>distancia total</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="padding:20px;">
+        <div class="section-head">
+          <strong>Proxima parada</strong>
+          <span id="vehicle-label">aguardando dados</span>
+        </div>
+        <strong id="next-customer" style="display:block;font-size:28px;letter-spacing:-0.04em;margin-bottom:8px;">Sem rota gerada</strong>
+        <p id="next-summary">Suba os dois CSVs ou carregue o exemplo para iniciar a geracao.</p>
+        <div class="summary-bar" style="margin-top:16px;margin-bottom:0;">
+          <div class="mini">
+            <strong id="next-arrival">--:--</strong>
+            <span>chegada</span>
+          </div>
+          <div class="mini">
+            <strong id="next-progress">0/0</strong>
+            <span>paradas</span>
+          </div>
+          <div class="mini">
+            <strong id="next-vehicle">--</strong>
+            <span>veiculo</span>
+          </div>
+          <div class="mini">
+            <strong id="next-minutes">0 min</strong>
+            <span>tempo total</span>
+          </div>
+        </div>
+        <div class="actions" style="margin-top:16px;">
+          <a class="button secondary" id="next-maps" href="#" target="_blank" rel="noreferrer">Abrir no Google Maps</a>
+          <button class="button ghost" id="download-pdf" disabled>Baixar PDF</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid">
+      <aside class="panel">
+        <div class="section-head">
+          <strong>Entrada de dados</strong>
+          <span>CSV de entregas e frota</span>
+        </div>
+
+        <div class="dropzone">
+          <label for="deliveries-file">Subir um CSV de entregas</label>
+          <input id="deliveries-file" type="file" accept=".csv,text/csv">
+          <div class="helper" id="deliveries-status">Nenhum arquivo carregado.</div>
+        </div>
+
+        <div class="dropzone">
+          <label for="vehicles-file">Subir um CSV de veiculos</label>
+          <input id="vehicles-file" type="file" accept=".csv,text/csv">
+          <div class="helper" id="vehicles-status">Nenhum arquivo carregado.</div>
+        </div>
+
+        <div class="inline-actions">
+          <button class="button primary" id="generate-side">Gerar rota</button>
+          <button class="button ghost" id="clear-all">Limpar</button>
+        </div>
+
+        <div class="status">
+          <strong>Status da operacao</strong>
+          <p id="status-message">Pronto para receber os arquivos e montar a rota.</p>
+        </div>
+
+        <div class="template-links">
+          <a href="../assets/templates/deliveries.csv" target="_blank" rel="noreferrer">Modelo entregas</a>
+          <a href="../assets/templates/vehicles.csv" target="_blank" rel="noreferrer">Modelo veiculos</a>
+        </div>
+      </aside>
+
+      <section class="content">
+        <div class="map-shell">
+          <div class="section-head">
+            <strong>Visualizacao no mapa</strong>
+            <span id="map-caption">rota sera desenhada apos a geracao</span>
+          </div>
+          <svg class="map-canvas" id="map-svg" viewBox="0 0 900 400" preserveAspectRatio="none"></svg>
+          <div class="map-note">Mapa simplificado para validacao visual da sequencia. Cada ponto abre no Google Maps pela lista da rota.</div>
+        </div>
+
+        <div class="panel">
+          <div class="section-head">
+            <strong>Sequencia da rota</strong>
+            <span id="route-count">0 paradas</span>
+          </div>
+          <div class="route-list" id="route-list">
+            <div class="empty">Nenhuma rota gerada ainda.</div>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const SAMPLE_DELIVERIES = `id,customer_name,client_type,equipment_type,equipment_quantity,equipment_number,address,lat,lng,demand,service_minutes,priority,window_start,window_end
+D1,Cliente Alpha,fixo,Banheiro Luxo,4,EQ-1001,Centro,40.758,-73.9855,4,15,1,08:00,12:00
+D2,Cliente Beta,avulso,Cabine Standart,2,EQ-1002,Midtown,40.7484,-73.9857,2,10,2,09:00,17:00
+D3,Cliente Gama,fixo,Mictorio,6,EQ-1003,Brooklyn,40.6782,-73.9442,6,20,1,10:00,16:00`;
+
+    const SAMPLE_VEHICLES = `id,vehicle_type,plate,model,start_lat,start_lng,capacity,max_stops,max_minutes
+V1,Caminhao,ABC1D23,Mercedes Sprinter,40.7306,-73.9352,8,6,480
+V2,Van,EFG4H56,Fiat Ducato,40.7306,-73.9352,10,8,540`;
+
+    const state = {
+      deliveriesCsv: "",
+      vehiclesCsv: "",
+      routePlan: null,
+      generatedPdfBytes: null
+    };
+
+    const els = {
+      deliveriesFile: document.getElementById("deliveries-file"),
+      vehiclesFile: document.getElementById("vehicles-file"),
+      deliveriesStatus: document.getElementById("deliveries-status"),
+      vehiclesStatus: document.getElementById("vehicles-status"),
+      statusMessage: document.getElementById("status-message"),
+      routeList: document.getElementById("route-list"),
+      mapSvg: document.getElementById("map-svg"),
+      mapCaption: document.getElementById("map-caption"),
+      routeCount: document.getElementById("route-count"),
+      metricDeliveries: document.getElementById("metric-deliveries"),
+      metricAssigned: document.getElementById("metric-assigned"),
+      metricDistance: document.getElementById("metric-distance"),
+      nextCustomer: document.getElementById("next-customer"),
+      nextSummary: document.getElementById("next-summary"),
+      nextArrival: document.getElementById("next-arrival"),
+      nextProgress: document.getElementById("next-progress"),
+      nextVehicle: document.getElementById("next-vehicle"),
+      nextMinutes: document.getElementById("next-minutes"),
+      nextMaps: document.getElementById("next-maps"),
+      vehicleLabel: document.getElementById("vehicle-label"),
+      downloadPdf: document.getElementById("download-pdf")
+    };
+
+    function parseCsv(text) {
+      const rows = [];
+      let row = [];
+      let value = "";
+      let insideQuotes = false;
+
+      for (let i = 0; i < text.length; i += 1) {
+        const char = text[i];
+        const next = text[i + 1];
+
+        if (char === '"') {
+          if (insideQuotes && next === '"') {
+            value += '"';
+            i += 1;
+          } else {
+            insideQuotes = !insideQuotes;
+          }
+        } else if (char === "," && !insideQuotes) {
+          row.push(value);
+          value = "";
+        } else if ((char === "\n" || char === "\r") && !insideQuotes) {
+          if (char === "\r" && next === "\n") {
+            i += 1;
+          }
+          row.push(value);
+          if (row.some((cell) => cell.trim() !== "")) {
+            rows.push(row);
+          }
+          row = [];
+          value = "";
+        } else {
+          value += char;
+        }
+      }
+
+      if (value.length || row.length) {
+        row.push(value);
+        if (row.some((cell) => cell.trim() !== "")) {
+          rows.push(row);
+        }
+      }
+
+      if (!rows.length) return [];
+      const headers = rows[0].map((header) => header.trim());
+      return rows.slice(1).map((values) => {
+        const entry = {};
+        headers.forEach((header, index) => {
+          entry[header] = (values[index] || "").trim();
+        });
+        return entry;
+      });
+    }
+
+    function hhmmToMinutes(value) {
+      const [hh, mm] = value.split(":").map(Number);
+      return (hh * 60) + mm;
+    }
+
+    function minutesToHhmm(value) {
+      const safe = Math.max(0, Math.round(value));
+      const hh = String(Math.floor(safe / 60)).padStart(2, "0");
+      const mm = String(safe % 60).padStart(2, "0");
+      return `${hh}:${mm}`;
+    }
+
+    function haversineKm(lat1, lon1, lat2, lon2) {
+      const r = 6371;
+      const p1 = (lat1 * Math.PI) / 180;
+      const p2 = (lat2 * Math.PI) / 180;
+      const dLat = ((lat2 - lat1) * Math.PI) / 180;
+      const dLon = ((lon2 - lon1) * Math.PI) / 180;
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(p1) * Math.cos(p2) * Math.sin(dLon / 2) ** 2;
+      return 2 * r * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function googleMapsSearchUrl(lat, lng) {
+      return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+    }
+
+    function googleMapsDirectionsUrl(lat, lng) {
+      return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
+    }
+
+    function normalizeDeliveries(rows) {
+      return rows.map((row) => {
+        const delivery = {
+          id: row.id,
+          customer_name: row.customer_name || "",
+          client_type: (row.client_type || "avulso").toLowerCase(),
+          equipment_type: row.equipment_type || "",
+          equipment_quantity: Number(row.equipment_quantity || row.demand || "1"),
+          equipment_number: row.equipment_number || "",
+          address: row.address || "",
+          lat: Number(row.lat),
+          lng: Number(row.lng),
+          demand: Number(row.demand),
+          service_minutes: Number(row.service_minutes),
+          priority: Number(row.priority || "3"),
+          window_start: hhmmToMinutes(row.window_start || "08:00"),
+          window_end: hhmmToMinutes(row.window_end || "18:00")
+        };
+
+        if (!delivery.id) throw new Error("Cada entrega precisa de id.");
+        if (!Number.isFinite(delivery.lat) || !Number.isFinite(delivery.lng)) throw new Error(`Entrega ${delivery.id} sem latitude/longitude valida.`);
+        if (!Number.isFinite(delivery.demand) || delivery.demand <= 0) throw new Error(`Entrega ${delivery.id} com demand invalido.`);
+        if (!Number.isFinite(delivery.service_minutes)) throw new Error(`Entrega ${delivery.id} com service_minutes invalido.`);
+        if (!Number.isFinite(delivery.equipment_quantity) || delivery.equipment_quantity <= 0) throw new Error(`Entrega ${delivery.id} com equipment_quantity invalido.`);
+        if (delivery.window_start >= delivery.window_end) throw new Error(`Entrega ${delivery.id} com janela invalida.`);
+        return delivery;
+      }).sort((a, b) => (a.priority - b.priority) || (a.window_end - b.window_end) || a.id.localeCompare(b.id));
+    }
+
+    function normalizeVehicles(rows) {
+      const vehicles = rows.map((row) => {
+        const vehicle = {
+          id: row.id,
+          vehicle_type: row.vehicle_type || "",
+          plate: row.plate || "",
+          model: row.model || "",
+          start_lat: Number(row.start_lat),
+          start_lng: Number(row.start_lng),
+          capacity: Number(row.capacity),
+          max_stops: Number(row.max_stops || "999"),
+          max_minutes: Number(row.max_minutes || "600")
+        };
+
+        if (!vehicle.id) throw new Error("Cada veiculo precisa de id.");
+        if (!Number.isFinite(vehicle.start_lat) || !Number.isFinite(vehicle.start_lng)) throw new Error(`Veiculo ${vehicle.id} sem coordenadas validas.`);
+        if (!Number.isFinite(vehicle.capacity) || vehicle.capacity <= 0) throw new Error(`Veiculo ${vehicle.id} com capacity invalida.`);
+        return vehicle;
+      });
+
+      if (!vehicles.length) throw new Error("Envie pelo menos um veiculo.");
+      return vehicles;
+    }
+
+    function pickNextDelivery(currentLat, currentLng, currentTime, usedCapacity, vehicle, pending, speedKmph, routeStartMinute) {
+      let best = null;
+      let bestScore = Number.POSITIVE_INFINITY;
+
+      pending.forEach((delivery) => {
+        if ((usedCapacity + delivery.demand) > vehicle.capacity) return;
+
+        const travelKm = haversineKm(currentLat, currentLng, delivery.lat, delivery.lng);
+        const travelMin = Math.round((travelKm / speedKmph) * 60);
+        const arrival = currentTime + travelMin;
+        const serviceStart = Math.max(arrival, delivery.window_start);
+        if (serviceStart > delivery.window_end) return;
+
+        const departure = serviceStart + delivery.service_minutes;
+        if ((departure - routeStartMinute) > vehicle.max_minutes) return;
+
+        const score = travelKm + ((serviceStart - arrival) * 0.02);
+        if (score < bestScore) {
+          bestScore = score;
+          best = { delivery, travelKm, arrival, serviceStart, departure };
+        }
+      });
+
+      return best;
+    }
+
+    function buildRoutePlan(deliveriesRows, vehicleRows) {
+      const deliveries = normalizeDeliveries(deliveriesRows);
+      const vehicles = normalizeVehicles(vehicleRows);
+      const speedKmph = 35;
+      let pending = [...deliveries];
+      const routes = [];
+      let totalKm = 0;
+
+      vehicles.forEach((vehicle) => {
+        const routeStartMinute = 8 * 60;
+        let currentLat = vehicle.start_lat;
+        let currentLng = vehicle.start_lng;
+        let currentTime = routeStartMinute;
+        let usedCapacity = 0;
+        const stops = [];
+
+        while (pending.length && stops.length < vehicle.max_stops) {
+          const candidate = pickNextDelivery(
+            currentLat,
+            currentLng,
+            currentTime,
+            usedCapacity,
+            vehicle,
+            pending,
+            speedKmph,
+            routeStartMinute
+          );
+
+          if (!candidate) break;
+
+          const stop = {
+            vehicle_id: vehicle.id,
+            vehicle_type: vehicle.vehicle_type,
+            vehicle_plate: vehicle.plate,
+            vehicle_model: vehicle.model,
+            delivery_id: candidate.delivery.id,
+            customer_name: candidate.delivery.customer_name,
+            client_type: candidate.delivery.client_type,
+            equipment_type: candidate.delivery.equipment_type,
+            equipment_quantity: candidate.delivery.equipment_quantity,
+            equipment_number: candidate.delivery.equipment_number,
+            address: candidate.delivery.address,
+            lat: candidate.delivery.lat,
+            lng: candidate.delivery.lng,
+            google_maps_url: googleMapsSearchUrl(candidate.delivery.lat, candidate.delivery.lng),
+            google_maps_directions_url: googleMapsDirectionsUrl(candidate.delivery.lat, candidate.delivery.lng),
+            arrival: minutesToHhmm(candidate.arrival),
+            service_start: minutesToHhmm(candidate.serviceStart),
+            departure: minutesToHhmm(candidate.departure),
+            travel_km: Number(candidate.travelKm.toFixed(2))
+          };
+
+          stops.push(stop);
+          usedCapacity += candidate.delivery.demand;
+          totalKm += candidate.travelKm;
+          currentLat = candidate.delivery.lat;
+          currentLng = candidate.delivery.lng;
+          currentTime = candidate.departure;
+          pending = pending.filter((item) => item.id !== candidate.delivery.id);
+        }
+
+        routes.push({
+          vehicle_id: vehicle.id,
+          vehicle_type: vehicle.vehicle_type,
+          vehicle_plate: vehicle.plate,
+          vehicle_model: vehicle.model,
+          next_stop: stops[0] || null,
+          stops,
+          distance_km: Number(stops.reduce((sum, stop) => sum + stop.travel_km, 0).toFixed(2)),
+          total_minutes: currentTime - routeStartMinute
+        });
+      });
+
+      const assigned = routes.reduce((sum, route) => sum + route.stops.length, 0);
+      const total = assigned + pending.length;
+
+      return {
+        summary: {
+          total_deliveries: total,
+          assigned_deliveries: assigned,
+          unassigned_deliveries: pending.length,
+          assigned_ratio: total ? Number((assigned / total).toFixed(3)) : 0,
+          total_distance_km: Number(totalKm.toFixed(2))
+        },
+        routes,
+        unassigned: pending.map((delivery) => ({
+          delivery_id: delivery.id,
+          customer_name: delivery.customer_name,
+          client_type: delivery.client_type,
+          equipment_type: delivery.equipment_type,
+          equipment_quantity: delivery.equipment_quantity,
+          equipment_number: delivery.equipment_number,
+          address: delivery.address,
+          google_maps_url: googleMapsSearchUrl(delivery.lat, delivery.lng),
+          google_maps_directions_url: googleMapsDirectionsUrl(delivery.lat, delivery.lng),
+          priority: delivery.priority,
+          window_start: minutesToHhmm(delivery.window_start),
+          window_end: minutesToHhmm(delivery.window_end)
+        }))
+      };
+    }
+
+    function pdfEscape(text) {
+      return String(text)
+        .replace(/\\/g, "\\\\")
+        .replace(/\(/g, "\\(")
+        .replace(/\)/g, "\\)")
+        .replace(/[^\x20-\x7E]/g, "?");
+    }
+
+    function buildPdfLines(routePlan) {
+      const summary = routePlan.summary;
+      const lines = [
+        "Plano de Rotas",
+        "",
+        `Entregas: ${summary.assigned_deliveries}/${summary.total_deliveries}  Nao atribuidas: ${summary.unassigned_deliveries}  Distancia total: ${summary.total_distance_km} km`,
+        ""
+      ];
+
+      routePlan.routes.forEach((route) => {
+        lines.push(`Veiculo ${route.vehicle_id}  ${route.vehicle_type || "Tipo n/d"}  ${route.vehicle_model || "Modelo n/d"}  Placa ${route.vehicle_plate || "n/d"}  Distancia ${route.distance_km} km  Tempo ${route.total_minutes} min`);
+        route.stops.forEach((stop, index) => {
+          const line = `${index + 1}. ${stop.delivery_id}  Cliente ${stop.customer_name || "Sem cliente"} (${stop.client_type || "avulso"})  ${stop.equipment_quantity || 1}x ${stop.equipment_type || "Equipamento"}  Equip ${stop.equipment_number || "-"}  ${stop.address || "Sem endereco"}  Chegada ${stop.arrival}  Saida ${stop.departure}`;
+          if (line.length > 92) {
+            const parts = [];
+            let current = line;
+            while (current.length > 92) {
+              parts.push(current.slice(0, 92));
+              current = current.slice(92);
+            }
+            parts.push(current);
+            parts.forEach((part) => lines.push(part));
+          } else {
+            lines.push(line);
+          }
+        });
+        if (!route.stops.length) {
+          lines.push("Nenhuma parada atribuida.");
+        }
+        lines.push("");
+      });
+
+      if (routePlan.unassigned.length) {
+        lines.push("Pendencias");
+        routePlan.unassigned.forEach((item) => {
+          lines.push(`- ${item.delivery_id} cliente ${item.customer_name || "Sem cliente"} (${item.client_type || "avulso"}) ${item.equipment_quantity || 1}x ${item.equipment_type || "Equipamento"} equip ${item.equipment_number || "-"} ${item.address || "Sem endereco"} prioridade ${item.priority}`);
+        });
+      }
+
+      return lines;
+    }
+
+    function buildPdfBytes(lines) {
+      const pageWidth = 595;
+      const pageHeight = 842;
+      const marginLeft = 48;
+      const marginTop = 58;
+      const lineHeight = 16;
+      const maxLinesPerPage = 45;
+      const pages = [];
+      for (let i = 0; i < lines.length; i += maxLinesPerPage) {
+        pages.push(lines.slice(i, i + maxLinesPerPage));
+      }
+      if (!pages.length) pages.push([]);
+
+      const encoder = new TextEncoder();
+      const catalogObject = encoder.encode("<< /Type /Catalog /Pages 2 0 R >>");
+      const fontObject = encoder.encode("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+      const bodyObjects = [];
+      const pageObjectIds = [];
+
+      pages.forEach((pageLines) => {
+        const contentLines = ["BT", "/F1 11 Tf", `${marginLeft} ${pageHeight - marginTop} Td`];
+        pageLines.forEach((line, index) => {
+          if (index > 0) {
+            contentLines.push(`0 -${lineHeight} Td`);
+          }
+          contentLines.push(`(${pdfEscape(line)}) Tj`);
+        });
+        contentLines.push("ET");
+        const stream = encoder.encode(contentLines.join("\n"));
+        const contentObject = encoder.encode(`<< /Length ${stream.length} >>\nstream\n${new TextDecoder().decode(stream)}\nendstream`);
+        bodyObjects.push(contentObject);
+        const pageObjectId = bodyObjects.length + 3;
+        const contentObjectId = pageObjectId - 1;
+        const pageObject = encoder.encode(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 3 0 R >> >> /Contents ${contentObjectId} 0 R >>`);
+        bodyObjects.push(pageObject);
+        pageObjectIds.push(pageObjectId);
+      });
+
+      const kids = pageObjectIds.map((id) => `${id} 0 R`).join(" ");
+      const pagesObject = encoder.encode(`<< /Type /Pages /Kids [${kids}] /Count ${pageObjectIds.length} >>`);
+      const objects = [catalogObject, pagesObject, fontObject, ...bodyObjects];
+
+      let pdf = "%PDF-1.4\n";
+      const offsets = [0];
+
+      objects.forEach((objectBytes, index) => {
+        offsets.push(pdf.length);
+        pdf += `${index + 1} 0 obj\n${new TextDecoder().decode(objectBytes)}\nendobj\n`;
+      });
+
+      const xrefOffset = pdf.length;
+      pdf += `xref\n0 ${objects.length + 1}\n`;
+      pdf += "0000000000 65535 f \n";
+      offsets.slice(1).forEach((offset) => {
+        pdf += `${String(offset).padStart(10, "0")} 00000 n \n`;
+      });
+      pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
+
+      return encoder.encode(pdf);
+    }
+
+    function downloadBlob(bytes, filename, type) {
+      const blob = new Blob([bytes], { type });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 500);
+    }
+
+    function renderMap(routePlan) {
+      const svg = els.mapSvg;
+      const routes = routePlan.routes || [];
+      const points = [];
+      routes.forEach((route, routeIndex) => {
+        route.stops.forEach((stop, stopIndex) => {
+          points.push({ ...stop, routeIndex, stopIndex });
+        });
+      });
+
+      svg.innerHTML = "";
+
+      if (!points.length) {
+        svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#62716b" font-size="18">Nenhuma rota para desenhar.</text>';
+        return;
+      }
+
+      const lats = points.map((point) => point.lat);
+      const lngs = points.map((point) => point.lng);
+      const minLat = Math.min(...lats);
+      const maxLat = Math.max(...lats);
+      const minLng = Math.min(...lngs);
+      const maxLng = Math.max(...lngs);
+      const width = 900;
+      const height = 400;
+      const pad = 34;
+      const latSpan = Math.max(maxLat - minLat, 0.01);
+      const lngSpan = Math.max(maxLng - minLng, 0.01);
+
+      function project(point) {
+        const x = pad + (((point.lng - minLng) / lngSpan) * (width - (pad * 2)));
+        const y = pad + ((1 - ((point.lat - minLat) / latSpan)) * (height - (pad * 2)));
+        return { x, y };
+      }
+
+      const routeColors = ["#c95f3d", "#2f7a5f", "#2c5a7b", "#6b5c3b"];
+
+      routes.forEach((route, routeIndex) => {
+        const coords = route.stops.map(project);
+        if (!coords.length) return;
+        const polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+        polyline.setAttribute("fill", "none");
+        polyline.setAttribute("stroke", routeColors[routeIndex % routeColors.length]);
+        polyline.setAttribute("stroke-width", "4");
+        polyline.setAttribute("stroke-linecap", "round");
+        polyline.setAttribute("stroke-linejoin", "round");
+        polyline.setAttribute("points", coords.map((coord) => `${coord.x},${coord.y}`).join(" "));
+        svg.appendChild(polyline);
+      });
+
+      points.forEach((point, index) => {
+        const { x, y } = project(point);
+        const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("cx", x);
+        circle.setAttribute("cy", y);
+        circle.setAttribute("r", "8");
+        circle.setAttribute("fill", "#ffffff");
+        circle.setAttribute("stroke", routeColors[point.routeIndex % routeColors.length]);
+        circle.setAttribute("stroke-width", "4");
+
+        const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        label.setAttribute("x", x + 12);
+        label.setAttribute("y", y - 12);
+        label.setAttribute("fill", "#182220");
+        label.setAttribute("font-size", "12");
+        label.setAttribute("font-weight", "700");
+        label.textContent = `${index + 1}. ${point.customer_name || point.delivery_id} • ${point.vehicle_id || "-"} • ${point.client_type || "avulso"}`;
+
+        group.appendChild(circle);
+        group.appendChild(label);
+        svg.appendChild(group);
+      });
+    }
+
+    function renderRouteList(routePlan) {
+      const primaryRoute = (routePlan.routes || [])[0] || { stops: [] };
+      const stops = primaryRoute.stops || [];
+      els.routeList.innerHTML = "";
+
+      if (!stops.length) {
+        els.routeList.innerHTML = '<div class="empty">Nenhuma parada atribuida.</div>';
+        return;
+      }
+
+      stops.forEach((stop, index) => {
+        const item = document.createElement("article");
+        item.className = "route-item";
+        item.innerHTML = `
+          <div class="route-number">${index + 1}</div>
+          <div class="route-copy">
+            <strong>${stop.customer_name || "Sem cliente"}</strong>
+            <span>${stop.client_type || "avulso"} • ${stop.equipment_quantity || 1}x ${stop.equipment_type || "Equipamento"} • Equip ${stop.equipment_number || "-"} • ${stop.address || "Sem endereco"} • ${stop.vehicle_type || "tipo n/d"} • ${stop.vehicle_model || "modelo n/d"} • placa ${stop.vehicle_plate || "n/d"}</span>
+          </div>
+          <div class="route-actions">
+            <div class="eta">${stop.arrival || "--:--"}</div>
+            <a class="route-link" href="${stop.google_maps_directions_url}" target="_blank" rel="noreferrer">Navegar</a>
+          </div>
+        `;
+        els.routeList.appendChild(item);
+      });
+    }
+
+    function renderSummary(routePlan) {
+      const summary = routePlan.summary || {};
+      const primaryRoute = (routePlan.routes || [])[0] || { stops: [], next_stop: null };
+      const nextStop = primaryRoute.next_stop || null;
+
+      els.metricDeliveries.textContent = String(summary.total_deliveries || 0);
+      els.metricAssigned.textContent = `${Math.round((summary.assigned_ratio || 0) * 100)}%`;
+      els.metricDistance.textContent = `${summary.total_distance_km || 0} km`;
+      els.routeCount.textContent = `${primaryRoute.stops.length || 0} paradas`;
+      els.mapCaption.textContent = `${summary.assigned_deliveries || 0} entregas atribuidas • ${summary.unassigned_deliveries || 0} pendencias`;
+      els.vehicleLabel.textContent = primaryRoute.vehicle_id ? `veiculo ${primaryRoute.vehicle_id} • ${primaryRoute.vehicle_type || "tipo n/d"} • ${primaryRoute.vehicle_plate || "n/d"}` : "aguardando dados";
+      els.nextCustomer.textContent = nextStop ? (nextStop.customer_name || "Sem cliente") : "Sem rota gerada";
+      els.nextSummary.textContent = nextStop
+        ? `${nextStop.client_type || "avulso"} • ${nextStop.equipment_quantity || 1}x ${nextStop.equipment_type || "Equipamento"} • Equip ${nextStop.equipment_number || "-"} • ${nextStop.address || "Sem endereco"}`
+        : "Suba os dois CSVs ou carregue o exemplo para iniciar a geracao.";
+      els.nextArrival.textContent = nextStop ? nextStop.arrival : "--:--";
+      els.nextProgress.textContent = `${primaryRoute.stops.length}/${summary.total_deliveries || 0}`;
+      els.nextVehicle.textContent = primaryRoute.vehicle_plate || primaryRoute.vehicle_id || "--";
+      els.nextMinutes.textContent = `${primaryRoute.total_minutes || 0} min`;
+      els.nextMaps.href = nextStop ? nextStop.google_maps_directions_url : "#";
+      els.nextMaps.style.pointerEvents = nextStop ? "auto" : "none";
+      els.nextMaps.style.opacity = nextStop ? "1" : "0.5";
+      els.downloadPdf.disabled = false;
+    }
+
+    function readFileText(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.onerror = () => reject(new Error(`Falha ao ler ${file.name}.`));
+        reader.readAsText(file, "utf-8");
+      });
+    }
+
+    async function handleFileInput(file, type) {
+      if (!file) return;
+      const text = await readFileText(file);
+      if (type === "deliveries") {
+        state.deliveriesCsv = text;
+        els.deliveriesStatus.textContent = `${file.name} carregado.`;
+      } else {
+        state.vehiclesCsv = text;
+        els.vehiclesStatus.textContent = `${file.name} carregado.`;
+      }
+    }
+
+    function buildJsonBytes(routePlan) {
+      return new TextEncoder().encode(JSON.stringify(routePlan, null, 2));
+    }
+
+    function generateRoute() {
+      try {
+        if (!state.deliveriesCsv || !state.vehiclesCsv) {
+          throw new Error("Envie os CSVs de entregas e veiculos antes de gerar a rota.");
+        }
+
+        const deliveriesRows = parseCsv(state.deliveriesCsv);
+        const vehiclesRows = parseCsv(state.vehiclesCsv);
+        const routePlan = buildRoutePlan(deliveriesRows, vehiclesRows);
+        state.routePlan = routePlan;
+
+        const pdfBytes = buildPdfBytes(buildPdfLines(routePlan));
+        state.generatedPdfBytes = pdfBytes;
+
+        renderSummary(routePlan);
+        renderRouteList(routePlan);
+        renderMap(routePlan);
+        els.statusMessage.textContent = "Rota gerada com sucesso. O PDF foi baixado automaticamente.";
+
+        downloadBlob(pdfBytes, "route-plan.pdf", "application/pdf");
+      } catch (error) {
+        els.statusMessage.textContent = error.message;
+      }
+    }
+
+    function downloadPdf() {
+      if (!state.generatedPdfBytes) return;
+      downloadBlob(state.generatedPdfBytes, "route-plan.pdf", "application/pdf");
+    }
+
+    function clearAll() {
+      state.deliveriesCsv = "";
+      state.vehiclesCsv = "";
+      state.routePlan = null;
+      state.generatedPdfBytes = null;
+      els.deliveriesFile.value = "";
+      els.vehiclesFile.value = "";
+      els.deliveriesStatus.textContent = "Nenhum arquivo carregado.";
+      els.vehiclesStatus.textContent = "Nenhum arquivo carregado.";
+      els.statusMessage.textContent = "Pronto para receber os arquivos e montar a rota.";
+      els.routeList.innerHTML = '<div class="empty">Nenhuma rota gerada ainda.</div>';
+      els.mapSvg.innerHTML = "";
+      els.metricDeliveries.textContent = "0";
+      els.metricAssigned.textContent = "0%";
+      els.metricDistance.textContent = "0 km";
+      els.routeCount.textContent = "0 paradas";
+      els.mapCaption.textContent = "rota sera desenhada apos a geracao";
+      els.vehicleLabel.textContent = "aguardando dados";
+      els.nextCustomer.textContent = "Sem rota gerada";
+      els.nextSummary.textContent = "Suba os dois CSVs ou carregue o exemplo para iniciar a geracao.";
+      els.nextArrival.textContent = "--:--";
+      els.nextProgress.textContent = "0/0";
+      els.nextVehicle.textContent = "--";
+      els.nextMinutes.textContent = "0 min";
+      els.nextMaps.href = "#";
+      els.nextMaps.style.pointerEvents = "none";
+      els.nextMaps.style.opacity = "0.5";
+      els.downloadPdf.disabled = true;
+    }
+
+    function loadDemo() {
+      state.deliveriesCsv = SAMPLE_DELIVERIES;
+      state.vehiclesCsv = SAMPLE_VEHICLES;
+      els.deliveriesStatus.textContent = "Modelo de entregas carregado.";
+      els.vehiclesStatus.textContent = "Modelo de veiculos carregado.";
+      els.statusMessage.textContent = "Exemplo carregado. Clique em Gerar rota.";
+    }
+
+    document.getElementById("generate-main").addEventListener("click", generateRoute);
+    document.getElementById("generate-side").addEventListener("click", generateRoute);
+    document.getElementById("load-demo").addEventListener("click", loadDemo);
+    document.getElementById("clear-all").addEventListener("click", clearAll);
+    els.downloadPdf.addEventListener("click", downloadPdf);
+
+    els.deliveriesFile.addEventListener("change", async (event) => {
+      try {
+        await handleFileInput(event.target.files[0], "deliveries");
+      } catch (error) {
+        els.statusMessage.textContent = error.message;
+      }
+    });
+
+    els.vehiclesFile.addEventListener("change", async (event) => {
+      try {
+        await handleFileInput(event.target.files[0], "vehicles");
+      } catch (error) {
+        els.statusMessage.textContent = error.message;
+      }
+    });
+
+    clearAll();
+    loadDemo();
+  </script>
+</body>
+</html>

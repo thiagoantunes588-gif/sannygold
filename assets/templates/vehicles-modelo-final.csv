@@ -1,0 +1,3 @@
+id,vehicle_type,plate,model,start_lat,start_lng,capacity,max_stops,max_minutes
+V1,Caminhao,ABC1D23,Mercedes Sprinter,40.7306,-73.9352,8,6,480
+V2,Van,EFG4H56,Fiat Ducato,40.7306,-73.9352,10,8,540

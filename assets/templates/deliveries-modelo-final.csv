@@ -1,0 +1,4 @@
+id,customer_name,client_type,equipment_type,equipment_quantity,equipment_number,address,lat,lng,demand,service_minutes,priority,window_start,window_end
+D1,Cliente Alpha,fixo,Banheiro Luxo,4,EQ-1001,Centro,40.758,-73.9855,4,15,1,08:00,12:00
+D2,Cliente Beta,avulso,Cabine Standart,2,EQ-1002,Midtown,40.7484,-73.9857,2,10,2,09:00,17:00
+D3,Cliente Gama,fixo,Mictorio,6,EQ-1003,Brooklyn,40.6782,-73.9442,6,20,1,10:00,16:00

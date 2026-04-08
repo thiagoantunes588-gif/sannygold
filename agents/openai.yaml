@@ -1,0 +1,4 @@
+interface:
+  display_name: "Gestor de Rota"
+  short_description: "Planejar rotas e operação de frota"
+  default_prompt: "Planejar rotas empresariais com entregas, veículos e restrições."

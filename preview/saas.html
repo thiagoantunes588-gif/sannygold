@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RotaFlow SaaS | Gestao de rotas para operacoes em campo</title>
+  <style>
+    :root {
+      --bg: #f3eee5;
+      --panel: rgba(255, 251, 245, 0.88);
+      --panel-strong: #fffdf8;
+      --ink: #182220;
+      --muted: #62716b;
+      --accent: #c95f3d;
+      --accent-soft: #f8ddc9;
+      --green: #2f7a5f;
+      --green-soft: #dcefe6;
+      --blue: #2c5a7b;
+      --line: rgba(24, 34, 32, 0.08);
+      --shadow: 0 24px 70px rgba(24, 34, 32, 0.14);
+      --radius: 28px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(201, 95, 61, 0.18), transparent 26%),
+        radial-gradient(circle at bottom right, rgba(47, 122, 95, 0.14), transparent 24%),
+        linear-gradient(145deg, #eee7dc 0%, #faf7f1 42%, #ebe4d8 100%);
+    }
+
+    .shell {
+      width: min(1220px, calc(100% - 32px));
+      margin: 24px auto 40px;
+    }
+
+    .hero,
+    .card,
+    .pricing,
+    .phone,
+    .board,
+    .metric,
+    .proof {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+
+    .hero {
+      padding: 26px;
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 22px;
+      align-items: center;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(255, 253, 248, 0.72);
+      border: 1px solid var(--line);
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    h1 {
+      margin: 18px 0 14px;
+      font-size: clamp(42px, 6vw, 78px);
+      line-height: 0.92;
+      letter-spacing: -0.05em;
+      max-width: 11ch;
+    }
+
+    .hero p {
+      max-width: 58ch;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.6;
+      margin: 0;
+    }
+
+    .actions,
+    .badges,
+    .metrics {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .actions {
+      margin-top: 24px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+      padding: 12px 18px;
+      border-radius: 999px;
+      text-decoration: none;
+      border: 1px solid transparent;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .button.primary {
+      background: linear-gradient(180deg, #17342d 0%, #21463d 100%);
+      color: #f9f6f0;
+    }
+
+    .button.secondary {
+      background: var(--panel-strong);
+      border-color: var(--line);
+    }
+
+    .badges {
+      margin-top: 24px;
+    }
+
+    .badge {
+      padding: 12px 16px;
+      border-radius: 999px;
+      background: rgba(255, 253, 248, 0.76);
+      border: 1px solid var(--line);
+      font-size: 14px;
+    }
+
+    .metrics {
+      margin-top: 22px;
+    }
+
+    .metric {
+      flex: 1;
+      min-width: 150px;
+      padding: 18px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 30px;
+      letter-spacing: -0.04em;
+      margin-bottom: 6px;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .phone {
+      background: linear-gradient(180deg, #17211f 0%, #0f1514 100%);
+      padding: 14px;
+      border-radius: 40px;
+    }
+
+    .screen {
+      border-radius: 30px;
+      background:
+        linear-gradient(180deg, rgba(255, 251, 244, 0.98), rgba(248, 245, 239, 0.96)),
+        linear-gradient(145deg, rgba(201, 95, 61, 0.08), rgba(47, 122, 95, 0.08));
+      min-height: 720px;
+      padding: 18px;
+    }
+
+    .screen-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .next-stop,
+    .route-item,
+    .status-bar {
+      background: rgba(255, 253, 248, 0.88);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .next-stop {
+      padding: 18px;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .next-stop h2 {
+      margin: 12px 0 8px;
+      font-size: 30px;
+      line-height: 1.02;
+      letter-spacing: -0.04em;
+    }
+
+    .next-stop p,
+    .route-item span,
+    .section-copy {
+      color: var(--muted);
+    }
+
+    .mini-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .mini-card {
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 12px;
+    }
+
+    .mini-card strong {
+      display: block;
+      font-size: 16px;
+    }
+
+    .section-head {
+      margin: 18px 4px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+    }
+
+    .section-head strong {
+      font-size: 16px;
+      letter-spacing: -0.02em;
+    }
+
+    .route-stack {
+      display: grid;
+      gap: 10px;
+    }
+
+    .route-item {
+      padding: 14px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .route-number {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      background: rgba(24, 34, 32, 0.06);
+    }
+
+    .route-copy {
+      flex: 1;
+    }
+
+    .route-copy strong {
+      display: block;
+      font-size: 15px;
+    }
+
+    .eta {
+      color: var(--green);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .status-bar {
+      margin-top: 14px;
+      padding: 14px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .status-tag {
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: var(--green-soft);
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      margin-top: 22px;
+    }
+
+    .card {
+      padding: 20px;
+    }
+
+    .card strong {
+      display: block;
+      font-size: 20px;
+      margin-bottom: 8px;
+      letter-spacing: -0.03em;
+    }
+
+    .card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .board {
+      margin-top: 22px;
+      padding: 22px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+
+    .proof {
+      padding: 18px;
+    }
+
+    .proof strong {
+      display: block;
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+
+    .proof p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .pricing-wrap {
+      margin-top: 22px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+
+    .pricing {
+      padding: 22px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .pricing.featured {
+      background:
+        linear-gradient(180deg, rgba(255, 250, 244, 0.98), rgba(247, 242, 235, 0.98)),
+        linear-gradient(145deg, rgba(201, 95, 61, 0.08), rgba(47, 122, 95, 0.08));
+      border-color: rgba(201, 95, 61, 0.18);
+    }
+
+    .tier {
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .price {
+      margin: 14px 0 10px;
+      font-size: 44px;
+      letter-spacing: -0.05em;
+      line-height: 0.95;
+    }
+
+    .price small {
+      font-size: 16px;
+      color: var(--muted);
+      letter-spacing: 0;
+    }
+
+    ul {
+      padding-left: 18px;
+      color: var(--muted);
+      line-height: 1.8;
+      margin: 14px 0 0;
+    }
+
+    .footer-note {
+      margin-top: 22px;
+      padding: 20px 22px;
+      border-radius: var(--radius);
+      background: rgba(255, 253, 248, 0.74);
+      border: 1px solid var(--line);
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    @media (max-width: 1080px) {
+      .hero,
+      .board,
+      .grid,
+      .pricing-wrap {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div>
+        <div class="eyebrow">Versao Vendavel SaaS</div>
+        <h1>RotaFlow para operacoes que faturam em campo.</h1>
+        <p>
+          Plataforma SaaS para locacao, manutencao, entrega e recolhimento de equipamentos em campo.
+          Organize a operacao, despache a frota, acompanhe motoristas no celular e monetize por empresa,
+          usuario e volume de rotas.
+        </p>
+        <div class="actions">
+          <a class="button primary" href="./index.html">Abrir Demo Operacional</a>
+          <a class="button secondary" href="./route-plan.pdf">Ver PDF Comercial</a>
+        </div>
+        <div class="badges">
+          <div class="badge">Multiempresa</div>
+          <div class="badge">Motorista mobile</div>
+          <div class="badge">Google Maps integrado</div>
+          <div class="badge">PDF + JSON + SLA</div>
+        </div>
+        <div class="metrics">
+          <div class="metric">
+            <strong>R$ 297</strong>
+            <span>ticket de entrada sugerido por operacao/mes</span>
+          </div>
+          <div class="metric">
+            <strong>3 perfis</strong>
+            <span>gestor, despacho e motorista</span>
+          </div>
+          <div class="metric">
+            <strong>1 stack</strong>
+            <span>pronta para virar produto recorrente</span>
+          </div>
+        </div>
+      </div>
+
+      <section class="phone">
+        <div class="screen">
+          <div class="screen-top">
+            <span>Motorista App</span>
+            <span>tenant: SannyGold</span>
+          </div>
+
+          <article class="next-stop">
+            <div class="pill">Proxima parada</div>
+            <h2>Cliente Alpha</h2>
+            <p>Centro • Equip EQ-1001 • Google Maps em 1 toque</p>
+
+            <div class="mini-grid">
+              <div class="mini-card">
+                <strong>08:09</strong>
+                <span>chegada</span>
+              </div>
+              <div class="mini-card">
+                <strong>V1</strong>
+                <span>veiculo</span>
+              </div>
+              <div class="mini-card">
+                <strong>100%</strong>
+                <span>sincronizado</span>
+              </div>
+            </div>
+          </article>
+
+          <div class="section-head">
+            <strong>Fila operacional</strong>
+            <span class="section-copy">mobile-first</span>
+          </div>
+
+          <div class="route-stack">
+            <article class="route-item">
+              <div class="route-number">1</div>
+              <div class="route-copy">
+                <strong>Cliente Alpha</strong>
+                <span>Centro • Equip EQ-1001</span>
+              </div>
+              <div class="eta">08:09</div>
+            </article>
+
+            <article class="route-item">
+              <div class="route-number">2</div>
+              <div class="route-copy">
+                <strong>Cliente Beta</strong>
+                <span>Midtown • Equip EQ-1002</span>
+              </div>
+              <div class="eta">08:26</div>
+            </article>
+
+            <article class="route-item">
+              <div class="route-number">3</div>
+              <div class="route-copy">
+                <strong>Cliente Gama</strong>
+                <span>Brooklyn • Equip EQ-1003</span>
+              </div>
+              <div class="eta">10:20</div>
+            </article>
+          </div>
+
+          <div class="status-bar">
+            <div>
+              <strong>Tenant SaaS ativo</strong>
+              <div class="section-copy">rotas, clientes e equipe segregados por empresa</div>
+            </div>
+            <div class="status-tag">Pronto para vender</div>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <strong>Modulo comercial</strong>
+        <p>Cadastro de clientes, contratos, equipamentos, recorrencia de atendimento e observacoes por ponto.</p>
+      </article>
+      <article class="card">
+        <strong>Despacho em tempo real</strong>
+        <p>Gestao de frota, roteirizacao, motorista, situacao da ordem de servico e prova de atendimento.</p>
+      </article>
+      <article class="card">
+        <strong>Camada SaaS</strong>
+        <p>Tenant por empresa, permissao por usuario, cobranca recorrente e onboarding padronizado.</p>
+      </article>
+    </section>
+
+    <section class="board">
+      <article class="proof">
+        <strong>O que vende melhor</strong>
+        <p>Menos papel, menos erro de rota, mais controle de ativos, despacho mais rapido e previsibilidade para o cliente final.</p>
+      </article>
+      <article class="proof">
+        <strong>Publico ideal</strong>
+        <p>Empresas de locacao de banheiro quimico, cacambas, geradores, containers, manutencao externa e servicos tecnicos de campo.</p>
+      </article>
+      <article class="proof">
+        <strong>Diferencial de proposta</strong>
+        <p>O mesmo sistema conversa com operacao, motorista e gestor. Isso encurta venda, implantacao e treinamento.</p>
+      </article>
+      <article class="proof">
+        <strong>Modelo de receita</strong>
+        <p>Mensalidade base + usuario extra + volume de ordens/rotas + implantacao opcional com importacao de dados.</p>
+      </article>
+    </section>
+
+    <section class="pricing-wrap">
+      <article class="pricing">
+        <div class="tier">Start</div>
+        <div class="price">R$ 297 <small>/mes</small></div>
+        <p>Para operacoes pequenas que precisam tirar a rota do WhatsApp e do papel.</p>
+        <ul>
+          <li>1 empresa</li>
+          <li>ate 3 usuarios</li>
+          <li>roteirizacao e PDF</li>
+          <li>app mobile interno</li>
+        </ul>
+      </article>
+
+      <article class="pricing featured">
+        <div class="tier">Growth</div>
+        <div class="price">R$ 697 <small>/mes</small></div>
+        <p>Pacote mais vendavel para operacoes com despacho diario e varias equipes.</p>
+        <ul>
+          <li>multiusuario</li>
+          <li>clientes e ativos</li>
+          <li>Google Maps integrado</li>
+          <li>status de atendimento e historico</li>
+        </ul>
+      </article>
+
+      <article class="pricing">
+        <div class="tier">Enterprise</div>
+        <div class="price">Sob consulta</div>
+        <p>Para grupos com filiais, SLA contratual e necessidade de relatorio gerencial.</p>
+        <ul>
+          <li>multiempresa</li>
+          <li>implantacao assistida</li>
+          <li>camada comercial e financeira</li>
+          <li>customizacao de processo</li>
+        </ul>
+      </article>
+    </section>
+
+    <section class="footer-note">
+      Esta tela foi preparada como demonstracao comercial. Ela posiciona o software como produto SaaS vendavel,
+      sem substituir a versao operacional interna que ja esta em uso.
+    </section>
+  </main>
+</body>
+</html>

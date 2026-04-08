@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Gestor de Rota - Demo Mobile</title>
+  <style>
+    :root {
+      --bg: #efe9df;
+      --panel: rgba(255, 251, 244, 0.95);
+      --panel-strong: #fffaf0;
+      --ink: #16211f;
+      --muted: #61706b;
+      --line: rgba(22, 33, 31, 0.08);
+      --accent: #d95d39;
+      --accent-soft: #f6d7bf;
+      --green: #2f7a5f;
+      --green-soft: #dcefe4;
+      --red-soft: #f5ddd4;
+      --amber-soft: #efe1ca;
+      --shadow: 0 22px 50px rgba(26, 38, 34, 0.14);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(217, 93, 57, 0.18), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(47, 122, 95, 0.16), transparent 22%),
+        linear-gradient(145deg, #efe9df 0%, #f8f5ef 44%, #ece6dc 100%);
+      min-height: 100vh;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 430px;
+      margin: 0 auto;
+      padding: env(safe-area-inset-top, 16px) 16px calc(20px + env(safe-area-inset-bottom, 0px));
+      min-height: 100vh;
+    }
+
+    .topbar,
+    .hero,
+    .panel,
+    .stop-card,
+    .event,
+    .footer {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+
+    .topbar {
+      border-radius: 24px;
+      padding: 14px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .brand {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+
+    .signal {
+      padding: 8px 10px;
+      border-radius: 999px;
+      background: var(--green-soft);
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .hero {
+      border-radius: 30px;
+      padding: 18px;
+      margin-bottom: 14px;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    h1 {
+      margin: 14px 0 8px;
+      font-size: 30px;
+      line-height: 1.02;
+      letter-spacing: -0.04em;
+    }
+
+    p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .meta-card {
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 12px;
+    }
+
+    .meta-card strong {
+      display: block;
+      font-size: 16px;
+    }
+
+    .meta-card span {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .panel {
+      border-radius: 26px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .panel-head strong {
+      font-size: 17px;
+      letter-spacing: -0.02em;
+    }
+
+    .panel-head span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    button,
+    .nav-btn {
+      appearance: none;
+      border: 0;
+      border-radius: 22px;
+      min-height: 88px;
+      padding: 14px;
+      font: inherit;
+      font-weight: 700;
+      text-align: left;
+      color: var(--ink);
+    }
+
+    button:active,
+    .nav-btn:active {
+      transform: scale(0.985);
+    }
+
+    .start {
+      background: linear-gradient(180deg, #17342d 0%, #21463d 100%);
+      color: #fff8f1;
+    }
+
+    .arrived {
+      background: linear-gradient(180deg, #efe1ca 0%, #f8efe1 100%);
+      color: #8c5938;
+    }
+
+    .done {
+      background: linear-gradient(180deg, #d9eadf 0%, #edf7f0 100%);
+      color: #2a6d55;
+    }
+
+    .offline {
+      background: linear-gradient(180deg, #f3d2c5 0%, #f8e7df 100%);
+      color: #9f5337;
+    }
+
+    .btn-id {
+      display: block;
+      font-size: 12px;
+      opacity: 0.8;
+      margin-bottom: 10px;
+    }
+
+    .stops {
+      display: grid;
+      gap: 10px;
+    }
+
+    .stop-card {
+      border-radius: 22px;
+      padding: 14px;
+      display: grid;
+      grid-template-columns: 42px 1fr auto;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .index {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      background: rgba(22, 33, 31, 0.06);
+      font-weight: 800;
+    }
+
+    .copy strong {
+      display: block;
+      font-size: 15px;
+    }
+
+    .copy span {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .status {
+      font-size: 12px;
+      font-weight: 700;
+      padding: 8px 10px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    .pending {
+      background: var(--amber-soft);
+      color: #8c5938;
+    }
+
+    .active {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .finished {
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .events {
+      display: grid;
+      gap: 8px;
+      max-height: 190px;
+      overflow: auto;
+    }
+
+    .event {
+      border-radius: 18px;
+      padding: 12px;
+    }
+
+    .event strong {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+
+    .event span {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .footer {
+      border-radius: 22px;
+      padding: 14px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      bottom: 10px;
+    }
+
+    .footer strong {
+      display: block;
+      font-size: 14px;
+    }
+
+    .footer span {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .nav-btn {
+      min-height: 0;
+      padding: 10px 14px;
+      background: #ffffff;
+      border: 1px solid var(--line);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="topbar">
+      <div>
+        <div class="brand">Rota 07 • Thiago</div>
+      </div>
+      <div class="signal" id="signalState">Online</div>
+    </section>
+
+    <section class="hero">
+      <div class="pill">Próxima parada</div>
+      <h1 id="nextTitle">Farmácia Central</h1>
+      <p id="nextAddress">Av. Paulista, 1400 • Janela até 14:50 • Prioridade alta</p>
+
+      <div class="meta">
+        <div class="meta-card">
+          <strong id="etaValue">14:35</strong>
+          <span>chegada prevista</span>
+        </div>
+        <div class="meta-card">
+          <strong id="progressValue">0/3</strong>
+          <span>paradas concluídas</span>
+        </div>
+        <div class="meta-card">
+          <strong id="routeState">Aguardando</strong>
+          <span>status da rota</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <strong>Ações rápidas</strong>
+        <span>uso com uma mão</span>
+      </div>
+      <div class="actions">
+        <button class="start" id="startBtn" type="button">
+          <span class="btn-id">01</span>
+          Iniciar rota
+        </button>
+        <button class="arrived" id="arrivedBtn" type="button">
+          <span class="btn-id">02</span>
+          Cheguei
+        </button>
+        <button class="done" id="doneBtn" type="button">
+          <span class="btn-id">03</span>
+          Concluir parada
+        </button>
+        <button class="offline" id="offlineBtn" type="button">
+          <span class="btn-id">04</span>
+          Alternar offline
+        </button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <strong>Sequência da rota</strong>
+        <span>toque para acompanhar</span>
+      </div>
+      <div class="stops" id="stopsList"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <strong>Eventos da operação</strong>
+        <span>fila local</span>
+      </div>
+      <div class="events" id="eventsList"></div>
+    </section>
+
+    <section class="footer">
+      <div>
+        <strong id="syncTitle">Sincronização em dia</strong>
+        <span id="syncText">Último envio há 2 min</span>
+      </div>
+      <a class="nav-btn" href="https://maps.google.com" target="_blank" rel="noreferrer">Abrir mapa</a>
+    </section>
+  </main>
+
+  <script>
+    const state = {
+      started: false,
+      offline: false,
+      currentIndex: 0,
+      stops: [
+        { customer: "Farmácia Central", address: "Av. Paulista, 1400", eta: "14:35", window: "até 14:50", status: "pending" },
+        { customer: "Hospital Santa Luz", address: "Rua Bela Cintra, 920", eta: "15:10", window: "até 15:30", status: "pending" },
+        { customer: "Mercado Norte", address: "Al. Santos, 220", eta: "15:38", window: "até 16:00", status: "pending" }
+      ],
+      events: [
+        { title: "Rota carregada", detail: "3 paradas disponíveis para o turno." }
+      ]
+    };
+
+    function addEvent(title, detail) {
+      const time = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      state.events.unshift({ title: `${title} • ${time}`, detail });
+      renderEvents();
+    }
+
+    function currentStop() {
+      return state.stops[state.currentIndex] || null;
+    }
+
+    function completedCount() {
+      return state.stops.filter(stop => stop.status === "finished").length;
+    }
+
+    function renderHero() {
+      const stop = currentStop();
+      document.getElementById("progressValue").textContent = `${completedCount()}/${state.stops.length}`;
+      document.getElementById("signalState").textContent = state.offline ? "Offline" : "Online";
+      document.getElementById("signalState").style.background = state.offline ? "var(--red-soft)" : "var(--green-soft)";
+      document.getElementById("signalState").style.color = state.offline ? "#9f5337" : "var(--green)";
+      document.getElementById("syncTitle").textContent = state.offline ? "Eventos salvos no aparelho" : "Sincronização em dia";
+      document.getElementById("syncText").textContent = state.offline ? "Assim que voltar a rede, a fila será enviada." : "Último envio há poucos segundos";
+
+      if (!stop) {
+        document.getElementById("nextTitle").textContent = "Rota concluída";
+        document.getElementById("nextAddress").textContent = "Todas as paradas já foram registradas.";
+        document.getElementById("etaValue").textContent = "--:--";
+        document.getElementById("routeState").textContent = "Finalizada";
+        return;
+      }
+
+      const priorityText = state.currentIndex === 0 ? "Prioridade alta" : "Sequência normal";
+      document.getElementById("nextTitle").textContent = stop.customer;
+      document.getElementById("nextAddress").textContent = `${stop.address} • Janela ${stop.window} • ${priorityText}`;
+      document.getElementById("etaValue").textContent = stop.eta;
+      document.getElementById("routeState").textContent = state.started ? "Em rota" : "Aguardando";
+    }
+
+    function renderStops() {
+      const container = document.getElementById("stopsList");
+      container.innerHTML = "";
+
+      state.stops.forEach((stop, index) => {
+        const card = document.createElement("article");
+        card.className = "stop-card";
+
+        let label = "Pendente";
+        let klass = "pending";
+        if (stop.status === "active") {
+          label = "No local";
+          klass = "active";
+        } else if (stop.status === "finished") {
+          label = "Concluída";
+          klass = "finished";
+        }
+
+        card.innerHTML = `
+          <div class="index">${index + 1}</div>
+          <div class="copy">
+            <strong>${stop.customer}</strong>
+            <span>${stop.address}<br>ETA ${stop.eta}</span>
+          </div>
+          <div class="status ${klass}">${label}</div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function renderEvents() {
+      const container = document.getElementById("eventsList");
+      container.innerHTML = "";
+      state.events.slice(0, 8).forEach((event) => {
+        const item = document.createElement("article");
+        item.className = "event";
+        item.innerHTML = `<strong>${event.title}</strong><span>${event.detail}</span>`;
+        container.appendChild(item);
+      });
+    }
+
+    document.getElementById("startBtn").addEventListener("click", () => {
+      state.started = true;
+      addEvent("Rota iniciada", "Motorista liberado para seguir para a primeira parada.");
+      renderHero();
+    });
+
+    document.getElementById("arrivedBtn").addEventListener("click", () => {
+      const stop = currentStop();
+      if (!stop) return;
+      stop.status = "active";
+      addEvent("Chegada registrada", `${stop.customer} marcada como atendimento em andamento.`);
+      renderHero();
+      renderStops();
+    });
+
+    document.getElementById("doneBtn").addEventListener("click", () => {
+      const stop = currentStop();
+      if (!stop) return;
+      stop.status = "finished";
+      addEvent("Parada concluída", `${stop.customer} finalizada com sucesso.`);
+      state.currentIndex += 1;
+      renderHero();
+      renderStops();
+    });
+
+    document.getElementById("offlineBtn").addEventListener("click", () => {
+      state.offline = !state.offline;
+      addEvent(
+        state.offline ? "Modo offline ativado" : "Conexão restabelecida",
+        state.offline ? "Os eventos agora entram na fila local." : "A fila local foi liberada para sincronização."
+      );
+      renderHero();
+    });
+
+    renderHero();
+    renderStops();
+    renderEvents();
+  </script>
+</body>
+</html>

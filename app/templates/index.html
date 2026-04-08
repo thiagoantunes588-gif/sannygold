@@ -1,0 +1,2135 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SANNYGOLD | Painel Operacional</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --gold: #e2b14a;
+      --gold-soft: #f3d88b;
+      --gold-deep: #b98121;
+      --gold-shadow: #8d6419;
+      --aqua: #35bfd2;
+      --aqua-deep: #1b94aa;
+      --ink: #1d1a17;
+      --muted: #6a6258;
+      --bg-soft: #f8f5ef;
+      --panel: rgba(255, 253, 249, 0.9);
+      --line: rgba(185, 129, 33, 0.14);
+      --success-bg: rgba(53, 191, 210, 0.12);
+      --success-text: #1b7d8f;
+      --danger-bg: rgba(185, 41, 41, 0.1);
+      --danger-text: #a33232;
+    }
+    body {
+      background:
+        radial-gradient(circle at top left, rgba(226, 177, 74, 0.24), transparent 24%),
+        radial-gradient(circle at 80% 12%, rgba(53, 191, 210, 0.14), transparent 18%),
+        radial-gradient(circle at bottom right, rgba(185, 129, 33, 0.10), transparent 25%),
+        linear-gradient(145deg, #f3eee5 0%, #fffdf9 38%, #efe4cf 100%);
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    }
+    .shell { max-width: 1380px; }
+    .glass {
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 252, 247, 0.92)),
+        var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow:
+        0 24px 70px rgba(69, 49, 18, 0.10),
+        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(12px);
+    }
+    .hero-title {
+      font-size: clamp(2.2rem, 5vw, 4.2rem);
+      line-height: 0.95;
+      letter-spacing: -0.05em;
+      max-width: 11ch;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--gold-shadow);
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+    }
+    .eyebrow {
+      display: inline-flex;
+      padding: 0.45rem 0.85rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--gold-shadow);
+      background: rgba(255, 249, 236, 0.92);
+      border: 1px solid rgba(185, 129, 33, 0.16);
+    }
+    .brand-lockup {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      margin-bottom: 1rem;
+    }
+    .brand-lockup img {
+      width: 116px;
+      height: 116px;
+      object-fit: contain;
+      border-radius: 26px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,250,241,0.92));
+      border: 1px solid rgba(185, 129, 33, 0.14);
+      box-shadow: 0 18px 40px rgba(142, 100, 25, 0.10);
+      padding: 10px;
+    }
+    .brand-copy strong {
+      display: block;
+      font-size: 2rem;
+      line-height: 0.95;
+      letter-spacing: -0.05em;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--gold-deep);
+    }
+    .brand-copy span {
+      color: var(--ink);
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.28em;
+      font-size: 0.72rem;
+    }
+    .stat-card, .entity-card, .batch-box {
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,251,245,0.88));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
+    }
+    .ops-card {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background:
+        radial-gradient(circle at top right, rgba(53, 191, 210, 0.08), transparent 28%),
+        linear-gradient(180deg, rgba(255,255,255,0.84), rgba(255,250,241,0.94));
+      min-height: 132px;
+    }
+    .alert-card {
+      border: 1px solid rgba(185, 129, 33, 0.16);
+      border-radius: 20px;
+      background:
+        linear-gradient(180deg, rgba(255,251,240,0.94), rgba(255,247,229,0.92));
+      min-height: 120px;
+    }
+    .route-item, .entity-card { background: rgba(255, 253, 248, 0.78); }
+    .route-index {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      background: linear-gradient(180deg, rgba(243, 216, 139, 0.42), rgba(226, 177, 74, 0.18));
+      font-weight: 700;
+      color: var(--gold-deep);
+      flex-shrink: 0;
+      border: 1px solid rgba(185, 129, 33, 0.12);
+    }
+    .route-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      margin-top: 0.45rem;
+    }
+    .route-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.3rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      border: 1px solid transparent;
+    }
+    .badge-fixed {
+      background: rgba(226, 177, 74, 0.16);
+      color: var(--gold-deep);
+      border-color: rgba(226, 177, 74, 0.28);
+    }
+    .badge-avulso {
+      background: rgba(53, 191, 210, 0.14);
+      color: var(--aqua-deep);
+      border-color: rgba(53, 191, 210, 0.2);
+    }
+    .badge-success {
+      background: var(--success-bg);
+      color: var(--success-text);
+      border-color: rgba(53, 191, 210, 0.18);
+    }
+    .badge-danger {
+      background: var(--danger-bg);
+      color: var(--danger-text);
+      border-color: rgba(185, 41, 41, 0.16);
+    }
+    .map-shell {
+      background:
+        linear-gradient(180deg, rgba(53, 191, 210, 0.08), rgba(53, 191, 210, 0.02)),
+        linear-gradient(90deg, rgba(185, 129, 33, 0.04) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(185, 129, 33, 0.04) 1px, transparent 1px),
+        #fffdf8;
+      background-size: auto, 32px 32px, 32px 32px, auto;
+      border-radius: 20px;
+      border: 1px solid var(--line);
+      overflow: hidden;
+    }
+    .text-mono {
+      font-family: "SFMono-Regular", "Menlo", monospace;
+      font-size: 0.82rem;
+    }
+    .entity-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .history-item {
+      border-left: 3px solid rgba(210, 165, 74, 0.35);
+      padding-left: 1rem;
+    }
+    .money-card {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background:
+        radial-gradient(circle at top left, rgba(226, 177, 74, 0.10), transparent 26%),
+        linear-gradient(180deg, rgba(255,255,255,0.82), rgba(255,250,241,0.92));
+      min-height: 132px;
+    }
+    .event-card {
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.78), rgba(255,251,244,0.9));
+    }
+    .ops-tabs-shell {
+      margin-top: 1.5rem;
+    }
+    .ops-tabs-nav {
+      gap: 0.5rem;
+      border-bottom: 0;
+      flex-wrap: wrap;
+    }
+    .ops-tabs-nav .nav-link {
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      color: var(--gold-shadow);
+      background: rgba(255, 252, 246, 0.9);
+      font-weight: 700;
+      padding: 0.8rem 1.1rem;
+    }
+    .ops-tabs-nav .nav-link.active {
+      background: linear-gradient(135deg, var(--gold-deep), var(--gold));
+      color: #fff;
+      border-color: var(--gold-deep);
+      box-shadow: 0 12px 30px rgba(185, 129, 33, 0.24);
+    }
+    .btn-dark {
+      background: linear-gradient(135deg, var(--gold-deep), var(--gold));
+      border-color: var(--gold-deep);
+      color: #fff;
+      box-shadow: 0 12px 24px rgba(185, 129, 33, 0.22);
+    }
+    .btn-dark:hover,
+    .btn-dark:focus {
+      background: linear-gradient(135deg, #a97418, #d39c34);
+      border-color: #a97418;
+      color: #fff;
+    }
+    .btn-outline-secondary {
+      border-color: rgba(53, 191, 210, 0.36);
+      color: var(--aqua-deep);
+      background: rgba(255,255,255,0.72);
+    }
+    .btn-outline-secondary:hover,
+    .btn-outline-secondary:focus {
+      background: rgba(53, 191, 210, 0.12);
+      border-color: rgba(53, 191, 210, 0.46);
+      color: var(--aqua-deep);
+    }
+    .form-control:focus,
+    .form-select:focus {
+      border-color: rgba(53, 191, 210, 0.52);
+      box-shadow: 0 0 0 0.2rem rgba(53, 191, 210, 0.14);
+    }
+    .alert-success {
+      background: rgba(53, 191, 210, 0.12);
+      border-color: rgba(53, 191, 210, 0.18);
+      color: var(--aqua-deep);
+    }
+    .alert-danger {
+      background: rgba(185, 41, 41, 0.08);
+      border-color: rgba(185, 41, 41, 0.16);
+      color: var(--danger-text);
+    }
+    .alert-warning {
+      background: rgba(226, 177, 74, 0.12);
+      border-color: rgba(226, 177, 74, 0.18);
+      color: var(--gold-shadow);
+    }
+    summary::-webkit-details-marker {
+      display: none;
+    }
+    .ops-tabs-content {
+      margin-top: 1rem;
+    }
+    .tab-pane-stack > * + * {
+      margin-top: 1.25rem;
+    }
+    @media (max-width: 767.98px) {
+      .ops-tabs-nav {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .ops-tabs-nav .nav-link {
+        width: 100%;
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="container py-4 shell">
+    <section class="glass p-4 p-lg-5 mb-4">
+      <div class="row g-4 align-items-center">
+        <div class="col-lg-7">
+          <div class="brand-lockup">
+            <img src="{{ url_for('static', filename='sannygold-logo.jpg') }}" alt="SANNY GOLD">
+            <div class="brand-copy">
+              <strong>SANNY GOLD</strong>
+              <span>Banheiros de Luxo</span>
+            </div>
+          </div>
+          <div class="eyebrow mb-3">SANNYGOLD • Operação Integrada</div>
+          <h1 class="hero-title mb-3">Sistema SannyGold</h1>
+          <p class="lead text-secondary mb-4">
+            O painel cruza clientes, eventos, frota, estoque, recorrência e resultado financeiro para mostrar o que está comprometido, o que está livre e onde está a margem da operação.
+          </p>
+          <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-dark btn-lg rounded-pill px-4" href="#operations-pane" id="open-operations-tab">Gerar rota</a>
+            {% if has_pdf %}
+            <a class="btn btn-outline-secondary btn-lg rounded-pill px-4" href="{{ url_for('preview_file', filename='route-plan.pdf') }}" target="_blank" rel="noreferrer">Abrir PDF atual</a>
+            {% endif %}
+          </div>
+        </div>
+        <div class="col-lg-5">
+          <div class="row g-3">
+            <div class="col-sm-4">
+              <div class="stat-card p-3 h-100">
+                <div class="fs-2 fw-bold">{{ clients|length }}</div>
+                <div class="text-secondary small">Clientes</div>
+              </div>
+            </div>
+            <div class="col-sm-4">
+              <div class="stat-card p-3 h-100">
+                <div class="fs-2 fw-bold">{{ vehicles_registry|length }}</div>
+                <div class="text-secondary small">Veículos</div>
+              </div>
+            </div>
+            <div class="col-sm-4">
+              <div class="stat-card p-3 h-100">
+                <div class="fs-2 fw-bold">{{ inventory_counts.available }}</div>
+                <div class="text-secondary small">Equip. livres</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="mb-4">
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }} shadow-sm" role="alert">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <section class="ops-tabs-shell">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+          <div class="eyebrow mb-2">Usabilidade</div>
+          <h2 class="h4 mb-0">Áreas organizadas em abas clicáveis</h2>
+        </div>
+        <span class="badge rounded-pill bg-dark-subtle text-dark px-3 py-2">Fluxo mais direto para a operação</span>
+      </div>
+
+      <ul class="nav nav-tabs ops-tabs-nav mt-4" id="operationsTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="summary-tab" data-bs-toggle="tab" data-bs-target="#summary-pane" type="button" role="tab" aria-controls="summary-pane" aria-selected="true">Resumo</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="events-tab" data-bs-toggle="tab" data-bs-target="#events-pane" type="button" role="tab" aria-controls="events-pane" aria-selected="false">Eventos</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="operations-tab" data-bs-toggle="tab" data-bs-target="#operations-pane" type="button" role="tab" aria-controls="operations-pane" aria-selected="false">Operação</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="clients-tab" data-bs-toggle="tab" data-bs-target="#clients-pane" type="button" role="tab" aria-controls="clients-pane" aria-selected="false">Clientes</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="fleet-tab" data-bs-toggle="tab" data-bs-target="#fleet-pane" type="button" role="tab" aria-controls="fleet-pane" aria-selected="false">Frota e estoque</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="agenda-tab" data-bs-toggle="tab" data-bs-target="#agenda-pane" type="button" role="tab" aria-controls="agenda-pane" aria-selected="false">Agenda e capacidade</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history-pane" type="button" role="tab" aria-controls="history-pane" aria-selected="false">Histórico</button>
+        </li>
+      </ul>
+
+      <div class="tab-content ops-tabs-content" id="operationsTabsContent">
+        <div class="tab-pane fade show active" id="summary-pane" role="tabpanel" aria-labelledby="summary-tab" tabindex="0">
+          <div class="tab-pane-stack">
+            <section class="glass p-4">
+              <div class="d-flex justify-content-between align-items-end gap-3 mb-3">
+                <div>
+                  <div class="eyebrow mb-2">Dashboard Operacional</div>
+                  <h2 class="h4 mb-1">Visão rápida da operação</h2>
+                  <p class="text-secondary mb-0 small">Cards simples com eventos, recursos em uso e alertas principais.</p>
+                </div>
+              </div>
+
+              <div class="row g-3 mb-3">
+                <div class="col-md-3">
+                  <div class="ops-card p-3">
+                    <div class="small text-secondary">Eventos do dia</div>
+                    <div class="display-6 fw-bold">{{ operational_dashboard.events_today }}</div>
+                    <div class="small text-secondary">Gerações registradas hoje</div>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <div class="ops-card p-3">
+                    <div class="small text-secondary">Eventos em andamento</div>
+                    <div class="display-6 fw-bold">{{ operational_dashboard.events_in_progress }}</div>
+                    <div class="small text-secondary">Rotas com saída ativa</div>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <div class="ops-card p-3">
+                    <div class="small text-secondary">Veículos em uso</div>
+                    <div class="display-6 fw-bold">{{ operational_dashboard.vehicles_in_use }}</div>
+                    <div class="small text-secondary">Frota atualmente alocada</div>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <div class="ops-card p-3">
+                    <div class="small text-secondary">Equipamentos em uso</div>
+                    <div class="display-6 fw-bold">{{ operational_dashboard.equipment_in_use }}</div>
+                    <div class="small text-secondary">Itens em rota agora</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="row g-3 mb-3">
+                <div class="col-md-3">
+                  <div class="ops-card p-3">
+                    <div class="small text-secondary">Validações críticas</div>
+                    <div class="display-6 fw-bold">{{ operational_dashboard.critical_validations }}</div>
+                    <div class="small text-secondary">Bloqueios automáticos detectados</div>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <div class="ops-card p-3">
+                    <div class="small text-secondary">Pendências abertas</div>
+                    <div class="display-6 fw-bold">{{ operational_dashboard.pending_reasons_count }}</div>
+                    <div class="small text-secondary">Itens com motivo operacional</div>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <div class="ops-card p-3">
+                    <div class="small text-secondary">Execução em campo</div>
+                    <div class="display-6 fw-bold">{{ operational_dashboard.field_execution_confirmed }}/{{ operational_dashboard.field_execution_total }}</div>
+                    <div class="small text-secondary">Paradas com execução confirmada</div>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <div class="ops-card p-3">
+                    <div class="small text-secondary">Margem atual</div>
+                    <div class="display-6 fw-bold">{{ '%.2f'|format(financial_dashboard.current_margin_pct) }}%</div>
+                    <div class="small text-secondary">Margem da operação gerada</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <div class="alert-card p-3">
+                    <div class="small text-secondary">Alerta: falta de estoque</div>
+                    <div class="fw-semibold mt-2">
+                      {{ operational_dashboard.alerts.shortage or "Sem alerta no momento." }}
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="alert-card p-3">
+                    <div class="small text-secondary">Alerta: conflito de agenda</div>
+                    <div class="fw-semibold mt-2">
+                      {{ operational_dashboard.alerts.schedule_conflict or "Sem conflito detectado." }}
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="alert-card p-3">
+                    <div class="small text-secondary">Alerta: atraso de rota</div>
+                    <div class="fw-semibold mt-2">
+                      {{ operational_dashboard.alerts.route_delay or "Sem atraso relevante." }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="row g-3 mt-1">
+                <div class="col-lg-6">
+                  <div class="entity-card p-3 h-100">
+                    <div class="fw-semibold mb-2">Validações automáticas</div>
+                    <div class="d-grid gap-2">
+                      {% if operational_validations %}
+                        {% for item in operational_validations %}
+                        <div class="small">
+                          <span class="route-badge {{ 'badge-danger' if item.severity == 'alta' else 'badge-avulso' }}">{{ item.severity }}</span>
+                          <span class="fw-semibold">{{ item.title }}</span><br>
+                          <span class="text-secondary">{{ item.detail }}</span>
+                        </div>
+                        {% endfor %}
+                      {% else %}
+                      <div class="small text-secondary">Nenhuma validação crítica no momento.</div>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-6">
+                  <div class="entity-card p-3 h-100">
+                    <div class="fw-semibold mb-2">Motivos de pendência</div>
+                    <div class="d-grid gap-2">
+                      {% if pending_reasons %}
+                        {% for item in pending_reasons %}
+                        <div class="small">
+                          <span class="route-badge {{ 'badge-danger' if item.severity == 'alta' else 'badge-avulso' }}">{{ item.severity }}</span>
+                      <span class="fw-semibold">{{ item.client_name }}</span><br>
+                          <span class="text-secondary">{{ item.reason_label }}: {{ item.reason }}</span>
+                        </div>
+                        {% endfor %}
+                      {% else %}
+                      <div class="small text-secondary">Nenhuma pendência operacional aberta.</div>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="glass p-4">
+              <div class="d-flex justify-content-between align-items-end gap-3 mb-3">
+                <div>
+                  <div class="eyebrow mb-2">Financeiro</div>
+                  <h2 class="h4 mb-1">Resultado real da operação</h2>
+                  <p class="text-secondary mb-0 small">Receita, custos, lucro e margem por evento, cliente, rota e equipamento.</p>
+                </div>
+                <form method="get" class="d-flex gap-2 align-items-end">
+                  <div>
+                    <label class="form-label fw-semibold small mb-1" for="financial_period">Período</label>
+                    <select class="form-select form-select-sm" id="financial_period" name="financial_period">
+                      <option value="daily" {{ 'selected' if financial_period == 'daily' else '' }}>Diário</option>
+                      <option value="weekly" {{ 'selected' if financial_period == 'weekly' else '' }}>Semanal</option>
+                      <option value="monthly" {{ 'selected' if financial_period == 'monthly' else '' }}>Mensal</option>
+                      <option value="all" {{ 'selected' if financial_period == 'all' else '' }}>Geral</option>
+                    </select>
+                  </div>
+                  <button class="btn btn-outline-secondary btn-sm rounded-pill" type="submit">Aplicar</button>
+                </form>
+              </div>
+
+              <div class="row g-3 mb-3">
+                <div class="col-md-3">
+                  <form class="money-card p-3" method="post" action="{{ url_for('save_financial_settings') }}">
+                    <div class="small text-secondary mb-2">Custo por km rodado</div>
+                    <input class="form-control mb-2" name="cost_per_km" type="number" step="0.01" min="0" value="{{ settings.cost_per_km }}">
+                    <button class="btn btn-outline-secondary rounded-pill w-100" type="submit">Salvar</button>
+                  </form>
+                </div>
+                <div class="col-md-3">
+                  <div class="money-card p-3">
+                    <div class="small text-secondary">Receita do dia</div>
+                    <div class="display-6 fw-bold">{{ '%.2f'|format(financial_dashboard.daily_revenue) }}</div>
+                    <div class="small text-secondary">Custo {{ '%.2f'|format(financial_dashboard.daily_operational) }} • lucro {{ '%.2f'|format(financial_dashboard.daily_profit) }}</div>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <div class="money-card p-3">
+                    <div class="small text-secondary">Receita do mês</div>
+                    <div class="display-6 fw-bold">{{ '%.2f'|format(financial_dashboard.monthly_revenue) }}</div>
+                    <div class="small text-secondary">Custo {{ '%.2f'|format(financial_dashboard.monthly_operational) }} • lucro {{ '%.2f'|format(financial_dashboard.monthly_profit) }}</div>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <div class="money-card p-3">
+                    <div class="small text-secondary">Margem média do mês</div>
+                    <div class="display-6 fw-bold">{{ '%.2f'|format(financial_dashboard.monthly_margin_pct) }}%</div>
+                    <div class="small text-secondary">Semana {{ '%.2f'|format(financial_dashboard.weekly_margin_pct) }}% • atual {{ '%.2f'|format(financial_dashboard.current_margin_pct) }}%</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="row g-3 mb-3">
+                <div class="col-lg-7">
+                  <div class="entity-card p-3 h-100">
+                    <div class="fw-semibold mb-2">Composição do evento atual</div>
+                    {% set current = financial_dashboard.current_report or {} %}
+                    <div class="d-grid gap-2 small">
+                      <div><span class="route-badge badge-fixed">Receita bruta {{ '%.2f'|format(current.receita_bruta or 0) }}</span> <span class="route-badge badge-avulso">Receita líquida {{ '%.2f'|format(current.receita_liquida or 0) }}</span></div>
+                      <div><span class="route-badge badge-fixed">Diárias {{ current.total_diarias or 1 }}</span> <span class="route-badge badge-avulso">Serviço em diárias {{ '%.2f'|format(current.receita_servico_diarias or 0) }}</span></div>
+                      <div><span class="route-badge badge-avulso">KM {{ '%.2f'|format(current.km_total_da_rota or 0) }}</span> <span class="route-badge badge-avulso">Deslocamento {{ '%.2f'|format(current.custo_total_deslocamento or 0) }}</span></div>
+                      <div><span class="route-badge badge-avulso">Equipe {{ '%.2f'|format(current.custo_total_equipe or 0) }}</span> <span class="route-badge badge-avulso">Equipamentos {{ '%.2f'|format(current.custo_total_equipamentos or 0) }}</span></div>
+                      <div><span class="route-badge badge-avulso">Veículos {{ '%.2f'|format(current.custo_total_veiculos or 0) }}</span> <span class="route-badge badge-avulso">Extra {{ '%.2f'|format(current.custo_extra_operacional or 0) }}</span></div>
+                      <div><span class="route-badge badge-fixed">Custo total {{ '%.2f'|format(current.custo_operacional_total or 0) }}</span> <span class="route-badge {{ 'badge-success' if (current.lucro_bruto or 0) >= 0 else 'badge-danger' }}">Lucro {{ '%.2f'|format(current.lucro_bruto or 0) }}</span> <span class="route-badge badge-fixed">Margem {{ '%.2f'|format(current.margem_percentual or 0) }}%</span></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-5">
+                  <div class="entity-card p-3 h-100">
+                    <div class="fw-semibold mb-2">Alertas financeiros</div>
+                    <div class="d-grid gap-2 small">
+                      {% if financial_dashboard.financial_alerts %}
+                        {% for item in financial_dashboard.financial_alerts %}
+                        <div><span class="route-badge {{ 'badge-danger' if item.level == 'danger' else 'badge-avulso' }}">{{ item.scope }}</span> <span class="text-secondary">{{ item.message }}</span></div>
+                        {% endfor %}
+                      {% else %}
+                      <div class="text-secondary">Nenhum alerta financeiro relevante no momento.</div>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="row g-3 mt-1">
+                <div class="col-12">
+                  <div class="entity-card p-3">
+                    <div class="fw-semibold mb-2">Margem por evento</div>
+                    <div class="d-grid gap-2">
+                      {% if financial_dashboard.event_margins %}
+                        {% for event in financial_dashboard.event_margins %}
+                        <details class="small">
+                          <summary class="d-flex justify-content-between gap-3" style="cursor:pointer; list-style:none;">
+                            <span>
+                              <span class="fw-semibold">{{ event.event_title }}</span>
+                              <span class="text-secondary"> • {{ event.event_date or "sem data" }} • {{ event.runs }} geração(ões)</span>
+                            </span>
+                            <span class="text-end">
+                              <span class="route-badge badge-fixed">Receita {{ '%.2f'|format(event.revenue_total) }}</span>
+                              <span class="route-badge badge-avulso">Custo {{ '%.2f'|format(event.operational_total) }}</span>
+                              <span class="route-badge {{ 'badge-success' if event.profit_total >= 0 else 'badge-danger' }}">Lucro {{ '%.2f'|format(event.profit_total) }} • {{ '%.2f'|format(event.margin_pct) }}%</span>
+                            </span>
+                          </summary>
+                          <div class="entity-card p-3 mt-2">
+                            {% set details = event.details or {} %}
+                            {% set summary = details.financial_summary or {} %}
+                            <div class="fw-semibold mb-2">Mini DRE operacional</div>
+                            <div class="d-grid gap-2">
+                              <div><span class="route-badge badge-fixed">Receita bruta {{ '%.2f'|format(summary.receita_bruta or 0) }}</span> <span class="route-badge badge-avulso">Receita líquida {{ '%.2f'|format(summary.receita_liquida or summary.revenue_total or 0) }}</span></div>
+                              <div><span class="route-badge badge-fixed">Diárias {{ summary.total_diarias or 1 }}</span> <span class="route-badge badge-avulso">Serviço em diárias {{ '%.2f'|format(summary.receita_servico_diarias or 0) }}</span></div>
+                              <div><span class="route-badge badge-avulso">KM {{ '%.2f'|format(summary.km_total_da_rota or 0) }}</span> <span class="route-badge badge-avulso">Equipamentos {{ summary.quantidade_equipamentos or 0 }}</span> <span class="route-badge badge-avulso">Status {{ summary.status or 'estimado' }}</span></div>
+                              <div><span class="route-badge badge-avulso">Custo total {{ '%.2f'|format(summary.operational_total or 0) }}</span> <span class="route-badge {{ 'badge-success' if (summary.profit_total or 0) >= 0 else 'badge-danger' }}">Lucro {{ '%.2f'|format(summary.profit_total or 0) }}</span> <span class="route-badge badge-fixed">Margem {{ '%.2f'|format(summary.margin_pct or 0) }}%</span></div>
+                            </div>
+                            {% if details.financial_clients %}
+                            <div class="small text-secondary mt-3 mb-1">Clientes</div>
+                            <div class="d-grid gap-1 small">
+                              {% for item in details.financial_clients[:5] %}
+                              <div class="d-flex justify-content-between gap-2">
+                                <span>{{ item.client_name }}</span>
+                                <span><span class="route-badge badge-fixed">Receita {{ '%.2f'|format(item.receita_liquida or 0) }}</span> <span class="route-badge {{ 'badge-success' if (item.lucro_bruto or 0) >= 0 else 'badge-danger' }}">Lucro {{ '%.2f'|format(item.lucro_bruto or 0) }}</span></span>
+                              </div>
+                              {% endfor %}
+                            </div>
+                            {% endif %}
+                            {% if details.financial_routes %}
+                            <div class="small text-secondary mt-3 mb-1">Rotas</div>
+                            <div class="d-grid gap-1 small">
+                              {% for item in details.financial_routes[:4] %}
+                              <div class="d-flex justify-content-between gap-2">
+                                <span>{{ item.vehicle_id }} • {{ '%.2f'|format(item.distance_km or 0) }} km</span>
+                                <span><span class="route-badge badge-avulso">Custo {{ '%.2f'|format(item.custo_total or 0) }}</span> <span class="route-badge {{ 'badge-success' if (item.lucro_bruto or 0) >= 0 else 'badge-danger' }}">Lucro {{ '%.2f'|format(item.lucro_bruto or 0) }}</span></span>
+                              </div>
+                              {% endfor %}
+                            </div>
+                            {% endif %}
+                            {% if details.financial_equipment %}
+                            <div class="small text-secondary mt-3 mb-1">Equipamentos</div>
+                            <div class="d-grid gap-1 small">
+                              {% for item in details.financial_equipment[:4] %}
+                              <div class="d-flex justify-content-between gap-2">
+                                <span>{{ item.equipment_id }}</span>
+                                <span><span class="route-badge badge-fixed">{{ item.usage_count or 0 }} usos</span> <span class="route-badge {{ 'badge-success' if (item.lucro_estimado or item.profit_total or 0) >= 0 else 'badge-danger' }}">Lucro {{ '%.2f'|format(item.lucro_estimado or item.profit_total or 0) }}</span></span>
+                              </div>
+                              {% endfor %}
+                            </div>
+                            {% endif %}
+                            {% if details.financial_alerts %}
+                            <div class="small text-secondary mt-3 mb-1">Alertas</div>
+                            <div class="d-grid gap-1 small">
+                              {% for item in details.financial_alerts %}
+                              <div><span class="route-badge {{ 'badge-danger' if item.level == 'danger' else 'badge-avulso' }}">{{ item.scope }}</span> {{ item.message }}</div>
+                              {% endfor %}
+                            </div>
+                            {% endif %}
+                          </div>
+                        </details>
+                        {% endfor %}
+                      {% else %}
+                      <div class="small text-secondary">As margens por evento aparecerão conforme a operação gerar histórico.</div>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="row g-3 mt-1">
+                <div class="col-lg-6">
+                  <div class="entity-card p-3 h-100">
+                    <div class="fw-semibold mb-2">Clientes mais lucrativos</div>
+                    <div class="d-grid gap-2 small">
+                      {% for item in financial_dashboard.top_clients %}
+                      <div class="d-flex justify-content-between gap-2">
+                        <span>{{ item.client_name }}</span>
+                        <span><span class="route-badge badge-success">{{ '%.2f'|format(item.profit_total) }}</span> <span class="route-badge badge-fixed">{{ '%.2f'|format(item.margin_pct) }}%</span></span>
+                      </div>
+                      {% else %}
+                      <div class="text-secondary">Sem dados financeiros de clientes ainda.</div>
+                      {% endfor %}
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-6">
+                  <div class="entity-card p-3 h-100">
+                    <div class="fw-semibold mb-2">Clientes menos lucrativos</div>
+                    <div class="d-grid gap-2 small">
+                      {% for item in financial_dashboard.bottom_clients %}
+                      <div class="d-flex justify-content-between gap-2">
+                        <span>{{ item.client_name }}</span>
+                        <span><span class="route-badge {{ 'badge-success' if item.profit_total >= 0 else 'badge-danger' }}">{{ '%.2f'|format(item.profit_total) }}</span> <span class="route-badge badge-fixed">{{ '%.2f'|format(item.margin_pct) }}%</span></span>
+                      </div>
+                      {% else %}
+                      <div class="text-secondary">Sem dados financeiros de clientes ainda.</div>
+                      {% endfor %}
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-6">
+                  <div class="entity-card p-3 h-100">
+                    <div class="fw-semibold mb-2">Rotas com maior custo</div>
+                    <div class="d-grid gap-2 small">
+                      {% for item in financial_dashboard.costliest_routes %}
+                      <div class="d-flex justify-content-between gap-2">
+                        <span>{{ item.vehicle_id }} • {{ '%.2f'|format(item.distance_km) }} km</span>
+                        <span><span class="route-badge badge-avulso">{{ '%.2f'|format(item.cost_total) }}</span> <span class="route-badge {{ 'badge-success' if item.profit_total >= 0 else 'badge-danger' }}">{{ '%.2f'|format(item.profit_total) }}</span></span>
+                      </div>
+                      {% else %}
+                      <div class="text-secondary">Sem rotas históricas ainda.</div>
+                      {% endfor %}
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-6">
+                  <div class="entity-card p-3 h-100">
+                    <div class="fw-semibold mb-2">Equipamentos mais rentáveis</div>
+                    <div class="d-grid gap-2 small">
+                      {% for item in financial_dashboard.top_equipment %}
+                      <div class="d-flex justify-content-between gap-2">
+                        <span>{{ item.equipment_id }}</span>
+                        <span><span class="route-badge badge-success">{{ '%.2f'|format(item.profit_total) }}</span> <span class="route-badge badge-fixed">{{ item.usage_count }} usos</span></span>
+                      </div>
+                      {% else %}
+                      <div class="text-secondary">Sem dados financeiros por equipamento ainda.</div>
+                      {% endfor %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <div class="tab-pane fade" id="events-pane" role="tabpanel" aria-labelledby="events-tab" tabindex="0">
+          <section class="glass p-4">
+            <div class="d-flex justify-content-between align-items-end gap-3 mb-3">
+              <div>
+                <div class="eyebrow mb-2">Evento</div>
+                <h2 class="h4 mb-1">Fluxo operacional central</h2>
+                <p class="text-secondary mb-0 small">Planeje, execute e finalize a operação partindo do evento.</p>
+              </div>
+            </div>
+
+            <div class="row g-4">
+              <div class="col-lg-5">
+                <form class="event-card p-3" method="post" action="{{ url_for('save_event') }}" id="event-form">
+                  <div class="row g-3 mb-3">
+                    <div class="col-4">
+                      <label class="form-label fw-semibold" for="event_id">ID</label>
+                      <input class="form-control" id="event_id" name="event_id" type="text" placeholder="EVT-001">
+                    </div>
+                    <div class="col-8">
+                      <label class="form-label fw-semibold" for="title">Nome do evento</label>
+                      <input class="form-control" id="title" name="title" type="text" placeholder="Festival de Inverno" required>
+                    </div>
+                  </div>
+                  <div class="row g-3 mb-3">
+                    <div class="col-6">
+                      <label class="form-label fw-semibold" for="event_date">Data inicial</label>
+                      <input class="form-control" id="event_date" name="event_date" type="date" required>
+                    </div>
+                    <div class="col-6">
+                      <label class="form-label fw-semibold" for="event_end_date">Data final</label>
+                      <input class="form-control" id="event_end_date" name="event_end_date" type="date" required>
+                    </div>
+                  </div>
+                  <div class="row g-3 mb-3">
+                    <div class="col-6">
+                      <label class="form-label fw-semibold" for="event_status">Status</label>
+                      <select class="form-select" id="event_status" name="status">
+                        <option value="planejado">planejado</option>
+                        <option value="em_execucao">em_execucao</option>
+                        <option value="finalizado">finalizado</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold" for="event_client_ids">Clientes do evento</label>
+                    <select class="form-select" id="event_client_ids" name="event_client_ids" multiple size="5">
+                      {% for client in clients %}
+                      <option value="{{ client.client_id }}">{{ client.client_id }} • {{ client.customer_name }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold" for="event_vehicle_ids">Veículos do evento</label>
+                    <select class="form-select" id="event_vehicle_ids" name="event_vehicle_ids" multiple size="4">
+                      {% for vehicle in vehicles_registry %}
+                      <option value="{{ vehicle.vehicle_id }}">{{ vehicle.vehicle_id }} • {{ vehicle.vehicle_type }} • {{ vehicle.plate or 'sem placa' }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Checklist do evento</label>
+                    <div class="d-grid gap-2">
+                      <label><input type="checkbox" name="check_checklist_equipamentos"> Equipamentos conferidos</label>
+                      <label><input type="checkbox" name="check_checklist_documentos"> Documentos conferidos</label>
+                      <label><input type="checkbox" name="check_checklist_motorista"> Motorista alinhado</label>
+                      <label><input type="checkbox" name="check_checklist_financeiro"> Financeiro validado</label>
+                    </div>
+                  </div>
+                  <div class="entity-card p-3 mb-3">
+                    <div class="fw-semibold mb-2">Financeiro do evento</div>
+                    <div class="small text-secondary mb-3">As diárias são calculadas automaticamente entre a data inicial e a data final, contando os dois dias.</div>
+                    <div class="row g-3 mb-3">
+                      <div class="col-4">
+                        <label class="form-label fw-semibold" for="valor_servico">Valor serviço</label>
+                        <input class="form-control" id="valor_servico" name="valor_servico" type="number" min="0" step="0.01" value="0">
+                      </div>
+                      <div class="col-4">
+                        <label class="form-label fw-semibold" for="valor_adicional">Valor adicional</label>
+                        <input class="form-control" id="valor_adicional" name="valor_adicional" type="number" min="0" step="0.01" value="0">
+                      </div>
+                      <div class="col-4">
+                        <label class="form-label fw-semibold" for="desconto">Desconto</label>
+                        <input class="form-control" id="desconto" name="desconto" type="number" min="0" step="0.01" value="0">
+                      </div>
+                    </div>
+                    <div class="row g-3">
+                      <div class="col-4">
+                        <label class="form-label fw-semibold" for="custo_equipe">Custo equipe</label>
+                        <input class="form-control" id="custo_equipe" name="custo_equipe" type="number" min="0" step="0.01" value="0">
+                      </div>
+                      <div class="col-4">
+                        <label class="form-label fw-semibold" for="quantidade_equipes">Qtd equipes</label>
+                        <input class="form-control" id="quantidade_equipes" name="quantidade_equipes" type="number" min="0" step="1" value="0">
+                      </div>
+                      <div class="col-4">
+                        <label class="form-label fw-semibold" for="custo_por_equipamento">Custo por equipamento</label>
+                        <input class="form-control" id="custo_por_equipamento" name="custo_por_equipamento" type="number" min="0" step="0.01" value="0">
+                      </div>
+                    </div>
+                    <div class="row g-3 mt-1">
+                      <div class="col-6">
+                        <label class="form-label fw-semibold" for="custo_fixo_veiculo">Custo fixo veículo</label>
+                        <input class="form-control" id="custo_fixo_veiculo" name="custo_fixo_veiculo" type="number" min="0" step="0.01" value="0">
+                      </div>
+                      <div class="col-6">
+                        <label class="form-label fw-semibold" for="custo_extra_operacional">Custo extra operacional</label>
+                        <input class="form-control" id="custo_extra_operacional" name="custo_extra_operacional" type="number" min="0" step="0.01" value="0">
+                      </div>
+                    </div>
+                  </div>
+                  <div class="entity-card p-3 mb-3">
+                    <div class="fw-semibold mb-2">Recorrência e previsão</div>
+                    <div class="row g-3 mb-3">
+                      <div class="col-4">
+                        <label class="form-label fw-semibold" for="event_category">Categoria</label>
+                        <input class="form-control" id="event_category" name="event_category" type="text" value="geral" placeholder="Show, obra, contrato">
+                      </div>
+                      <div class="col-4">
+                        <label class="form-label fw-semibold" for="recurrence_enabled">Recorrente</label>
+                        <select class="form-select" id="recurrence_enabled" name="recurrence_enabled">
+                          <option value="">nao</option>
+                          <option value="true">sim</option>
+                        </select>
+                      </div>
+                      <div class="col-4">
+                        <label class="form-label fw-semibold" for="recurrence_status">Status recorrência</label>
+                        <select class="form-select" id="recurrence_status" name="recurrence_status">
+                          <option value="ativo">ativo</option>
+                          <option value="pausado">pausado</option>
+                          <option value="encerrado">encerrado</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                      <div class="col-4">
+                        <label class="form-label fw-semibold" for="recurrence_frequency">Frequência</label>
+                        <select class="form-select" id="recurrence_frequency" name="recurrence_frequency">
+                          <option value="semanal">semanal</option>
+                          <option value="quinzenal">quinzenal</option>
+                          <option value="mensal">mensal</option>
+                          <option value="personalizada">personalizada</option>
+                        </select>
+                      </div>
+                      <div class="col-4">
+                        <label class="form-label fw-semibold" for="recurrence_interval_days">Intervalo personalizado</label>
+                        <input class="form-control" id="recurrence_interval_days" name="recurrence_interval_days" type="number" min="1" value="30">
+                      </div>
+                      <div class="col-4">
+                        <label class="form-label fw-semibold" for="recurring_value">Valor recorrente</label>
+                        <input class="form-control" id="recurring_value" name="recurring_value" type="number" min="0" step="0.01" value="0">
+                      </div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                      <div class="col-4">
+                        <label class="form-label fw-semibold" for="recurrence_start">Início</label>
+                        <input class="form-control" id="recurrence_start" name="recurrence_start" type="date">
+                      </div>
+                      <div class="col-4">
+                        <label class="form-label fw-semibold" for="recurrence_end">Fim</label>
+                        <input class="form-control" id="recurrence_end" name="recurrence_end" type="date">
+                      </div>
+                      <div class="col-4">
+                        <label class="form-label fw-semibold" for="next_occurrence_date">Próxima execução</label>
+                        <input class="form-control" id="next_occurrence_date" name="next_occurrence_date" type="date">
+                      </div>
+                    </div>
+                    <div>
+                      <label class="form-label fw-semibold" for="recurrence_notes">Observações da recorrência</label>
+                      <input class="form-control" id="recurrence_notes" name="recurrence_notes" type="text" placeholder="Contrato mensal com renovação automática">
+                    </div>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold" for="notes_event">Observações</label>
+                    <input class="form-control" id="notes_event" name="notes" type="text" placeholder="Montagem a partir das 07h">
+                  </div>
+                  <div class="d-grid">
+                    <button class="btn btn-dark rounded-pill" type="submit" id="save-event-button">Salvar evento</button>
+                  </div>
+                </form>
+              </div>
+
+              <div class="col-lg-7">
+                <div class="d-grid gap-3">
+                  {% if events %}
+                    {% for event in events %}
+                    <div class="event-card p-3">
+                      <div class="d-flex justify-content-between gap-3">
+                        <div>
+                          <div class="fw-semibold">{{ event.event_id }} • {{ event.title }}</div>
+                          <div class="small text-secondary">{{ event.event_period_label or event.event_date }} • status {{ event.status }}</div>
+                          <div class="route-badges">
+                            <span class="route-badge badge-fixed">{{ event.clients_count }} clientes</span>
+                            <span class="route-badge badge-avulso">{{ event.vehicles_count }} veículos</span>
+                            <span class="route-badge badge-avulso">{{ event.equipment_count }} equipamentos</span>
+                            {% if event.recurrence_enabled == 'true' %}
+                            <span class="route-badge badge-success">Recorrente {{ event.recurrence_frequency }}</span>
+                            {% endif %}
+                          </div>
+                          {% if event.last_route_generated_at %}
+                          <div class="small text-secondary mt-2">Última rota: {{ event.last_route_generated_at }}</div>
+                          {% endif %}
+                          {% if event.notes %}
+                          <div class="small text-secondary mt-1">{{ event.notes }}</div>
+                          {% endif %}
+                          {% if event.financial_summary %}
+                          <div class="route-badges mt-2">
+                            <span class="route-badge badge-fixed">{{ (event.financial_summary or {}).get('total_diarias', 1) }} diária(s)</span>
+                            <span class="route-badge badge-fixed">Receita líquida {{ '%.2f'|format((event.financial_summary or {}).get('receita_liquida', 0)) }}</span>
+                            <span class="route-badge badge-avulso">Custo {{ '%.2f'|format((event.financial_summary or {}).get('operational_total', 0)) }}</span>
+                            <span class="route-badge {{ 'badge-success' if ((event.financial_summary or {}).get('profit_total', 0)) >= 0 else 'badge-danger' }}">Lucro {{ '%.2f'|format((event.financial_summary or {}).get('profit_total', 0)) }}</span>
+                            <span class="route-badge badge-fixed">Margem {{ '%.2f'|format((event.financial_summary or {}).get('margin_pct', 0)) }}%</span>
+                          </div>
+                          {% endif %}
+                          <div class="route-badges mt-2">
+                            {% for item in event.checklist %}
+                            <span class="route-badge {{ 'badge-success' if item.done else 'badge-danger' }}">{{ item.label }}</span>
+                            {% endfor %}
+                          </div>
+                          {% if event.recurrence_enabled == 'true' %}
+                          <div class="small text-secondary mt-2">
+                            Próxima execução {{ event.next_occurrence_date or "n/d" }} • status {{ event.recurrence_status or "ativo" }}{% if event.recurring_value %} • valor recorrente {{ '%.2f'|format(event.recurring_value) }}{% endif %}
+                          </div>
+                          {% endif %}
+                        </div>
+                        <div class="entity-actions">
+                          <button class="btn btn-sm btn-outline-secondary rounded-pill edit-event-button" type="button" data-event='{{ event|tojson }}'>Editar</button>
+                          {% if event.recurrence_enabled == 'true' %}
+                          <form method="post" action="{{ url_for('generate_next_recurrence', event_id=event.event_id) }}">
+                            <button class="btn btn-sm btn-outline-secondary rounded-pill" type="submit">Gerar próxima</button>
+                          </form>
+                          <form method="post" action="{{ url_for('update_event_recurrence_status', event_id=event.event_id) }}">
+                            <input type="hidden" name="recurrence_status" value="{{ 'pausado' if event.recurrence_status != 'pausado' else 'ativo' }}">
+                            <button class="btn btn-sm btn-outline-secondary rounded-pill" type="submit">{{ 'Pausar' if event.recurrence_status != 'pausado' else 'Reativar' }}</button>
+                          </form>
+                          {% endif %}
+                          <form method="post" action="{{ url_for('update_event_status', event_id=event.event_id) }}">
+                            <input type="hidden" name="status" value="em_execucao">
+                            <button class="btn btn-sm btn-outline-secondary rounded-pill" type="submit">Iniciar</button>
+                          </form>
+                          <form method="post" action="{{ url_for('update_event_status', event_id=event.event_id) }}">
+                            <input type="hidden" name="status" value="finalizado">
+                            <button class="btn btn-sm btn-outline-success rounded-pill" type="submit">Finalizar</button>
+                          </form>
+                          <form method="post" action="{{ url_for('delete_event', event_id=event.event_id) }}">
+                            <button class="btn btn-sm btn-outline-danger rounded-pill" type="submit">Excluir</button>
+                          </form>
+                        </div>
+                      </div>
+                    </div>
+                    {% endfor %}
+                  {% else %}
+                  <div class="text-center text-secondary py-4">Nenhum evento cadastrado ainda.</div>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="tab-pane fade" id="operations-pane" role="tabpanel" aria-labelledby="operations-tab" tabindex="0">
+          <div class="row g-4">
+            <div class="col-xl-4">
+              <section class="glass p-4" id="gerador">
+          <h2 class="h4 mb-1">Gerar rota</h2>
+          <p class="text-secondary small mb-3">Se deixar os CSVs vazios, o app usa a base manual de clientes e veículos.</p>
+                  <form method="post" action="{{ url_for('generate') }}" enctype="multipart/form-data">
+            <div class="mb-3">
+              <label class="form-label fw-semibold" for="generate_event_id">Evento</label>
+              <select class="form-select" id="generate_event_id" name="event_id">
+                <option value="">Operação geral sem evento</option>
+                {% for event in events %}
+                <option value="{{ event.event_id }}">{{ event.event_id }} • {{ event.title }} • {{ event.status }}</option>
+                {% endfor %}
+              </select>
+              <div class="form-text">Se um evento for escolhido, clientes e veículos serão filtrados por ele.</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold" for="deliveries_file">CSV de entregas</label>
+              <input class="form-control" id="deliveries_file" name="deliveries_file" type="file" accept=".csv,text/csv">
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold" for="vehicles_file">CSV de veículos</label>
+              <input class="form-control" id="vehicles_file" name="vehicles_file" type="file" accept=".csv,text/csv">
+            </div>
+            <div class="d-grid gap-2">
+              <button class="btn btn-dark btn-lg rounded-pill" type="submit">Gerar Rotas</button>
+            </div>
+          </form>
+          <form class="mt-2" method="post" action="{{ url_for('validate_operation') }}">
+            <input type="hidden" name="event_id" id="validate_event_id" value="">
+            <div class="d-grid">
+              <button class="btn btn-outline-secondary rounded-pill" type="submit">Validar operação antes de gerar</button>
+            </div>
+          </form>
+          <div class="entity-card p-3 mt-4">
+            <div class="fw-semibold mb-2">Painel de elegibilidade</div>
+            {% if operation_validation and operation_validation.summary %}
+            <div class="row g-2 mb-3">
+              <div class="col-6"><div class="stat-card p-2"><div class="fw-bold text-success">{{ operation_validation.summary.eligible_clients }}</div><div class="small text-secondary">Clientes elegíveis</div></div></div>
+              <div class="col-6"><div class="stat-card p-2"><div class="fw-bold text-danger">{{ operation_validation.summary.blocked_clients }}</div><div class="small text-secondary">Clientes bloqueados</div></div></div>
+              <div class="col-6"><div class="stat-card p-2"><div class="fw-bold text-success">{{ operation_validation.summary.equipment_available }}</div><div class="small text-secondary">Equipamentos disponíveis</div></div></div>
+              <div class="col-6"><div class="stat-card p-2"><div class="fw-bold text-warning">{{ operation_validation.summary.equipment_reserved }}</div><div class="small text-secondary">Equipamentos reservados</div></div></div>
+              <div class="col-6"><div class="stat-card p-2"><div class="fw-bold text-danger">{{ operation_validation.summary.equipment_conflicts }}</div><div class="small text-secondary">Equipamentos em conflito</div></div></div>
+              <div class="col-6"><div class="stat-card p-2"><div class="fw-bold text-success">{{ operation_validation.summary.vehicles_free }}</div><div class="small text-secondary">Veículos livres</div></div></div>
+              <div class="col-6"><div class="stat-card p-2"><div class="fw-bold text-danger">{{ operation_validation.summary.vehicles_conflict }}</div><div class="small text-secondary">Veículos em conflito</div></div></div>
+            </div>
+            <div class="small text-secondary mb-2">Última validação: {{ operation_validation.validated_at }} • {{ operation_validation.event_title or "Operação geral" }}</div>
+            <div class="d-grid gap-2">
+              {% if operation_validation.event_errors %}
+                {% for error in operation_validation.event_errors %}
+                <div class="small"><span class="route-badge badge-danger">{{ error.reason_label }}</span> <span class="text-secondary">{{ error.reason }}</span></div>
+                {% endfor %}
+              {% endif %}
+              {% if operation_validation.pending_items %}
+                {% for item in operation_validation.pending_items[:8] %}
+                <div class="small"><span class="route-badge {{ 'badge-danger' if item.severity == 'alta' else 'badge-avulso' }}">{{ item.reason_code }}</span> <span class="fw-semibold">{{ item.client_name }}</span> <span class="text-secondary">• {{ item.reason }}</span></div>
+                {% endfor %}
+              {% else %}
+              <div class="small text-secondary">Nenhuma pendência encontrada na última validação.</div>
+              {% endif %}
+            </div>
+            {% else %}
+            <div class="small text-secondary">Use “Validar operação antes de gerar” para ver quem está elegível e o que bloqueou.</div>
+            {% endif %}
+          </div>
+          <hr class="my-4">
+          <div class="small text-secondary">
+            <div class="fw-semibold mb-2">Saídas geradas</div>
+            <ul class="mb-0 ps-3">
+              <li><code>preview/route-plan-mobile.json</code></li>
+              <li><code>preview/route-plan.pdf</code></li>
+            </ul>
+          </div>
+        </section>
+            </div>
+
+            <div class="col-xl-8">
+              <section class="glass p-4">
+                <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
+                  <div>
+                    <h2 class="h4 mb-1">Mapa e sequência</h2>
+                    <p class="text-secondary mb-0 small">
+                      {% if route_data %}
+                        {{ route_data.summary.assigned_deliveries }} entregas atribuídas e {{ route_data.summary.unassigned_deliveries }} pendências
+                        {% if route_data.routes %} • {{ route_data.routes[0].vehicle_type or "tipo n/d" }} • {{ route_data.routes[0].vehicle_model or "modelo n/d" }} • placa {{ route_data.routes[0].vehicle_plate or "n/d" }}{% endif %}
+                      {% else %}
+                        Gere uma rota para visualizar a operação.
+                      {% endif %}
+                    </p>
+                  </div>
+                  <div class="d-flex flex-wrap gap-2">
+                    {% if has_json %}
+                    <a class="btn btn-outline-secondary rounded-pill" href="{{ url_for('preview_file', filename='route-plan-mobile.json') }}" target="_blank" rel="noreferrer">Abrir JSON</a>
+                    {% endif %}
+                    {% if has_pdf %}
+                    <a class="btn btn-outline-secondary rounded-pill" href="{{ url_for('preview_file', filename='route-plan.pdf') }}" target="_blank" rel="noreferrer">Baixar PDF</a>
+                    {% endif %}
+                  </div>
+                </div>
+                <div class="map-shell mb-3">
+                  <svg id="map-svg" viewBox="0 0 900 380" width="100%" height="380" preserveAspectRatio="none"></svg>
+                </div>
+                <div id="route-list" class="d-grid gap-2">
+                  {% if route_data and route_data.routes %}
+                    {% for route in route_data.routes %}
+                      {% if route.stops %}
+                      <div class="entity-card p-3">
+                        <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+                          <div>
+                            <div class="fw-semibold">{{ route.vehicle_id }} • {{ route.vehicle_type or "tipo n/d" }}</div>
+                            <div class="small text-secondary">{{ route.vehicle_model or "modelo n/d" }} • placa {{ route.vehicle_plate or "n/d" }} • {{ route.distance_km }} km • {{ route.total_minutes }} min</div>
+                          </div>
+                          <div class="route-badges">
+                            <span class="route-badge badge-fixed">{{ route.stops|length }} paradas</span>
+                          </div>
+                        </div>
+                        <div class="d-grid gap-2">
+                          {% for stop in route.stops %}
+                          <div class="entity-card p-3 d-flex gap-3 align-items-start">
+                            <div class="route-index">{{ loop.index }}</div>
+                            <div class="flex-grow-1">
+                              <div class="fw-semibold">{{ stop.customer_name or "Sem cliente" }}</div>
+                              <div class="small text-secondary">{{ stop.address or "Sem endereço" }} • ID {{ stop.delivery_id }}</div>
+                              <div class="small text-secondary mt-1">Janela {{ stop.window_start or "-" }}-{{ stop.window_end or "-" }} • chegada {{ stop.arrival }} • contato {{ stop.contact_name or "n/d" }}</div>
+                              <div class="route-badges">
+                                <span class="route-badge {{ 'badge-fixed' if (stop.client_type or 'avulso') == 'fixo' else 'badge-avulso' }}">{{ stop.client_type or "avulso" }}</span>
+                                <span class="route-badge badge-fixed">{{ stop.equipment_quantity or 1 }}x {{ stop.equipment_type or "Equipamento" }}</span>
+                                <span class="route-badge badge-avulso">Equip {{ stop.equipment_number or "-" }}</span>
+                                <span class="route-badge {{ 'badge-success' if stop.field_confirmation.status_label == 'retorno confirmado' else 'badge-fixed' if stop.field_confirmation.status_label in ['execucao confirmada', 'chegada confirmada'] else 'badge-avulso' }}">{{ stop.field_confirmation.status_label }}</span>
+                              </div>
+                            </div>
+                            <div class="text-end">
+                              <a class="btn btn-sm btn-outline-dark rounded-pill mb-2" href="{{ stop.google_maps_directions_url }}" target="_blank" rel="noreferrer">Navegar</a>
+                              <div class="d-grid gap-2">
+                                {% if not stop.field_confirmation.arrival_confirmed_at %}
+                                <form method="post" action="{{ url_for('save_field_confirmation') }}">
+                                  <input type="hidden" name="action" value="arrival">
+                                  <input type="hidden" name="client_id" value="{{ stop.delivery_id }}">
+                                  <input type="hidden" name="equipment_id" value="{{ stop.equipment_number }}">
+                                  <input type="hidden" name="vehicle_id" value="{{ route.vehicle_id }}">
+                                  <button class="btn btn-sm btn-outline-secondary rounded-pill" type="submit">Confirmar chegada</button>
+                                </form>
+                                {% endif %}
+                                {% if not stop.field_confirmation.execution_confirmed_at %}
+                                <form method="post" action="{{ url_for('save_field_confirmation') }}">
+                                  <input type="hidden" name="action" value="execution">
+                                  <input type="hidden" name="client_id" value="{{ stop.delivery_id }}">
+                                  <input type="hidden" name="equipment_id" value="{{ stop.equipment_number }}">
+                                  <input type="hidden" name="vehicle_id" value="{{ route.vehicle_id }}">
+                                  <button class="btn btn-sm btn-outline-success rounded-pill" type="submit">Confirmar execução</button>
+                                </form>
+                                {% endif %}
+                                {% if stop.equipment_number and not stop.field_confirmation.return_confirmed_at %}
+                                <form method="post" action="{{ url_for('save_field_confirmation') }}">
+                                  <input type="hidden" name="action" value="return">
+                                  <input type="hidden" name="client_id" value="{{ stop.delivery_id }}">
+                                  <input type="hidden" name="equipment_id" value="{{ stop.equipment_number }}">
+                                  <input type="hidden" name="vehicle_id" value="{{ route.vehicle_id }}">
+                                  <button class="btn btn-sm btn-outline-primary rounded-pill" type="submit">Confirmar retorno</button>
+                                </form>
+                                {% endif %}
+                              </div>
+                            </div>
+                          </div>
+                          {% endfor %}
+                        </div>
+                      </div>
+                      {% endif %}
+                    {% endfor %}
+                    {% if route_data.unassigned %}
+                    <div class="entity-card p-3">
+                      <div class="fw-semibold mb-2">Pendências desta geração</div>
+                      <div class="d-grid gap-2">
+                        {% for item in route_data.unassigned %}
+                        <div class="small">
+                          <span class="fw-semibold">{{ item.customer_name or item.delivery_id }}</span>
+                          <span class="text-secondary">• {{ item.window_start }}-{{ item.window_end }}</span><br>
+                          {% if item.pending_reasons %}
+                            {% for reason in item.pending_reasons %}
+                            <span class="route-badge {{ 'badge-danger' if reason.severity == 'alta' else 'badge-avulso' }}">{{ reason.reason_code }}</span>
+                            <span class="text-secondary">{{ reason.reason }}</span><br>
+                            {% endfor %}
+                          {% else %}
+                          <span class="text-secondary">Sem motivo detalhado registrado.</span>
+                          {% endif %}
+                        </div>
+                        {% endfor %}
+                      </div>
+                    </div>
+                    {% endif %}
+                  {% else %}
+                  <div class="text-center text-secondary py-4">Nenhuma rota gerada ainda.</div>
+                  {% endif %}
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-pane fade" id="clients-pane" role="tabpanel" aria-labelledby="clients-tab" tabindex="0">
+          <div class="row g-4">
+            <div class="col-xl-4">
+              <section class="glass p-4">
+                <div class="d-flex justify-content-between align-items-end mb-3">
+                  <div>
+                    <h2 class="h4 mb-1">Cadastro manual de clientes</h2>
+                    <p class="text-secondary mb-0 small">Escolha um equipamento do estoque. O sistema bloqueia o mesmo item em dois clientes ao mesmo tempo.</p>
+                  </div>
+                </div>
+                <form method="post" action="{{ url_for('save_client') }}" id="manual-client-form">
+            <div class="mb-3">
+              <label class="form-label fw-semibold" for="client_id">ID do cliente</label>
+              <input class="form-control" id="client_id" name="client_id" type="text" placeholder="CLI-001">
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold" for="customer_name">Nome do cliente</label>
+              <input class="form-control" id="customer_name" name="customer_name" type="text" placeholder="Farmácia Central" required>
+            </div>
+            <div class="row g-3 mb-3">
+              <div class="col-md-4">
+                <label class="form-label fw-semibold" for="contact_name">Contato</label>
+                <input class="form-control" id="contact_name" name="contact_name" type="text" placeholder="Marcos Silva">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-semibold" for="cpf_cnpj">CPF/CNPJ</label>
+                <input class="form-control" id="cpf_cnpj" name="cpf_cnpj" type="text" placeholder="00.000.000/0001-00">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-semibold" for="email">E-mail</label>
+                <input class="form-control" id="email" name="email" type="email" placeholder="contato@cliente.com">
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold" for="client_address">Endereço</label>
+              <input class="form-control" id="client_address" name="client_address" type="text" placeholder="Av. Paulista, 1400" required>
+              <div class="d-flex gap-2 mt-2">
+                <button class="btn btn-sm btn-outline-secondary rounded-pill" type="button" id="geocode-button">Preencher latitude/longitude</button>
+                <button class="btn btn-sm btn-outline-secondary rounded-pill" type="button" id="clear-client-form">Limpar</button>
+              </div>
+              <div class="form-text" id="geocode-status">Use o endereço acima para buscar coordenadas automaticamente.</div>
+            </div>
+            <div class="row g-3 mb-3">
+              <div class="col-6">
+                <label class="form-label fw-semibold" for="client_lat">Latitude</label>
+                <input class="form-control" id="client_lat" name="client_lat" type="number" step="any" required>
+              </div>
+              <div class="col-6">
+                <label class="form-label fw-semibold" for="client_lng">Longitude</label>
+                <input class="form-control" id="client_lng" name="client_lng" type="number" step="any" required>
+              </div>
+            </div>
+            <div class="row g-3 mb-3">
+              <div class="col-6">
+                <label class="form-label fw-semibold" for="client_type">Tipo de cliente</label>
+                <select class="form-select" id="client_type" name="client_type">
+                  <option value="fixo">fixo</option>
+                  <option value="avulso">avulso</option>
+                </select>
+              </div>
+              <div class="col-6">
+                <label class="form-label fw-semibold" for="equipment_type">Tipo de equipamento</label>
+                <input class="form-control" id="equipment_type" name="equipment_type" type="text" value="Banheiro Luxo">
+              </div>
+            </div>
+            <div class="row g-3 mb-3">
+              <div class="col-4">
+                <label class="form-label fw-semibold" for="equipment_quantity">Quantidade</label>
+                <input class="form-control" id="equipment_quantity" name="equipment_quantity" type="number" min="1" value="1">
+              </div>
+              <div class="col-8">
+                <label class="form-label fw-semibold" for="equipment_number">Equipamento do estoque</label>
+                <select class="form-select" id="equipment_number" name="equipment_number">
+                  <option value="">Sem vínculo direto</option>
+                  {% for item in available_equipment %}
+                  <option value="{{ item.equipment_id }}">{{ item.equipment_id }} • {{ item.equipment_type }} • {{ item.status }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+            <div class="row g-3 mb-3">
+              <div class="col-6">
+                <label class="form-label fw-semibold" for="default_service_minutes">Serviço (min)</label>
+                <input class="form-control" id="default_service_minutes" name="default_service_minutes" type="number" min="1" value="20">
+              </div>
+              <div class="col-6">
+                <label class="form-label fw-semibold" for="default_priority">Prioridade</label>
+                <input class="form-control" id="default_priority" name="default_priority" type="number" min="1" value="3">
+              </div>
+            </div>
+            <div class="row g-3 mb-3">
+              <div class="col-4">
+                <label class="form-label fw-semibold" for="window_start">Janela inicial</label>
+                <input class="form-control" id="window_start" name="window_start" type="time" value="08:00">
+              </div>
+              <div class="col-4">
+                <label class="form-label fw-semibold" for="window_end">Janela final</label>
+                <input class="form-control" id="window_end" name="window_end" type="time" value="18:00">
+              </div>
+              <div class="col-4">
+                <label class="form-label fw-semibold" for="locked_vehicle_id">Veículo travado</label>
+                <select class="form-select" id="locked_vehicle_id" name="locked_vehicle_id">
+                  <option value="">Livre para otimizar</option>
+                  {% for vehicle in vehicles_registry %}
+                  <option value="{{ vehicle.vehicle_id }}">{{ vehicle.vehicle_id }} • {{ vehicle.vehicle_type }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+            <div class="row g-3 mb-3">
+              <div class="col-4">
+                <label class="form-label fw-semibold" for="service_value">Valor do serviço</label>
+                <input class="form-control" id="service_value" name="service_value" type="number" min="0" step="0.01" value="0">
+              </div>
+              <div class="col-4">
+                <label class="form-label fw-semibold" for="team_cost">Custo por equipe</label>
+                <input class="form-control" id="team_cost" name="team_cost" type="number" min="0" step="0.01" value="0">
+              </div>
+              <div class="col-4">
+                <label class="form-label fw-semibold" for="equipment_cost">Custo por equipamento</label>
+                <input class="form-control" id="equipment_cost" name="equipment_cost" type="number" min="0" step="0.01" value="0">
+              </div>
+            </div>
+            <div class="d-grid">
+              <button class="btn btn-outline-secondary rounded-pill" type="submit" id="save-client-button">Salvar cliente</button>
+            </div>
+                </form>
+                <div class="batch-box p-3 mt-4">
+                  <div class="fw-semibold mb-2">Importação em lote de clientes</div>
+                  <div class="text-mono mb-3">Nome | Endereço | Latitude | Longitude | Tipo | Equipamento | Quantidade | Equipamento ID | Serviço | Prioridade | Valor do serviço | Custo equipe | Custo equipamento | Janela inicial | Janela final | Veículo travado | Contato | CPF/CNPJ | E-mail</div>
+                  <form method="post" action="{{ url_for('save_clients_bulk') }}">
+                    <textarea class="form-control mb-3" name="bulk_clients" rows="5" placeholder="Cliente A | Av. Paulista, 1400 | -23.5614 | -46.6559 | fixo | Banheiro Luxo | 2 | EQ-100 | 20 | 1 | 1200 | 300 | 150 | 07:30 | 10:00 | VEI-001 | Marcos Silva | 00.000.000/0001-00 | contato@cliente.com"></textarea>
+                    <div class="d-grid"><button class="btn btn-dark rounded-pill" type="submit">Importar em lote</button></div>
+                  </form>
+                </div>
+                <div class="batch-box p-3 mt-4">
+                  <div class="fw-semibold mb-2">Importar clientes por Excel</div>
+                  <div class="small text-secondary mb-2">Envie um arquivo <code>.xlsx</code> usando a primeira aba da planilha.</div>
+                  <div class="text-mono mb-3">Colunas aceitas: nome, endereco, latitude, longitude, tipo, equipamento, quantidade, equipamento_id, servico, prioridade, valor_servico, custo_equipe, custo_equipamento, janela_inicial, janela_final, veiculo_travado, contato, cpf_cnpj, email</div>
+                  <div class="d-flex gap-2 mb-3">
+                    <a class="btn btn-outline-secondary rounded-pill" href="{{ url_for('download_clients_template') }}">Baixar modelo Excel</a>
+                    <a class="btn btn-outline-secondary rounded-pill" href="{{ url_for('download_system_backup') }}">Baixar backup do sistema</a>
+                  </div>
+                  <form method="post" action="{{ url_for('import_clients_excel') }}" enctype="multipart/form-data">
+                    <input class="form-control mb-3" name="excel_clients_file" type="file" accept=".xlsx" required>
+                    <div class="d-grid"><button class="btn btn-outline-secondary rounded-pill" type="submit">Importar arquivo Excel</button></div>
+                  </form>
+                </div>
+              </section>
+            </div>
+
+            <div class="col-xl-8">
+              <section class="glass p-4 h-100">
+              <div class="d-flex justify-content-between align-items-end gap-3 mb-3">
+                <div>
+                  <h2 class="h4 mb-1">Base manual de clientes</h2>
+                  <p class="text-secondary mb-0 small">{{ clients|length }} endereços disponíveis.</p>
+                </div>
+              </div>
+              <div class="d-grid gap-2">
+                {% if clients %}
+                  {% for client in clients %}
+                  <div class="entity-card p-3 d-flex gap-3 align-items-center">
+                    <div class="route-index">{{ client.client_id[:2].upper() }}</div>
+                    <div class="flex-grow-1">
+                      <div class="fw-semibold">{{ client.customer_name }}</div>
+                      <div class="small text-secondary">{{ client.address }}</div>
+                      {% if client.contact_name or client.cpf_cnpj or client.email %}
+                      <div class="small text-secondary mt-1">
+                        {{ client.contact_name or "Sem contato" }}
+                        {% if client.cpf_cnpj %} • {{ client.cpf_cnpj }}{% endif %}
+                        {% if client.email %} • {{ client.email }}{% endif %}
+                      </div>
+                      {% endif %}
+                      <div class="route-badges">
+                        <span class="route-badge {{ 'badge-fixed' if (client.client_type or 'fixo') == 'fixo' else 'badge-avulso' }}">{{ client.client_type or "fixo" }}</span>
+                        <span class="route-badge badge-fixed">{{ client.equipment_quantity or 1 }}x {{ client.equipment_type or "Equipamento" }}</span>
+                        <span class="route-badge badge-avulso">Estoque {{ client.equipment_number or "sem vínculo" }}</span>
+                        <span class="route-badge badge-avulso">Janela {{ client.window_start or "08:00" }}-{{ client.window_end or "18:00" }}</span>
+                        {% if client.locked_vehicle_id %}
+                        <span class="route-badge badge-fixed">Travado em {{ client.locked_vehicle_id }}</span>
+                        {% endif %}
+                        <span class="route-badge badge-fixed">Serviço {{ '%.2f'|format(client.service_value or 0) }}</span>
+                      </div>
+                    </div>
+                    <div class="entity-actions">
+                      <button class="btn btn-sm btn-outline-secondary rounded-pill edit-client-button" type="button" data-client='{{ client|tojson }}'>Editar</button>
+                      <form method="post" action="{{ url_for('delete_client', client_id=client.client_id) }}">
+                        <button class="btn btn-sm btn-outline-danger rounded-pill" type="submit">Excluir</button>
+                      </form>
+                    </div>
+                  </div>
+                  {% endfor %}
+                {% else %}
+                <div class="text-center text-secondary py-4">Nenhum cliente cadastrado ainda.</div>
+                {% endif %}
+              </div>
+            </section>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-pane fade" id="fleet-pane" role="tabpanel" aria-labelledby="fleet-tab" tabindex="0">
+          <div class="row g-4">
+            <div class="col-xl-4">
+              <div class="tab-pane-stack">
+                <section class="glass p-4">
+                  <h2 class="h4 mb-1">Cadastro manual de veículos</h2>
+                  <p class="text-secondary small mb-2">Estes veículos entram automaticamente na geração quando nenhum <code>vehicles.csv</code> é enviado.</p>
+                  <div class="alert alert-secondary small mb-3">
+                    <strong>Saída padrão das rotas:</strong> {{ hq.address }}<br>
+                    <span class="text-mono">{{ hq.lat }}, {{ hq.lng }}</span>
+                  </div>
+                  <form method="post" action="{{ url_for('save_vehicle') }}" id="vehicle-form">
+                    <div class="row g-3 mb-3">
+                      <div class="col-4">
+                        <label class="form-label fw-semibold" for="vehicle_id">ID</label>
+                        <input class="form-control" id="vehicle_id" name="vehicle_id" type="text" placeholder="VEI-001">
+                      </div>
+                      <div class="col-4">
+                        <label class="form-label fw-semibold" for="vehicle_type">Tipo</label>
+                        <input class="form-control" id="vehicle_type" name="vehicle_type" type="text" placeholder="Van" value="Van" required>
+                      </div>
+                      <div class="col-4">
+                        <label class="form-label fw-semibold" for="plate">Placa</label>
+                        <input class="form-control" id="plate" name="plate" type="text" placeholder="ABC1D23">
+                      </div>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label fw-semibold" for="model">Modelo</label>
+                      <input class="form-control" id="model" name="model" type="text" placeholder="Mercedes Sprinter">
+                    </div>
+                    <div class="row g-3 mb-3">
+                      <div class="col-6">
+                        <label class="form-label fw-semibold" for="start_lat">Latitude inicial</label>
+                        <input class="form-control" id="start_lat" name="start_lat" type="number" step="any" required>
+                      </div>
+                      <div class="col-6">
+                        <label class="form-label fw-semibold" for="start_lng">Longitude inicial</label>
+                        <input class="form-control" id="start_lng" name="start_lng" type="number" step="any" required>
+                      </div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                      <div class="col-4">
+                        <label class="form-label fw-semibold" for="capacity">Capacidade</label>
+                        <input class="form-control" id="capacity" name="capacity" type="number" min="1" value="8" required>
+                      </div>
+                      <div class="col-4">
+                        <label class="form-label fw-semibold" for="max_stops">Máx. paradas</label>
+                        <input class="form-control" id="max_stops" name="max_stops" type="number" min="1" value="8" required>
+                      </div>
+                      <div class="col-4">
+                        <label class="form-label fw-semibold" for="max_minutes">Máx. minutos</label>
+                        <input class="form-control" id="max_minutes" name="max_minutes" type="number" min="1" value="540" required>
+                      </div>
+                    </div>
+                    <div class="d-grid">
+                      <button class="btn btn-outline-secondary rounded-pill" type="submit" id="save-vehicle-button">Salvar veículo</button>
+                    </div>
+                  </form>
+                </section>
+
+                <section class="glass p-4">
+                  <h2 class="h4 mb-1">Estoque de equipamentos</h2>
+                  <p class="text-secondary small mb-3">Cadastre o estoque e acompanhe o que está disponível, reservado ou em rota.</p>
+                  <form method="post" action="{{ url_for('save_equipment') }}" id="equipment-form">
+                    <div class="row g-3 mb-3">
+                      <div class="col-4">
+                        <label class="form-label fw-semibold" for="equipment_id_stock">ID</label>
+                        <input class="form-control" id="equipment_id_stock" name="equipment_id" type="text" placeholder="EQ-001">
+                      </div>
+                      <div class="col-4">
+                        <label class="form-label fw-semibold" for="stock_equipment_type">Tipo</label>
+                        <input class="form-control" id="stock_equipment_type" name="stock_equipment_type" type="text" value="Banheiro Luxo" required>
+                      </div>
+                      <div class="col-4">
+                        <label class="form-label fw-semibold" for="condition">Condição</label>
+                        <select class="form-select" id="condition" name="condition">
+                          <option value="disponivel">disponivel</option>
+                          <option value="reservado">reservado</option>
+                          <option value="carregado">carregado</option>
+                          <option value="em_rota">em_rota</option>
+                          <option value="instalado">instalado</option>
+                          <option value="retirada_pendente">retirada_pendente</option>
+                          <option value="retornado">retornado</option>
+                          <option value="manutencao">manutencao</option>
+                          <option value="indisponivel">indisponivel</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label fw-semibold" for="notes">Observações</label>
+                      <input class="form-control" id="notes" name="notes" type="text" placeholder="Higienizado, pronto para envio">
+                    </div>
+                    <div class="d-grid">
+                      <button class="btn btn-outline-secondary rounded-pill" type="submit" id="save-equipment-button">Salvar equipamento</button>
+                    </div>
+                  </form>
+                </section>
+              </div>
+            </div>
+
+            <div class="col-xl-8">
+              <div class="tab-pane-stack">
+                <section class="glass p-4">
+              <div class="d-flex justify-content-between align-items-end gap-3 mb-3">
+                <div>
+                  <h2 class="h4 mb-1">Frota manual</h2>
+                  <p class="text-secondary mb-0 small">{{ vehicles_registry|length }} veículos disponíveis para roteirização local.</p>
+                </div>
+              </div>
+              <div class="d-grid gap-2">
+                {% if vehicles_registry %}
+                  {% for vehicle in vehicles_registry %}
+                  <div class="entity-card p-3 d-flex gap-3 align-items-center">
+                    <div class="route-index">{{ vehicle.vehicle_id[:2].upper() }}</div>
+                <div class="flex-grow-1">
+                  <div class="fw-semibold">{{ vehicle.vehicle_id }} • {{ vehicle.vehicle_type }}</div>
+                  <div class="small text-secondary">{{ vehicle.model or "Modelo n/d" }} • placa {{ vehicle.plate or "n/d" }}</div>
+                  <div class="small text-secondary mt-1">Origem operacional: {{ hq.address }}</div>
+                  <div class="route-badges">
+                    <span class="route-badge badge-fixed">Capacidade {{ vehicle.capacity }}</span>
+                    <span class="route-badge badge-avulso">Paradas {{ vehicle.max_stops }}</span>
+                        <span class="route-badge badge-avulso">Minutos {{ vehicle.max_minutes }}</span>
+                      </div>
+                    </div>
+                    <div class="entity-actions">
+                      <button class="btn btn-sm btn-outline-secondary rounded-pill edit-vehicle-button" type="button" data-vehicle='{{ vehicle|tojson }}'>Editar</button>
+                      <form method="post" action="{{ url_for('delete_vehicle', vehicle_id=vehicle.vehicle_id) }}">
+                        <button class="btn btn-sm btn-outline-danger rounded-pill" type="submit">Excluir</button>
+                      </form>
+                    </div>
+                  </div>
+                  {% endfor %}
+                {% else %}
+                <div class="text-center text-secondary py-4">Nenhum veículo cadastrado ainda.</div>
+                {% endif %}
+              </div>
+            </section>
+
+                <section class="glass p-4">
+          <div class="d-flex justify-content-between align-items-end gap-3 mb-3">
+            <div>
+              <h2 class="h4 mb-1">Estoque operacional</h2>
+              <p class="text-secondary mb-0 small">Livre {{ inventory_counts.available }} • Em operação {{ inventory_counts.in_route }} • Reservado {{ inventory_counts.reserved }} • Bloqueado {{ inventory_counts.maintenance }}</p>
+            </div>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-sm-3"><div class="stat-card p-3"><div class="fs-3 fw-bold">{{ inventory_counts.total }}</div><div class="small text-secondary">Total</div></div></div>
+            <div class="col-sm-3"><div class="stat-card p-3"><div class="fs-3 fw-bold">{{ inventory_counts.available }}</div><div class="small text-secondary">Disponível</div></div></div>
+            <div class="col-sm-3"><div class="stat-card p-3"><div class="fs-3 fw-bold">{{ inventory_counts.in_route }}</div><div class="small text-secondary">Em rota</div></div></div>
+            <div class="col-sm-3"><div class="stat-card p-3"><div class="fs-3 fw-bold">{{ inventory_counts.maintenance }}</div><div class="small text-secondary">Manutenção</div></div></div>
+          </div>
+          <div class="d-grid gap-2">
+            {% if equipment_registry %}
+              {% for item in equipment_registry %}
+              <div class="entity-card p-3 d-flex gap-3 align-items-center">
+                <div class="route-index">{{ item.equipment_id[:2].upper() }}</div>
+                <div class="flex-grow-1">
+                  <div class="fw-semibold">{{ item.equipment_id }} • {{ item.equipment_type }}</div>
+                  <div class="small text-secondary">{{ item.notes or "Sem observações" }}</div>
+                  <div class="route-badges">
+                    <span class="route-badge {{ 'badge-success' if item.status == 'disponivel' else 'badge-danger' if item.status in ['manutencao', 'indisponivel'] else 'badge-fixed' if item.status in ['carregado', 'em_rota', 'instalado', 'retirada_pendente'] else 'badge-avulso' }}">{{ item.status }}</span>
+                    <span class="route-badge badge-fixed">{{ item.cycle_stage }}</span>
+                    {% if item.linked_client_name %}
+                    <span class="route-badge badge-avulso">Cliente {{ item.linked_client_name }}</span>
+                    {% endif %}
+                    {% if item.linked_event_title %}
+                    <span class="route-badge badge-avulso">Evento {{ item.linked_event_title }}</span>
+                    {% endif %}
+                    {% if item.linked_vehicle_id %}
+                    <span class="route-badge badge-avulso">Veículo {{ item.linked_vehicle_id }}</span>
+                    {% endif %}
+                    <span class="route-badge badge-fixed">Condição {{ item.condition }}</span>
+                    {% if item.arrival_confirmed_at %}
+                    <span class="route-badge badge-avulso">Chegada {{ item.arrival_confirmed_at }}</span>
+                    {% endif %}
+                    {% if item.execution_confirmed_at %}
+                    <span class="route-badge badge-fixed">Execução {{ item.execution_confirmed_at }}</span>
+                    {% endif %}
+                    {% if item.returned_at %}
+                    <span class="route-badge badge-success">Retorno {{ item.returned_at }}</span>
+                    {% endif %}
+                  </div>
+                </div>
+                <div class="entity-actions">
+                  <button class="btn btn-sm btn-outline-secondary rounded-pill edit-equipment-button" type="button" data-equipment='{{ item|tojson }}'>Editar</button>
+                  {% if item.status in ['instalado', 'retirada_pendente', 'retornado'] %}
+                  <form method="post" action="{{ url_for('return_equipment_to_stock', equipment_id=item.equipment_id) }}">
+                    <button class="btn btn-sm btn-outline-success rounded-pill" type="submit">Retornar ao estoque</button>
+                  </form>
+                  {% endif %}
+                  {% if item.status == 'retornado' %}
+                  <form method="post" action="{{ url_for('release_equipment_to_available', equipment_id=item.equipment_id) }}">
+                    <button class="btn btn-sm btn-outline-primary rounded-pill" type="submit">Liberar disponível</button>
+                  </form>
+                  {% endif %}
+                  <form method="post" action="{{ url_for('delete_equipment', equipment_id=item.equipment_id) }}">
+                    <button class="btn btn-sm btn-outline-danger rounded-pill" type="submit">Excluir</button>
+                  </form>
+                </div>
+              </div>
+              {% endfor %}
+            {% else %}
+            <div class="text-center text-secondary py-4">Nenhum equipamento cadastrado no estoque.</div>
+            {% endif %}
+          </div>
+        </section>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-pane fade" id="agenda-pane" role="tabpanel" aria-labelledby="agenda-tab" tabindex="0">
+          <div class="tab-pane-stack">
+            <section class="glass p-4">
+              <div class="d-flex justify-content-between align-items-end gap-3 mb-3">
+                <div>
+                  <div class="eyebrow mb-2">Agenda Futura</div>
+                  <h2 class="h4 mb-1">Capacidade, recorrência e ocupação projetada</h2>
+                  <p class="text-secondary mb-0 small">Leia o futuro da operação por dia, semana ou mês.</p>
+                </div>
+                <form method="get" class="d-flex gap-2 align-items-end">
+                  <input type="hidden" name="financial_period" value="{{ financial_period }}">
+                  <div>
+                    <label class="form-label fw-semibold small mb-1" for="agenda_period">Agenda</label>
+                    <select class="form-select form-select-sm" id="agenda_period" name="agenda_period">
+                      <option value="daily" {{ 'selected' if agenda_period == 'daily' else '' }}>Diária</option>
+                      <option value="weekly" {{ 'selected' if agenda_period == 'weekly' else '' }}>Semanal</option>
+                      <option value="monthly" {{ 'selected' if agenda_period == 'monthly' else '' }}>Mensal</option>
+                    </select>
+                  </div>
+                  <button class="btn btn-outline-secondary btn-sm rounded-pill" type="submit">Aplicar</button>
+                </form>
+              </div>
+
+              <div class="row g-3 mb-3">
+                <div class="col-md-3"><div class="ops-card p-3"><div class="small text-secondary">Períodos avaliados</div><div class="display-6 fw-bold">{{ future_dashboard.periods|length }}</div><div class="small text-secondary">{{ future_dashboard.selected_period }}</div></div></div>
+                <div class="col-md-3"><div class="ops-card p-3"><div class="small text-secondary">Alertas futuros</div><div class="display-6 fw-bold">{{ future_dashboard.alerts|length }}</div><div class="small text-secondary">Gargalos e oportunidades</div></div></div>
+                <div class="col-md-3"><div class="ops-card p-3"><div class="small text-secondary">Recorrências ativas</div><div class="display-6 fw-bold">{{ future_dashboard.commercial.recurring_active|length }}</div><div class="small text-secondary">Base previsível em carteira</div></div></div>
+                <div class="col-md-3"><div class="ops-card p-3"><div class="small text-secondary">Próximas a vencer</div><div class="display-6 fw-bold">{{ future_dashboard.commercial.expiring_recurrences|length }}</div><div class="small text-secondary">Encerram em breve</div></div></div>
+              </div>
+
+              <div class="row g-3">
+                <div class="col-lg-8">
+                  <div class="entity-card p-3 h-100">
+                    <div class="fw-semibold mb-2">Agenda consolidada</div>
+                    <div class="d-grid gap-2">
+                      {% for period in future_dashboard.periods %}
+                      <details class="small">
+                        <summary class="d-flex justify-content-between gap-3" style="cursor:pointer; list-style:none;">
+                          <span>
+                            <span class="fw-semibold">{{ period.period_key }}</span>
+                            <span class="text-secondary"> • {{ period.event_count }} eventos • {{ period.client_count }} clientes</span>
+                          </span>
+                          <span>
+                            <span class="route-badge {{ 'badge-success' if period.capacity_remaining > 0 else 'badge-danger' }}">Capacidade {{ period.capacity_remaining }}/{{ period.estimated_capacity_total }}</span>
+                            <span class="route-badge {{ 'badge-danger' if period.utilization_pct >= 85 else 'badge-success' if period.utilization_pct <= 50 else 'badge-avulso' }}">Ocupação {{ '%.2f'|format(period.utilization_pct) }}%</span>
+                          </span>
+                        </summary>
+                        <div class="entity-card p-3 mt-2">
+                          <div class="route-badges mb-2">
+                            <span class="route-badge badge-fixed">Equip disponíveis {{ period.equipment_available }}/{{ period.equipment_total }}</span>
+                            <span class="route-badge badge-avulso">Equip em uso {{ period.equipment_projected_in_use }}</span>
+                            <span class="route-badge badge-avulso">Manutenção {{ period.equipment_maintenance }}</span>
+                            <span class="route-badge badge-fixed">Veículos livres {{ period.vehicles_free }}/{{ period.vehicles_total }}</span>
+                            <span class="route-badge badge-avulso">Veículos comprometidos {{ period.vehicles_committed }}</span>
+                          </div>
+                          <div class="d-grid gap-1">
+                            {% for event in period.events %}
+                            <div class="small d-flex justify-content-between gap-2">
+                              <span>{{ event.title }} • {{ event.event_period_label or event.event_date }}</span>
+                              <span>
+                                <span class="route-badge badge-fixed">{{ event.status }}</span>
+                                {% if event.is_virtual_occurrence %}
+                                <span class="route-badge badge-avulso">previsto</span>
+                                {% endif %}
+                              </span>
+                            </div>
+                            {% endfor %}
+                          </div>
+                        </div>
+                      </details>
+                      {% else %}
+                      <div class="text-secondary">Nenhuma agenda futura projetada ainda.</div>
+                      {% endfor %}
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-4">
+                  <div class="entity-card p-3 h-100">
+                    <div class="fw-semibold mb-2">Alertas de previsão</div>
+                    <div class="d-grid gap-2 small">
+                      {% for item in future_dashboard.alerts %}
+                      <div><span class="route-badge {{ 'badge-danger' if item.level == 'danger' else 'badge-success' }}">{{ item.scope }}</span> {{ item.message }}</div>
+                      {% else %}
+                      <div class="text-secondary">Nenhum alerta futuro crítico no momento.</div>
+                      {% endfor %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="row g-3 mt-1">
+                <div class="col-lg-6">
+                  <div class="entity-card p-3 h-100">
+                    <div class="fw-semibold mb-2">Leitura comercial</div>
+                    <div class="small text-secondary mb-2">Datas com folga e datas quase lotadas</div>
+                    <div class="d-grid gap-2 small">
+                      <div class="fw-semibold">Folga operacional</div>
+                      {% for item in future_dashboard.commercial.dates_with_capacity %}
+                      <div>{{ item.period_key }} • capacidade restante {{ item.capacity_remaining }} • ocupação {{ '%.2f'|format(item.utilization_pct) }}%</div>
+                      {% else %}
+                      <div class="text-secondary">Sem períodos com folga relevante ainda.</div>
+                      {% endfor %}
+                      <div class="fw-semibold mt-2">Quase lotado</div>
+                      {% for item in future_dashboard.commercial.dates_almost_full %}
+                      <div>{{ item.period_key }} • ocupação {{ '%.2f'|format(item.utilization_pct) }}%</div>
+                      {% else %}
+                      <div class="text-secondary">Nenhum período quase lotado.</div>
+                      {% endfor %}
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-6">
+                  <div class="entity-card p-3 h-100">
+                    <div class="fw-semibold mb-2">Recorrência e previsão simples</div>
+                    <div class="d-grid gap-2 small">
+                      <div class="fw-semibold">Recorrentes ativos</div>
+                      {% for item in future_dashboard.commercial.recurring_active %}
+                      <div>{{ item.title }} • próxima {{ item.next_occurrence_date or "n/d" }} • {{ item.recurrence_status }}</div>
+                      {% else %}
+                      <div class="text-secondary">Nenhuma recorrência ativa.</div>
+                      {% endfor %}
+                      <div class="fw-semibold mt-2">Prestes a vencer</div>
+                      {% for item in future_dashboard.commercial.expiring_recurrences %}
+                      <div>{{ item.title }} • encerra em {{ item.recurrence_end }}</div>
+                      {% else %}
+                      <div class="text-secondary">Nenhuma recorrência próxima do vencimento.</div>
+                      {% endfor %}
+                      <div class="fw-semibold mt-2">Ticket médio</div>
+                      <div>{{ '%.2f'|format(future_dashboard.prediction.ticket_medio) }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="row g-3 mt-1">
+                <div class="col-lg-4">
+                  <div class="entity-card p-3 h-100">
+                    <div class="fw-semibold mb-2">Meses com maior volume</div>
+                    <div class="d-grid gap-1 small">
+                      {% for label, value in future_dashboard.prediction.top_months %}
+                      <div>{{ label }} • {{ value }} eventos</div>
+                      {% else %}
+                      <div class="text-secondary">Sem histórico suficiente.</div>
+                      {% endfor %}
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-4">
+                  <div class="entity-card p-3 h-100">
+                    <div class="fw-semibold mb-2">Dias da semana com maior demanda</div>
+                    <div class="d-grid gap-1 small">
+                      {% for label, value in future_dashboard.prediction.top_weekdays %}
+                      <div>{{ label }} • {{ value }}</div>
+                      {% else %}
+                      <div class="text-secondary">Sem histórico suficiente.</div>
+                      {% endfor %}
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-4">
+                  <div class="entity-card p-3 h-100">
+                    <div class="fw-semibold mb-2">Regiões com maior recorrência</div>
+                    <div class="d-grid gap-1 small">
+                      {% for label, value in future_dashboard.prediction.top_regions %}
+                      <div>{{ label }} • {{ value }}</div>
+                      {% else %}
+                      <div class="text-secondary">Sem recorrência regional suficiente.</div>
+                      {% endfor %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <div class="tab-pane fade" id="history-pane" role="tabpanel" aria-labelledby="history-tab" tabindex="0">
+          <section class="glass p-4">
+          <div class="d-flex justify-content-between align-items-end gap-3 mb-3">
+            <div>
+              <h2 class="h4 mb-1">Histórico diário de saídas</h2>
+              <p class="text-secondary mb-0 small">Registro das últimas gerações com veículos e equipamentos enviados.</p>
+            </div>
+          </div>
+          <div class="d-grid gap-3">
+            {% if route_history %}
+              {% for event in route_history %}
+              <div class="entity-card p-3 history-item">
+                <div class="fw-semibold">{{ event.generated_at }}</div>
+                <div class="small text-secondary mb-2">
+                  {{ event.event_title or "Operação geral" }} •
+                  {{ event.summary.assigned_deliveries if event.summary else 0 }} atribuídas •
+                  {{ event.summary.unassigned_deliveries if event.summary else 0 }} pendências •
+                  {{ event.summary.total_distance_km if event.summary else 0 }} km
+                </div>
+                {% if event.validation and event.validation.summary %}
+                <div class="small text-secondary mb-2">
+                  Validação {{ event.validation.validated_at }} • elegíveis {{ event.validation.summary.eligible_clients }} • bloqueados {{ event.validation.summary.blocked_clients }}
+                </div>
+                {% endif %}
+                <div class="route-badges">
+                  <span class="route-badge {{ 'badge-success' if (event.financial_summary.profit_total if event.financial_summary else 0) >= 0 else 'badge-danger' }}">
+                    Lucro {{ '%.2f'|format(event.financial_summary.profit_total if event.financial_summary else 0) }}
+                  </span>
+                  <span class="route-badge badge-fixed">
+                    Margem {{ '%.2f'|format((event.financial_summary or {}).get('margin_pct', 0)) }}%
+                  </span>
+                  {% for vehicle_id in event.vehicle_ids %}
+                  <span class="route-badge badge-fixed">Veículo {{ vehicle_id }}</span>
+                  {% endfor %}
+                  {% for equipment in event.equipment_in_route %}
+                  <span class="route-badge badge-avulso">{{ equipment.equipment_id }} • {{ equipment.client_name or equipment.client_id }}</span>
+                  {% endfor %}
+                </div>
+                {% if event.validation and event.validation.pending_items %}
+                <div class="small text-secondary mt-2">
+                  {% for item in event.validation.pending_items[:4] %}
+                  <div>{{ item.client_name }} • {{ item.reason_code }} • {{ item.reason }}</div>
+                  {% endfor %}
+                </div>
+                {% endif %}
+              </div>
+              {% endfor %}
+            {% else %}
+            <div class="text-center text-secondary py-4">Nenhuma saída registrada ainda.</div>
+            {% endif %}
+          </div>
+        </section>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  {% if route_data %}
+  <script>
+    const routeData = {{ route_data|tojson }};
+    const svg = document.getElementById("map-svg");
+    const routes = routeData.routes || [];
+    const points = [];
+    routes.forEach((route, routeIndex) => (route.stops || []).forEach((stop, stopIndex) => points.push({ ...stop, routeIndex, stopIndex })));
+    if (!points.length) {
+      svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#62716b" font-size="18">Nenhuma rota para desenhar.</text>';
+    } else {
+      const width = 900;
+      const height = 380;
+      const pad = 32;
+      const colors = ["#d2a54a", "#2fb2c9", "#2c5a7b", "#6b5c3b"];
+      const lats = points.map((point) => point.lat);
+      const lngs = points.map((point) => point.lng);
+      const minLat = Math.min(...lats);
+      const maxLat = Math.max(...lats);
+      const minLng = Math.min(...lngs);
+      const maxLng = Math.max(...lngs);
+      const latSpan = Math.max(maxLat - minLat, 0.01);
+      const lngSpan = Math.max(maxLng - minLng, 0.01);
+      const project = (point) => ({
+        x: pad + (((point.lng - minLng) / lngSpan) * (width - (pad * 2))),
+        y: pad + ((1 - ((point.lat - minLat) / latSpan)) * (height - (pad * 2))),
+      });
+      routes.forEach((route, routeIndex) => {
+        const coords = (route.stops || []).map(project);
+        if (!coords.length) return;
+        const polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+        polyline.setAttribute("fill", "none");
+        polyline.setAttribute("stroke", colors[routeIndex % colors.length]);
+        polyline.setAttribute("stroke-width", "4");
+        polyline.setAttribute("stroke-linecap", "round");
+        polyline.setAttribute("stroke-linejoin", "round");
+        polyline.setAttribute("points", coords.map((coord) => `${coord.x},${coord.y}`).join(" "));
+        svg.appendChild(polyline);
+      });
+      points.forEach((point, index) => {
+        const { x, y } = project(point);
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("cx", x);
+        circle.setAttribute("cy", y);
+        circle.setAttribute("r", "8");
+        circle.setAttribute("fill", "#ffffff");
+        circle.setAttribute("stroke", colors[point.routeIndex % colors.length]);
+        circle.setAttribute("stroke-width", "4");
+        svg.appendChild(circle);
+        const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        label.setAttribute("x", x + 12);
+        label.setAttribute("y", y - 12);
+        label.setAttribute("fill", "#182220");
+        label.setAttribute("font-size", "12");
+        label.setAttribute("font-weight", "700");
+        label.textContent = `${index + 1}. ${point.customer_name || point.delivery_id} • ${point.equipment_number || "sem estoque"}`;
+        svg.appendChild(label);
+      });
+    }
+  </script>
+  {% endif %}
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const clientForm = document.getElementById("manual-client-form");
+    const geocodeButton = document.getElementById("geocode-button");
+    const geocodeStatus = document.getElementById("geocode-status");
+    const clearClientFormButton = document.getElementById("clear-client-form");
+    const saveClientButton = document.getElementById("save-client-button");
+    const generateEventField = document.getElementById("generate_event_id");
+    const validateEventField = document.getElementById("validate_event_id");
+    const clientFields = {
+      client_id: document.getElementById("client_id"),
+      customer_name: document.getElementById("customer_name"),
+      contact_name: document.getElementById("contact_name"),
+      cpf_cnpj: document.getElementById("cpf_cnpj"),
+      email: document.getElementById("email"),
+      address: document.getElementById("client_address"),
+      lat: document.getElementById("client_lat"),
+      lng: document.getElementById("client_lng"),
+      client_type: document.getElementById("client_type"),
+      equipment_type: document.getElementById("equipment_type"),
+      equipment_quantity: document.getElementById("equipment_quantity"),
+      equipment_number: document.getElementById("equipment_number"),
+      default_service_minutes: document.getElementById("default_service_minutes"),
+      default_priority: document.getElementById("default_priority"),
+      window_start: document.getElementById("window_start"),
+      window_end: document.getElementById("window_end"),
+      locked_vehicle_id: document.getElementById("locked_vehicle_id"),
+      service_value: document.getElementById("service_value"),
+      team_cost: document.getElementById("team_cost"),
+      equipment_cost: document.getElementById("equipment_cost"),
+    };
+    const vehicleFields = {
+      vehicle_id: document.getElementById("vehicle_id"),
+      vehicle_type: document.getElementById("vehicle_type"),
+      plate: document.getElementById("plate"),
+      model: document.getElementById("model"),
+      start_lat: document.getElementById("start_lat"),
+      start_lng: document.getElementById("start_lng"),
+      capacity: document.getElementById("capacity"),
+      max_stops: document.getElementById("max_stops"),
+      max_minutes: document.getElementById("max_minutes"),
+    };
+    const equipmentFields = {
+      equipment_id: document.getElementById("equipment_id_stock"),
+      equipment_type: document.getElementById("stock_equipment_type"),
+      condition: document.getElementById("condition"),
+      notes: document.getElementById("notes"),
+    };
+    const eventForm = document.getElementById("event-form");
+    const eventFields = {
+      event_id: document.getElementById("event_id"),
+      title: document.getElementById("title"),
+      event_category: document.getElementById("event_category"),
+      event_date: document.getElementById("event_date"),
+      event_end_date: document.getElementById("event_end_date"),
+      status: document.getElementById("event_status"),
+      notes: document.getElementById("notes_event"),
+      valor_servico: document.getElementById("valor_servico"),
+      valor_adicional: document.getElementById("valor_adicional"),
+      desconto: document.getElementById("desconto"),
+      custo_equipe: document.getElementById("custo_equipe"),
+      quantidade_equipes: document.getElementById("quantidade_equipes"),
+      custo_por_equipamento: document.getElementById("custo_por_equipamento"),
+      custo_fixo_veiculo: document.getElementById("custo_fixo_veiculo"),
+      custo_extra_operacional: document.getElementById("custo_extra_operacional"),
+      recurrence_enabled: document.getElementById("recurrence_enabled"),
+      recurrence_frequency: document.getElementById("recurrence_frequency"),
+      recurrence_interval_days: document.getElementById("recurrence_interval_days"),
+      recurrence_start: document.getElementById("recurrence_start"),
+      recurrence_end: document.getElementById("recurrence_end"),
+      next_occurrence_date: document.getElementById("next_occurrence_date"),
+      recurrence_status: document.getElementById("recurrence_status"),
+      recurrence_notes: document.getElementById("recurrence_notes"),
+      recurring_value: document.getElementById("recurring_value"),
+    };
+
+    function activateTab(tabButtonId) {
+      const tabButton = document.getElementById(tabButtonId);
+      if (tabButton && window.bootstrap?.Tab) {
+        window.bootstrap.Tab.getOrCreateInstance(tabButton).show();
+      }
+    }
+
+    function fillFields(mapping, values, aliases = {}) {
+      Object.entries(mapping).forEach(([key, element]) => {
+        const sourceKey = aliases[key] || key;
+        if (!element) return;
+        element.value = values[sourceKey] ?? "";
+      });
+    }
+
+    function resetClientForm() {
+      clientForm.reset();
+      clientFields.client_type.value = "fixo";
+      clientFields.equipment_type.value = "Banheiro Luxo";
+      clientFields.equipment_quantity.value = "1";
+      clientFields.default_service_minutes.value = "20";
+      clientFields.default_priority.value = "3";
+      clientFields.window_start.value = "08:00";
+      clientFields.window_end.value = "18:00";
+      clientFields.locked_vehicle_id.value = "";
+      clientFields.service_value.value = "0";
+      clientFields.team_cost.value = "0";
+      clientFields.equipment_cost.value = "0";
+      saveClientButton.textContent = "Salvar cliente";
+      geocodeStatus.textContent = "Use o endereço acima para buscar coordenadas automaticamente.";
+    }
+
+    function syncValidationEvent() {
+      if (validateEventField && generateEventField) {
+        validateEventField.value = generateEventField.value || "";
+      }
+    }
+
+    const hqLat = "{{ hq.lat }}";
+    const hqLng = "{{ hq.lng }}";
+    if (vehicleFields.start_lat && !vehicleFields.start_lat.value) {
+      vehicleFields.start_lat.value = hqLat;
+    }
+    if (vehicleFields.start_lng && !vehicleFields.start_lng.value) {
+      vehicleFields.start_lng.value = hqLng;
+    }
+    generateEventField?.addEventListener("change", syncValidationEvent);
+    syncValidationEvent();
+    eventFields.event_date?.addEventListener("change", () => {
+      if (eventFields.event_end_date && !eventFields.event_end_date.value) {
+        eventFields.event_end_date.value = eventFields.event_date.value;
+      }
+    });
+
+    document.getElementById("open-operations-tab")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      activateTab("operations-tab");
+      document.getElementById("gerador")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+
+    clearClientFormButton?.addEventListener("click", resetClientForm);
+
+    document.querySelectorAll(".edit-client-button").forEach((button) => {
+      button.addEventListener("click", () => {
+        activateTab("clients-tab");
+        const client = JSON.parse(button.dataset.client);
+        fillFields(clientFields, client, { address: "address", lat: "lat", lng: "lng" });
+        saveClientButton.textContent = `Salvar alterações de ${client.customer_name || client.client_id}`;
+        clientForm.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+
+    document.querySelectorAll(".edit-vehicle-button").forEach((button) => {
+      button.addEventListener("click", () => {
+        activateTab("fleet-tab");
+        fillFields(vehicleFields, JSON.parse(button.dataset.vehicle));
+        document.getElementById("save-vehicle-button").textContent = "Salvar alterações do veículo";
+        document.getElementById("vehicle-form").scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+
+    document.querySelectorAll(".edit-equipment-button").forEach((button) => {
+      button.addEventListener("click", () => {
+        activateTab("fleet-tab");
+        fillFields(equipmentFields, JSON.parse(button.dataset.equipment), { equipment_id: "equipment_id", equipment_type: "equipment_type" });
+        document.getElementById("save-equipment-button").textContent = "Salvar alterações do equipamento";
+        document.getElementById("equipment-form").scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+
+    document.querySelectorAll(".edit-event-button").forEach((button) => {
+      button.addEventListener("click", () => {
+        activateTab("events-tab");
+        const event = JSON.parse(button.dataset.event);
+        fillFields(eventFields, event);
+        [...document.getElementById("event_client_ids").options].forEach((option) => {
+          option.selected = (event.client_ids || []).includes(option.value);
+        });
+        [...document.getElementById("event_vehicle_ids").options].forEach((option) => {
+          option.selected = (event.vehicle_ids || []).includes(option.value);
+        });
+        (event.checklist || []).forEach((item) => {
+          const input = document.querySelector(`input[name="check_${item.label}"]`);
+          if (input) input.checked = Boolean(item.done);
+        });
+        document.getElementById("save-event-button").textContent = "Salvar alterações do evento";
+        eventForm.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+
+    geocodeButton?.addEventListener("click", async () => {
+      const address = clientFields.address.value.trim();
+      if (!address) {
+        geocodeStatus.textContent = "Informe um endereço antes de buscar coordenadas.";
+        return;
+      }
+      geocodeButton.disabled = true;
+      geocodeStatus.textContent = "Buscando coordenadas...";
+      try {
+        const response = await fetch("{{ url_for('geocode') }}", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ address }),
+        });
+        const payload = await response.json();
+        if (!response.ok || !payload.ok) throw new Error(payload.error || "Nao foi possivel geocodificar.");
+        clientFields.lat.value = payload.lat;
+        clientFields.lng.value = payload.lng;
+        geocodeStatus.textContent = `Coordenadas preenchidas: ${Number(payload.lat).toFixed(5)}, ${Number(payload.lng).toFixed(5)}`;
+      } catch (error) {
+        geocodeStatus.textContent = error.message;
+      } finally {
+        geocodeButton.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
