@@ -2,6 +2,21 @@
 
 ## Subir localmente
 
+Modo recomendado:
+
+```bash
+cd "/Users/thiagoantunes/Documents/New project/gestor-de-rota-empresa"
+bash scripts/start_local.sh
+```
+
+Abra:
+
+```text
+http://127.0.0.1:5007
+```
+
+Modo manual:
+
 ```bash
 cd "/Users/thiagoantunes/Documents/New project/gestor-de-rota-empresa"
 python3 -m venv .venv
@@ -85,3 +100,5 @@ O arquivo `.zip` inclui:
 ## Observação operacional
 
 Para uso interno imediato, a versão local já está pronta. Para uso em equipe com acesso externo contínuo, o próximo passo ideal é publicar em uma hospedagem estável para Python, como Render, com backup recorrente.
+
+Veja tambem `docs/finalizacao-local.md` para o checklist operacional de abertura, rota, PDF e backup.

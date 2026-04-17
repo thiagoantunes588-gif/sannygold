@@ -10,7 +10,7 @@ import tempfile
 import urllib.parse
 import urllib.request
 import zipfile
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 from xml.etree import ElementTree as ET
@@ -266,6 +266,53 @@ def delete_item(items: list[dict], key: str, value: str) -> tuple[list[dict], bo
 
 def now_iso() -> str:
     return datetime.now().isoformat(timespec="seconds")
+
+
+def format_datetime_br(value: str | None) -> str:
+    text = clean_text(value)
+    if not text:
+        return "nunca"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return text
+    return parsed.strftime("%d/%m/%Y %H:%M")
+
+
+def format_date_br(value: str | None) -> str:
+    parsed = parse_date(value)
+    return parsed.strftime("%d/%m/%Y") if parsed else clean_text(value)
+
+
+def format_currency_br(value) -> str:
+    try:
+        amount = float(value or 0)
+    except (TypeError, ValueError):
+        amount = 0.0
+    formatted = f"{amount:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return f"R$ {formatted}"
+
+
+app.jinja_env.filters["datetime_br"] = format_datetime_br
+app.jinja_env.filters["date_br"] = format_date_br
+app.jinja_env.filters["currency_br"] = format_currency_br
+
+
+def google_maps_directions_url(stops: list[dict], origin_lat: float = HQ_LAT, origin_lng: float = HQ_LNG) -> str:
+    valid_stops = [stop for stop in stops if stop.get("lat") is not None and stop.get("lng") is not None]
+    if not valid_stops:
+        return f"https://www.google.com/maps/search/?api=1&query={origin_lat},{origin_lng}"
+    destination = valid_stops[-1]
+    params = {
+        "api": "1",
+        "origin": f"{origin_lat},{origin_lng}",
+        "destination": f"{destination.get('lat')},{destination.get('lng')}",
+        "travelmode": "driving",
+    }
+    waypoints = valid_stops[:-1][:8]
+    if waypoints:
+        params["waypoints"] = "|".join(f"{stop.get('lat')},{stop.get('lng')}" for stop in waypoints)
+    return "https://www.google.com/maps/dir/?" + urllib.parse.urlencode(params)
 
 
 def parse_date(value: str | None):
@@ -2762,6 +2809,148 @@ def build_financial_dashboard(route_data: dict | None, route_history: list[dict]
     }
 
 
+def build_customer_history(clients: list[dict], events: list[dict], route_history: list[dict], confirmations: list[dict]) -> list[dict]:
+    events_by_client: dict[str, list[dict]] = {}
+    for event in events:
+        for client_id in event.get("client_ids", []) or []:
+            events_by_client.setdefault(clean_text(client_id), []).append(event)
+
+    confirmations_by_client: dict[str, list[dict]] = {}
+    for confirmation in confirmations:
+        confirmations_by_client.setdefault(clean_text(confirmation.get("client_id")), []).append(confirmation)
+
+    runs_by_client: dict[str, list[dict]] = {}
+    for history_item in route_history:
+        for financial_event in history_item.get("financial_events") or []:
+            client_id = clean_text(financial_event.get("client_id"))
+            runs_by_client.setdefault(client_id, []).append({**financial_event, "generated_at": history_item.get("generated_at")})
+
+    customer_history = []
+    for client in clients:
+        client_id = clean_text(client.get("client_id"))
+        runs = runs_by_client.get(client_id, [])
+        event_items = events_by_client.get(client_id, [])
+        confirmation_items = confirmations_by_client.get(client_id, [])
+        last_run = runs[0] if runs else {}
+        customer_history.append(
+            {
+                "client_id": client_id,
+                "customer_name": clean_text(client.get("customer_name")),
+                "address": clean_text(client.get("address")),
+                "equipment_number": clean_text(client.get("equipment_number")) or "sem vínculo",
+                "events_count": len(event_items),
+                "routes_count": len(runs),
+                "confirmations_count": len(confirmation_items),
+                "revenue_total": round2(sum(float(item.get("service_value") or 0) for item in runs)),
+                "profit_total": round2(sum(float(item.get("profit") or 0) for item in runs)),
+                "last_route_at": clean_text(last_run.get("generated_at")),
+                "last_vehicle_id": clean_text(last_run.get("vehicle_id")) or "n/d",
+                "active_events": [event for event in event_items if event_is_active(event)][:3],
+            }
+        )
+    return customer_history
+
+
+def build_calendar_weeks(events: list[dict], horizon_days: int = 35) -> list[list[dict]]:
+    today = datetime.now().date()
+    start = today - timedelta(days=today.weekday())
+    occurrences = expand_future_occurrences(events, horizon_days=horizon_days)
+    by_date: dict[str, list[dict]] = {}
+    for occurrence in occurrences:
+        event_date = clean_text(occurrence.get("event_date"))
+        if event_date:
+            by_date.setdefault(event_date, []).append(occurrence)
+
+    weeks = []
+    current = start
+    for _ in range(5):
+        week = []
+        for _ in range(7):
+            key = current.isoformat()
+            week.append(
+                {
+                    "date": key,
+                    "label": current.strftime("%d/%m"),
+                    "is_today": current == today,
+                    "events": by_date.get(key, [])[:4],
+                }
+            )
+            current += timedelta(days=1)
+        weeks.append(week)
+    return weeks
+
+
+def build_preventive_warnings(clients: list[dict], vehicles: list[dict], equipment: list[dict], events: list[dict], validation_payload: dict) -> list[dict]:
+    warnings = []
+    clients_without_coordinates = [client for client in clients if client.get("lat") is None or client.get("lng") is None]
+    if clients_without_coordinates:
+        warnings.append({"title": "Clientes sem coordenada", "detail": f"{len(clients_without_coordinates)} cadastro(s) precisam de latitude e longitude.", "target_tab": "clients-tab", "target_href": "#clients-pane", "action": "Abrir clientes"})
+    if not vehicles:
+        warnings.append({"title": "Nenhum veículo cadastrado", "detail": "Cadastre ao menos um veículo antes de gerar rota.", "target_tab": "fleet-tab", "target_href": "#fleet-pane", "action": "Abrir frota"})
+    if not equipment:
+        warnings.append({"title": "Estoque vazio", "detail": "Cadastre equipamentos para controlar vínculo e retorno.", "target_tab": "fleet-tab", "target_href": "#fleet-pane", "action": "Abrir estoque"})
+    for event in events:
+        if event_is_active(event) and (not event.get("client_ids") or not event.get("vehicle_ids")):
+            warnings.append({"title": f"Evento incompleto: {event.get('title')}", "detail": "Vincule clientes e veículos antes da validação.", "target_tab": "events-tab", "target_href": "#events-pane", "action": "Revisar evento"})
+    for item in (validation_payload.get("pending_items") or [])[:4]:
+        warnings.append({"title": item.get("reason_label") or pending_reason_label(item.get("reason_code", "")), "detail": item.get("reason") or item.get("client_name") or "Pendência operacional.", "target_tab": "operations-tab", "target_href": "#operations-pane", "action": "Ver validação"})
+    return warnings[:8]
+
+
+def build_real_map_routes(route_data: dict | None) -> list[dict]:
+    if not route_data:
+        return []
+    map_routes = []
+    for route in route_data.get("routes") or []:
+        stops = route.get("stops") or []
+        if not stops:
+            continue
+        map_routes.append(
+            {
+                "vehicle_id": clean_text(route.get("vehicle_id")),
+                "stops_count": len(stops),
+                "google_maps_url": google_maps_directions_url(stops),
+                "first_stop": stops[0],
+                "last_stop": stops[-1],
+            }
+        )
+    return map_routes
+
+
+def build_daily_closeout_payload() -> dict:
+    route_data = load_route_data() or {}
+    route_history = load_route_history()
+    confirmations = load_field_confirmations()
+    inventory = build_inventory_view(load_clients(), route_data, confirmations)
+    today = datetime.now().date().isoformat()
+    latest = route_history[0] if route_history else {}
+    return {
+        "closed_at": now_iso(),
+        "date": today,
+        "route_summary": route_data.get("summary") or {},
+        "latest_route_generated_at": latest.get("generated_at", ""),
+        "financial_summary": latest.get("financial_summary") or {},
+        "pending_confirmations": [
+            item for item in inventory
+            if item.get("status") in {"carregado", "em_rota", "instalado", "retirada_pendente"}
+        ],
+        "confirmations_count": len(confirmations),
+    }
+
+
+def build_daily_closeout_zip() -> bytes:
+    payload = build_daily_closeout_payload()
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("fechamento-diario.json", json.dumps(payload, indent=2, ensure_ascii=False))
+        if ROUTE_JSON_PATH.exists():
+            archive.write(ROUTE_JSON_PATH, "route-plan-mobile.json")
+        if ROUTE_PDF_PATH.exists():
+            archive.write(ROUTE_PDF_PATH, "route-plan.pdf")
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
 def build_dashboard_context() -> dict:
     selected_financial_period = clean_text(request.args.get("financial_period"), "monthly") or "monthly"
     selected_agenda_period = clean_text(request.args.get("agenda_period"), "weekly") or "weekly"
@@ -2814,6 +3003,8 @@ def build_dashboard_context() -> dict:
         "route_data": route_data,
         "has_pdf": ROUTE_PDF_PATH.exists(),
         "has_json": ROUTE_JSON_PATH.exists(),
+        "last_backup_at": clean_text(settings.get("last_backup_at")),
+        "last_backup_label": format_datetime_br(settings.get("last_backup_at")),
         "clients": clients,
         "vehicles_registry": vehicles,
         "events": enriched_events,
@@ -2825,6 +3016,11 @@ def build_dashboard_context() -> dict:
         "pending_reasons": pending_reasons,
         "operation_validation": validation_payload,
         "financial_dashboard": financial_dashboard,
+        "customer_history": build_customer_history(clients, events, route_history, field_confirmations),
+        "calendar_weeks": build_calendar_weeks(events),
+        "preventive_warnings": build_preventive_warnings(clients, vehicles, inventory, events, validation_payload),
+        "real_map_routes": build_real_map_routes(route_data),
+        "last_closeout_label": format_datetime_br(settings.get("last_closeout_at")),
         "financial_period": selected_financial_period,
         "future_dashboard": future_dashboard,
         "agenda_period": selected_agenda_period,
@@ -2982,11 +3178,27 @@ def download_clients_template():
 
 @app.route("/backup/system.zip", methods=["GET"])
 def download_system_backup():
+    settings = load_settings()
+    settings["last_backup_at"] = now_iso()
+    save_settings(settings)
     return send_file(
         io.BytesIO(build_system_backup_bytes()),
         mimetype="application/zip",
         as_attachment=True,
         download_name=f"sannygold-backup-{datetime.now().date().isoformat()}.zip",
+    )
+
+
+@app.route("/daily-closeout.zip", methods=["GET"])
+def download_daily_closeout():
+    settings = load_settings()
+    settings["last_closeout_at"] = now_iso()
+    save_settings(settings)
+    return send_file(
+        io.BytesIO(build_daily_closeout_zip()),
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name=f"sannygold-fechamento-{datetime.now().date().isoformat()}.zip",
     )
 
 
