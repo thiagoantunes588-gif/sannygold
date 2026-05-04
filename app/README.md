@@ -34,13 +34,18 @@ http://127.0.0.1:5000
 ## O que a versão atual já faz
 
 - cadastro de clientes, veículos, equipamentos e eventos
+- autenticação com modo visitante, roles e permissões por módulo
 - data inicial e data final no evento
 - cálculo automático de diárias pelo período do evento
 - geração de rotas com validação prévia
-- dashboard operacional, financeiro e agenda futura
+- dashboard operacional, financeiro, agenda futura e pendências
+- almoxarifado interno com reposição, baixa, ajuste e histórico
+- financeiro com contas a receber, fluxo de caixa, inadimplência e fechamento mensal
+- busca global fixa, modo operação rápida e filtros persistentes
 - importação de clientes por texto em lote
 - importação de clientes por Excel `.xlsx`
-- PDF operacional para motorista
+- PDF operacional para repassar ao motorista ou equipe
+- relatórios PDF/Excel por módulo
 - backup rápido dos dados do sistema
 
 ## Fluxo recomendado de uso
@@ -51,7 +56,7 @@ http://127.0.0.1:5000
 4. Vincule clientes e veículos ao evento.
 5. Valide a operação antes de gerar a rota.
 6. Gere a rota.
-7. Abra o PDF e repasse para a equipe.
+7. Abra o PDF e repasse para o motorista ou equipe.
 8. Registre confirmações de campo.
 9. Acompanhe margem, lucro e capacidade no painel.
 
@@ -96,9 +101,36 @@ O arquivo `.zip` inclui:
 - última validação
 - última projeção
 - último PDF e JSON gerados
+- usuários, auditoria, almoxarifado e financeiro
+
+## Materiais de finalização
+
+- `docs/finalizacao-v1.md`: checklist de aceite, deploy e rotina v1.0.
+- `docs/manual-rapido-equipe.md`: manual em texto para treinamento.
+- `output/pdf/sannygold-manual-rapido-equipe.pdf`: manual rápido em PDF.
+- `output/pdf/sannygold-apresentacao-sistema.pdf`: apresentação do sistema em PDF.
+
+## Publicação
+
+O arquivo `render.yaml` está preparado para Render com disco persistente em `/var/data`.
+
+Antes de publicar, configure no provedor:
+
+- `SANNYGOLD_SECRET_KEY`
+- `SANNYGOLD_ADMIN_EMAIL=contato@sannygold.com`
+- `SANNYGOLD_ADMIN_PASSWORD`
+- `SANNYGOLD_ADMIN_NAME`
+- `ROTAFLOW_STORAGE_DIR=/var/data`
+
+## Monitoramento básico
+
+Endpoints úteis depois do deploy:
+
+- `GET /health`: status básico da aplicação, armazenamento e artefatos principais.
+- `GET /system/status.json`: snapshot operacional autenticado com versão, ambiente, contagens e status do sistema.
 
 ## Observação operacional
 
 Para uso interno imediato, a versão local já está pronta. Para uso em equipe com acesso externo contínuo, o próximo passo ideal é publicar em uma hospedagem estável para Python, como Render, com backup recorrente.
 
-Veja tambem `docs/finalizacao-local.md` para o checklist operacional de abertura, rota, PDF e backup.
+Veja tambem `docs/finalizacao-v1.md` para o checklist final de versão.

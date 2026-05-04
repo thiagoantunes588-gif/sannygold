@@ -1,32 +1,34 @@
-# Playbook de operação mobile
+# Playbook de entrega do PDF operacional
 
 ## Objetivo
 
-Garantir execução de rota no celular com baixa latência, baixa fricção e boa tolerância a conectividade instável.
+Garantir que administrativo e operacional gerem uma rota clara em PDF para repassar ao motorista ou equipe de campo.
 
-## Checklist do app de motorista
+## Checklist do administrativo/operacional
 
-- Mostrar `next_stop` no topo da tela.
-- Exibir botões de ação rápida: `Iniciar`, `Cheguei`, `Concluída`, `Não atendida`.
-- Permitir reenvio automático de eventos quando a rede voltar.
-- Mostrar progresso de rota: paradas concluídas / totais.
-- Exibir ETA da próxima parada com atualização periódica.
+- Validar evento, clientes, equipamentos e veículos antes de gerar.
+- Gerar a rota apenas quando a validação estiver apta.
+- Conferir o PDF gerado com cliente, data, horário, local, contato e telefone.
+- Repassar somente o PDF ao motorista ou equipe de campo.
+- Manter o acesso ao sistema restrito ao administrativo e operacional.
 
 ## Requisitos de dados
 
-- Consumir JSON com campos mínimos de navegação e execução.
-- Manter payload por rota enxuto para reduzir custo de rede móvel.
-- Incluir coordenadas em todas as paradas para abrir navegação externa.
+- Manter dados de cliente completos para o romaneio: contato, telefone, endereço e equipamento.
+- Incluir data inicial, data final e diárias do evento.
+- Registrar observações operacionais no evento quando precisarem sair no PDF.
 
 ## Resiliência
 
-- Implementar fila local de eventos em modo offline.
-- Sincronizar eventos por ordem de criação.
-- Marcar conflitos de sincronização para auditoria.
+- Se o motorista não tiver acesso ao sistema, centralizar ajustes no administrativo/operacional.
+- Em caso de mudança de rota, gerar novo PDF e substituir a versão enviada anteriormente.
+- Usar o histórico e confirmações internas para auditoria após a execução.
 
 ## Operação diária
 
-1. Baixar rota antes da saída da base.
-2. Confirmar geolocalização ativa e bateria suficiente.
-3. Executar paradas em sequência e registrar status.
-4. Sincronizar exceções (`unassigned`, não atendidas, atrasos) com o despacho.
+1. Validar a operação no sistema.
+2. Gerar a rota.
+3. Abrir o PDF operacional.
+4. Conferir dados essenciais antes da saída.
+5. Repassar o PDF ao motorista ou equipe.
+6. Registrar internamente qualquer ajuste ou confirmação de campo.

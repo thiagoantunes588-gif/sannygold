@@ -2,13 +2,25 @@ services:
   - type: web
     name: sannygold-operacao
     runtime: python
-    plan: free
+    plan: starter
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app.main:app --bind 0.0.0.0:$PORT
+    disk:
+      name: sannygold-data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
       - key: FLASK_HOST
         value: 0.0.0.0
       - key: ROTAFLOW_STORAGE_DIR
-        value: /tmp/rotaflow
+        value: /var/data
+      - key: SANNYGOLD_SECRET_KEY
+        sync: false
+      - key: SANNYGOLD_ADMIN_EMAIL
+        value: contato@sannygold.com
+      - key: SANNYGOLD_ADMIN_PASSWORD
+        sync: false
+      - key: SANNYGOLD_ADMIN_NAME
+        value: Administrador SannyGold

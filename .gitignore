@@ -10,3 +10,4 @@ preview/route-plan-mobile.json
 preview/route-plan.pdf
 
 tmp/
+.vercel

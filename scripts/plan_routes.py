@@ -9,6 +9,7 @@ import json
 import math
 import textwrap
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import List
 
@@ -532,6 +533,62 @@ def fit_text_to_width(text: str, width: float, font_size: float, bold: bool = Fa
     return (trimmed.rstrip() + ellipsis) if trimmed else ellipsis
 
 
+def format_manifest_date(value: str | None) -> str:
+    text = (value or "").strip()
+    if not text:
+        return "-"
+    try:
+        return datetime.fromisoformat(text[:10]).strftime("%d/%m/%Y")
+    except ValueError:
+        return text
+
+
+def manifest_weekday(value: str | None) -> str:
+    text = (value or "").strip()
+    if not text:
+        return "-"
+    try:
+        weekday_index = datetime.fromisoformat(text[:10]).weekday()
+    except ValueError:
+        return "-"
+    return ["segunda", "terca", "quarta", "quinta", "sexta", "sabado", "domingo"][weekday_index]
+
+
+def normalize_manifest_text(value: str | None) -> str:
+    return (value or "").strip().lower()
+
+
+def equipment_quantity_for_column(stop: dict, *tokens: str) -> str:
+    equipment_type = normalize_manifest_text(stop.get("equipment_type"))
+    quantity = str(stop.get("equipment_quantity") or 1)
+    if any(token in equipment_type for token in tokens):
+        return quantity
+    return "-"
+
+
+def manifest_total_days(payload: dict, stop: dict) -> str:
+    value = stop.get("total_diarias") or payload.get("total_diarias")
+    if value:
+        return str(value)
+    start = (stop.get("operation_date") or payload.get("operation_date") or "").strip()
+    end = (stop.get("event_end_date") or payload.get("event_end_date") or start).strip()
+    try:
+        start_date = datetime.fromisoformat(start[:10])
+        end_date = datetime.fromisoformat(end[:10])
+    except ValueError:
+        return "1"
+    return str(max((end_date.date() - start_date.date()).days + 1, 1))
+
+
+def manifest_observation(stop: dict) -> str:
+    notes = (stop.get("operation_notes") or stop.get("event_notes") or "").strip()
+    invoice_status = (stop.get("invoice_status") or "sem_nota").strip()
+    invoice_number = (stop.get("invoice_number") or "").strip()
+    invoice_label = "NF " + (invoice_number or "com nota") if invoice_status == "com_nota" else "sem nota"
+    parts = [part for part in [invoice_label, notes] if part]
+    return " | ".join(parts) if parts else "-"
+
+
 def build_pdf_document(objects: List[bytes]) -> bytes:
     pdf = bytearray(b"%PDF-1.4\n")
     offsets = [0]
@@ -557,8 +614,8 @@ def build_pdf_document(objects: List[bytes]) -> bytes:
 
 
 def write_driver_manifest_pdf(payload: dict, output_path: Path) -> None:
-    page_width = 842
-    page_height = 595
+    page_width = 1470
+    page_height = 842
     margin_left = 24
     margin_right = 24
     margin_top = 24
@@ -566,17 +623,25 @@ def write_driver_manifest_pdf(payload: dict, output_path: Path) -> None:
     content_width = page_width - margin_left - margin_right
 
     columns = [
-        ("Data", 50),
-        ("Cliente", 90),
-        ("Contato", 62),
-        ("CPF/CNPJ", 62),
-        ("E-mail", 88),
-        ("Local", 156),
-        ("Equipamento", 70),
-        ("Qtd", 26),
-        ("Chegada", 44),
-        ("Janela", 54),
-        ("Status / Obs.", 92),
+        ("N.", 24),
+        ("CLIENTE", 92),
+        ("DATA EVENTO", 68),
+        ("DATA FINAL", 66),
+        ("DIARIAS", 42),
+        ("DATA ENTREGA", 74),
+        ("DIA DA SEMANA", 80),
+        ("HORARIO", 56),
+        ("LOCAL", 168),
+        ("OBS", 104),
+        ("QUANT. ESTANDARTE", 82),
+        ("QUANT. GRANDE", 70),
+        ("QUANT. TANEL", 68),
+        ("TIPO", 54),
+        ("QUANT. IGREJA", 70),
+        ("MEMORIALISTA", 78),
+        ("NOME CONTATO", 84),
+        ("TELEFONE", 64),
+        ("DATA RETIRADA", 78),
     ]
 
     pages: List[List[str]] = []
@@ -584,6 +649,13 @@ def write_driver_manifest_pdf(payload: dict, output_path: Path) -> None:
 
     def new_page() -> tuple[List[str], float]:
         commands: List[str] = []
+        commands.extend(
+            [
+                "1 1 1 rg",
+                f"0 0 {page_width:.2f} {page_height:.2f} re",
+                "f",
+            ]
+        )
         y = margin_top
         commands.extend(
             [
@@ -604,10 +676,11 @@ def write_driver_manifest_pdf(payload: dict, output_path: Path) -> None:
             ]
         )
         subtitle_parts = [
-            f"Data base {payload.get('operation_date') or '-'}",
-            f"Gerado em {payload.get('generated_at') or '-'}",
-            (
-                f"Entregas {payload.get('summary', {}).get('assigned_deliveries', 0)}/"
+                f"Data entrega {format_manifest_date(payload.get('operation_date'))}",
+                f"Data final {format_manifest_date(payload.get('event_end_date'))}",
+                f"Gerado em {payload.get('generated_at') or '-'}",
+                (
+                    f"Entregas {payload.get('summary', {}).get('assigned_deliveries', 0)}/"
                 f"{payload.get('summary', {}).get('total_deliveries', 0)}"
             ),
         ]
@@ -649,7 +722,7 @@ def write_driver_manifest_pdf(payload: dict, output_path: Path) -> None:
         current_x = margin_left
         for label, width in columns:
             add_rect(commands, current_x, y_top, width, 22, fill_rgb=(0.70, 0.88, 0.52), stroke_rgb=(0.60, 0.74, 0.46))
-            add_text(commands, current_x + 4, y_top + 14, fit_text_to_width(label, width - 8, 8, True), font="F2", font_size=8, rgb=(0.15, 0.25, 0.12))
+            add_text(commands, current_x + 4, y_top + 14, fit_text_to_width(label, width - 8, 6.8, True), font="F2", font_size=6.8, rgb=(0.15, 0.25, 0.12))
             current_x += width
         return y_top + 22
 
@@ -684,7 +757,7 @@ def write_driver_manifest_pdf(payload: dict, output_path: Path) -> None:
             current_y += row_height + 10
             continue
 
-        for stop in route_stops:
+        for stop_index, stop in enumerate(route_stops, start=1):
             if current_y + row_height > page_height - margin_bottom:
                 pages.append(page_commands)
                 page_commands, current_y = new_page()
@@ -707,24 +780,35 @@ def write_driver_manifest_pdf(payload: dict, output_path: Path) -> None:
                 current_y = draw_table_header(page_commands, current_y)
 
             row_values = [
-                stop.get("operation_date") or payload.get("operation_date") or "-",
+                str(stop_index),
                 stop.get("customer_name") or "-",
-                stop.get("contact_name") or "-",
-                stop.get("cpf_cnpj") or "-",
-                stop.get("email") or "-",
+                format_manifest_date(stop.get("operation_date") or payload.get("operation_date")),
+                format_manifest_date(stop.get("event_end_date") or payload.get("event_end_date") or stop.get("operation_date") or payload.get("operation_date")),
+                manifest_total_days(payload, stop),
+                format_manifest_date(stop.get("delivery_date") or stop.get("operation_date") or payload.get("operation_date")),
+                manifest_weekday(stop.get("delivery_date") or stop.get("operation_date") or payload.get("operation_date")),
+                stop.get("arrival") or stop.get("window_start") or "-",
                 stop.get("address") or "-",
-                f"{stop.get('equipment_number') or '-'} {stop.get('equipment_type') or ''}".strip(),
-                str(stop.get("equipment_quantity") or 1),
-                stop.get("arrival") or "-",
-                f"{stop.get('window_start') or '-'}-{stop.get('window_end') or '-'}",
-                " | ".join(
-                    part for part in [
-                        stop.get("operational_status") or "",
-                        stop.get("cycle_stage") or "",
-                        stop.get("operation_notes") or "",
-                    ] if part
-                ) or "-",
+                manifest_observation(stop),
+                equipment_quantity_for_column(stop, "estandarte", "standard", "standart"),
+                equipment_quantity_for_column(stop, "grande"),
+                equipment_quantity_for_column(stop, "tanel", "tenda"),
+                stop.get("equipment_type") or "-",
+                equipment_quantity_for_column(stop, "igreja"),
+                stop.get("memorialista") or "-",
+                stop.get("contact_name") or "-",
+                stop.get("phone") or stop.get("phone_number") or stop.get("telephone") or "-",
+                format_manifest_date(stop.get("return_date") or stop.get("event_end_date") or payload.get("event_end_date")),
             ]
+
+            status = " | ".join(
+                part for part in [
+                    stop.get("operational_status") or "",
+                    stop.get("cycle_stage") or "",
+                ] if part
+            )
+            if status and row_values[9] == "-":
+                row_values[9] = status
 
             current_x = margin_left
             for (label, width), value in zip(columns, row_values):
@@ -1127,7 +1211,7 @@ def main() -> None:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     if args.pdf_output:
-        write_simple_pdf(build_pdf_lines(payload), args.pdf_output)
+        write_driver_manifest_pdf(payload, args.pdf_output)
     if args.html_output:
         write_standalone_html(payload, args.html_output)
     print(f"Route plan written to: {args.output}")

@@ -26,11 +26,11 @@ O script cria as pastas locais de dados, prepara o ambiente Python e inicia o Fl
 4. Vincular clientes e veiculos ao evento.
 5. Rodar `Validar operacao`.
 6. Gerar a rota somente quando a validacao estiver apta.
-7. Abrir o PDF operacional e repassar para motorista/equipe.
+7. Abrir o PDF operacional e repassar para o motorista ou equipe.
 8. Registrar as confirmacoes de campo.
 9. Baixar novo backup ao fim do dia.
 
-## Pacote mobile interno
+## Arquivos de preview interno
 
 Para atualizar os arquivos em `preview/`:
 

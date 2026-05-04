@@ -11,9 +11,9 @@ Plataforma SaaS para empresas que operam servicos em campo com ativos alugados, 
 ## Dores que resolve
 
 - Escala de rota feita manualmente
-- Falta de visibilidade do motorista em campo
+- Falta de romaneio padronizado para repassar ao motorista
 - Perda de historico por cliente ou equipamento
-- Dependencia de papel, PDF solto ou WhatsApp
+- Dependencia de papel improvisado, PDF solto ou WhatsApp
 - Dificuldade de cobrar implantacao e mensalidade de forma previsivel
 
 ## Modulos vendaveis
@@ -21,8 +21,8 @@ Plataforma SaaS para empresas que operam servicos em campo com ativos alugados, 
 - Cadastro de clientes
 - Cadastro de equipamentos e ativos
 - Planejamento de rota
-- Execucao mobile
-- Google Maps e navegacao
+- Operacao administrativa e despacho
+- Romaneio em PDF para equipe de campo
 - Exportacao em PDF
 - Historico de atendimento
 - Multiempresa e perfis de acesso
@@ -36,4 +36,4 @@ Plataforma SaaS para empresas que operam servicos em campo com ativos alugados, 
 
 ## Discurso comercial curto
 
-"Nosso sistema organiza a operacao inteira de campo em um unico fluxo: cadastro do cliente, despacho, navegacao do motorista, comprovacao do atendimento e historico por ativo."
+"Nosso sistema organiza a operacao em um unico fluxo administrativo: cadastro do cliente, evento, despacho, romaneio em PDF para a equipe de campo e historico por ativo."

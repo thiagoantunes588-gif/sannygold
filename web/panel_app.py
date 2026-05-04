@@ -168,7 +168,7 @@ def run_planner(run_id: str, deliveries_path: Path, vehicles_path: Path, speed_k
     html_path = run_dir / "route-plan.html"
 
     json_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    PLANNER.write_simple_pdf(PLANNER.build_pdf_lines(payload), pdf_path)
+    PLANNER.write_driver_manifest_pdf(payload, pdf_path)
     PLANNER.write_standalone_html(payload, html_path)
 
     return {
