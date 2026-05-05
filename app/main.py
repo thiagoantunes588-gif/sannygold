@@ -99,6 +99,24 @@ RECURRENCE_FREQUENCIES = {"semanal", "quinzenal", "mensal", "personalizada"}
 CLIENT_BILLING_MODELS = {"mensal", "avulso", "orcamento"}
 CLIENT_CLEANING_FREQUENCIES = {"semanal", "quinzenal", "mensal", "sob_demanda", "nao_aplica"}
 CLIENT_SERVICE_PROFILES = {"limpeza_semanal", "instalacao", "retirada", "evento_avulso", "apoio"}
+EVENT_STATUS_FLOW = [
+    {"key": "orcamento", "label": "Orçamento", "description": "Pedido recebido ou proposta em montagem."},
+    {"key": "confirmado", "label": "Confirmado", "description": "Cliente aprovou e a operação pode ser preparada."},
+    {"key": "em_preparacao", "label": "Em preparação", "description": "Equipamentos, equipe, rota e financeiro em conferência."},
+    {"key": "em_andamento", "label": "Em andamento", "description": "Entrega, instalação, permanência ou atendimento em execução."},
+    {"key": "finalizado", "label": "Finalizado", "description": "Operação concluída, aguardando conferência final ou pagamento."},
+    {"key": "pago", "label": "Pago", "description": "Fechamento recebido e registrado."},
+    {"key": "cancelado", "label": "Cancelado", "description": "Evento cancelado ou sem continuidade."},
+]
+EVENT_STATUS_LABELS = {item["key"]: item["label"] for item in EVENT_STATUS_FLOW}
+EVENT_STATUS_OPTIONS = set(EVENT_STATUS_LABELS)
+EVENT_STATUS_ALIASES = {
+    "novo": "orcamento",
+    "planejado": "confirmado",
+    "em_execucao": "em_andamento",
+    "em rota": "em_andamento",
+}
+ACTIVE_EVENT_STATUSES = {"orcamento", "confirmado", "em_preparacao", "em_andamento", "planejado", "em_execucao"}
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SANNYGOLD_SECRET_KEY", "rotaflow-local-dev")
@@ -227,6 +245,17 @@ PLANNER = load_planner_module()
 
 def clean_text(value: str | None, fallback: str = "") -> str:
     return (value or fallback).strip()
+
+
+def normalize_event_status(value: str | None, fallback: str = "confirmado") -> str:
+    status = clean_text(value, fallback).lower().replace(" ", "_")
+    status = EVENT_STATUS_ALIASES.get(status, status)
+    return status if status in EVENT_STATUS_OPTIONS else fallback
+
+
+def event_status_label(value: str | None) -> str:
+    status = normalize_event_status(value)
+    return EVENT_STATUS_LABELS.get(status, status.replace("_", " ").title())
 
 
 def load_json_list(path: Path) -> list[dict]:
@@ -1592,7 +1621,7 @@ def pending_reason_label(code: str) -> str:
 
 
 def event_is_active(event: dict) -> bool:
-    return clean_text(event.get("status")) in {"planejado", "em_execucao"}
+    return normalize_event_status(event.get("status")) in ACTIVE_EVENT_STATUSES
 
 
 def event_overlaps_date(event: dict, target_date: str) -> bool:
@@ -1640,7 +1669,7 @@ def build_event_commitments(events: list[dict], clients: list[dict]) -> tuple[di
             "title": clean_text(event.get("title")),
             "event_date": clean_text(event.get("event_date")),
             "event_end_date": clean_text(event.get("event_end_date")),
-            "status": clean_text(event.get("status")),
+            "status": normalize_event_status(event.get("status")),
         }
         for client_id in event.get("client_ids", []) or []:
             client = clients_by_id.get(client_id)
@@ -1820,7 +1849,7 @@ def create_event_record(form) -> dict:
         "event_category": clean_text(form.get("event_category"), "geral") or "geral",
         "event_date": event_date,
         "event_end_date": event_end_date,
-        "status": clean_text(form.get("status"), "planejado") or "planejado",
+        "status": normalize_event_status(form.get("status"), "confirmado"),
         "client_ids": client_ids,
         "vehicle_ids": vehicle_ids,
         "notes": clean_text(form.get("notes")),
@@ -3007,7 +3036,7 @@ def apply_route_generation_effects(payload: dict, selected_event: dict | None = 
         events = load_events()
         target = next((event for event in events if event.get("event_id") == selected_event.get("event_id")), None)
         if target:
-            target["status"] = "em_execucao"
+            target["status"] = "em_andamento"
             target["last_route_generated_at"] = now_iso()
             save_events(events)
 
@@ -3267,7 +3296,7 @@ def validate_operation_scope(
             event_errors.append({"reason_code": "evento_inapto", "reason_label": pending_reason_label("evento_inapto"), "reason": "Evento sem data final válida."})
         elif parse_date(clean_text(selected_event.get("event_end_date")) or clean_text(selected_event.get("event_date"))) < parse_date(clean_text(selected_event.get("event_date"))):
             event_errors.append({"reason_code": "evento_inapto", "reason_label": pending_reason_label("evento_inapto"), "reason": "Período do evento inválido."})
-        if clean_text(selected_event.get("status")) == "finalizado":
+        if normalize_event_status(selected_event.get("status")) in {"finalizado", "pago", "cancelado"}:
             event_errors.append({"reason_code": "evento_inapto", "reason_label": pending_reason_label("evento_inapto"), "reason": "Evento já está finalizado."})
         if not clients_snapshot or not vehicles_snapshot:
             event_errors.append({"reason_code": "evento_inapto", "reason_label": pending_reason_label("evento_inapto"), "reason": "Evento não possui clientes e veículos mínimos para roteirização."})
@@ -3344,7 +3373,7 @@ def validate_operation_scope(
         "event_title": clean_text((selected_event or {}).get("title")) or "Operação geral",
         "event_date": event_date,
         "event_end_date": event_end_date,
-        "event_status": clean_text((selected_event or {}).get("status")) or "geral",
+        "event_status": normalize_event_status((selected_event or {}).get("status"), "confirmado") if selected_event else "geral",
         "eligible_client_ids": [client.get("client_id") for client in eligible_clients],
         "blocked_client_ids": [client.get("client_id") for client in blocked_clients],
         "eligible_vehicle_ids": sorted(eligible_vehicle_ids),
@@ -3529,12 +3558,12 @@ def build_future_capacity_dashboard(events: list[dict], clients: list[dict], veh
             if equipment_id:
                 bucket["equipment_ids"].add(equipment_id)
             bucket["total_equipment_quantity"] += int(client.get("equipment_quantity") or 0)
-        status = clean_text(occurrence.get("status"))
-        if status == "planejado":
+        status = normalize_event_status(occurrence.get("status"))
+        if status in {"orcamento", "confirmado", "em_preparacao"}:
             bucket["planned_count"] += 1
-        elif status == "em_execucao":
+        elif status == "em_andamento":
             bucket["execution_count"] += 1
-        elif status == "finalizado":
+        elif status in {"finalizado", "pago"}:
             bucket["finalized_count"] += 1
 
     periods = []
@@ -3799,7 +3828,7 @@ def build_validation_findings(
             findings.append({"severity": "media", "title": "Evento sem clientes", "detail": f"{event.get('title') or event.get('event_id')} ainda não possui clientes vinculados."})
         if not event.get("vehicle_ids"):
             findings.append({"severity": "media", "title": "Evento sem veículos", "detail": f"{event.get('title') or event.get('event_id')} ainda não possui veículos vinculados."})
-        if clean_text(event.get("status")) in {"em_execucao", "finalizado"} and any(not item.get("done") for item in event.get("checklist", [])):
+        if normalize_event_status(event.get("status")) in {"em_andamento", "finalizado"} and any(not item.get("done") for item in event.get("checklist", [])):
             findings.append({"severity": "media", "title": "Checklist incompleto", "detail": f"{event.get('title') or event.get('event_id')} avançou sem checklist completo."})
     if route_data and ((route_data.get("summary") or {}).get("unassigned_deliveries") or 0) > 0:
         findings.append({"severity": "alta", "title": "Rota com pendências", "detail": "A geração atual terminou com entregas não atribuídas."})
@@ -4835,7 +4864,34 @@ def build_general_improvements_dashboard(
         {"label": "Estoque", "count": (warehouse_dashboard.get("counts", {}).get("low", 0) or 0) + (warehouse_dashboard.get("counts", {}).get("zero", 0) or 0), "detail": "item(ns) baixo(s) ou zerado(s)", "target": "#warehouse-pane"},
         {"label": "Frota", "count": sum(1 for item in equipment if clean_text(item.get("status")) in {"manutencao", "indisponivel"}), "detail": "equipamento(s) indisponível(is)", "target": "#maintenance-panel"},
     ]
-    process_statuses = ["novo", "confirmado", "separado", "em rota", "instalado", "retirado", "finalizado"]
+    process_statuses = [item["label"] for item in EVENT_STATUS_FLOW]
+    workflow_tracks = [
+        {
+            "label": "Orçamento",
+            "detail": "Pedido do cliente, modelo de serviço, quantidade, valor sugerido e retorno comercial.",
+            "target": "#quote-models-panel",
+        },
+        {
+            "label": "Evento confirmado",
+            "detail": "Cliente, endereço, datas, equipamentos, veículos, checklist e rota ficam vinculados ao evento.",
+            "target": "#events-pane",
+        },
+        {
+            "label": "Contrato mensal",
+            "detail": "Mensalidade, frequência de limpeza, próxima cobrança e histórico do cliente ficam separados do evento avulso.",
+            "target": "#contracts-quotes-panel",
+        },
+        {
+            "label": "Financeiro",
+            "detail": "Receber, pagar, provisionar impostos, anexar comprovante opcional e fechar o mês para a contabilidade.",
+            "target": "#finance-overview",
+        },
+        {
+            "label": "Equipamentos",
+            "detail": "Tipo, placa quando for trailer, status, foto, manutenção, vínculo com cliente e histórico de uso.",
+            "target": "#fleet-pane",
+        },
+    ]
     report_shortcuts = [
         {"label": "Relatório de evento", "target": "#reports-panel"},
         {"label": "Relatório de cliente", "target": "#reports-panel"},
@@ -4852,7 +4908,14 @@ def build_general_improvements_dashboard(
         "critical_groups": critical_groups,
         "critical_total": sum(group["count"] for group in critical_groups),
         "process_statuses": process_statuses,
+        "event_status_flow": EVENT_STATUS_FLOW,
+        "workflow_tracks": workflow_tracks,
         "report_shortcuts": report_shortcuts,
+        "home_shortcuts": ["Novo orçamento", "Novo evento", "Clientes", "Financeiro", "Equipamentos", "Relatórios"],
+        "client_fields": ["CPF/CNPJ", "WhatsApp", "E-mail", "Endereço", "Tipo de cliente", "Histórico", "Preferência de pagamento"],
+        "equipment_fields": ["Tipo", "Placa do trailer", "Status", "Localização atual", "Próxima manutenção", "Foto", "Observações"],
+        "pdf_outputs": ["Orçamento em PDF", "Ordem de serviço", "Recibo", "Relatório mensal", "Resumo para conferência"],
+        "role_matrix": ["Administrador", "Financeiro", "Operação", "Leitura/visitante"],
         "open_events": len(open_events),
         "dispatch_ready": dispatch_today.get("blocking_count", 0) == 0 and dispatch_today.get("attention_count", 0) == 0,
         "dispatch_ready_count": dispatch_today.get("ready_count", 0),
@@ -5059,12 +5122,13 @@ def build_operational_kanban(quotes: list[dict], financial_management: dict, eve
         by_key["pagamento"]["items"].append({"title": clean_text(receivable.get("client_name")), "detail": f"{format_currency_br(receivable.get('open_amount'))} vencido", "badge": f"{receivable.get('days_overdue')} dia(s)"})
     for event in events:
         status = clean_text(event.get("status"), "planejado")
-        if status == "planejado":
+        normalized_status = normalize_event_status(status)
+        if normalized_status in {"orcamento", "confirmado", "em_preparacao"}:
             by_key["separar"]["items"].append({"title": clean_text(event.get("title")), "detail": clean_text(event.get("event_date")), "badge": f"{event.get('equipment_count', 0)} equip."})
-        elif status == "em_execucao":
-            by_key["rota"]["items"].append({"title": clean_text(event.get("title")), "detail": clean_text(event.get("event_date")), "badge": status})
-        elif status == "finalizado":
-            by_key["finalizado"]["items"].append({"title": clean_text(event.get("title")), "detail": clean_text(event.get("event_date")), "badge": status})
+        elif normalized_status == "em_andamento":
+            by_key["rota"]["items"].append({"title": clean_text(event.get("title")), "detail": clean_text(event.get("event_date")), "badge": event_status_label(status)})
+        elif normalized_status in {"finalizado", "pago"}:
+            by_key["finalizado"]["items"].append({"title": clean_text(event.get("title")), "detail": clean_text(event.get("event_date")), "badge": event_status_label(status)})
     for item in inventory:
         status = clean_text(item.get("status"))
         if status == "instalado":
@@ -5295,7 +5359,7 @@ def build_team_weekly_review(
         or not clean_text(client.get("address"))
         or not clean_text(client.get("equipment_type"))
     ]
-    open_events = [event for event in events if clean_text(event.get("status"), "planejado") != "finalizado"]
+    open_events = [event for event in events if normalize_event_status(event.get("status")) not in {"finalizado", "pago", "cancelado"}]
     maintenance_items = [
         item for item in inventory
         if clean_text(item.get("status")) in {"manutencao", "indisponivel"}
@@ -5557,6 +5621,8 @@ def build_dashboard_context() -> dict:
         "maintenance_items": [item for item in inventory if item.get("status") in {"manutencao", "indisponivel"} or item.get("maintenance_reason")],
         "can_view_finance": can_view_finance,
         "role_home_label": role_home_labels.get(clean_text(user.get("role")), role_home_labels["guest"]),
+        "event_status_flow": EVENT_STATUS_FLOW,
+        "event_status_labels": EVENT_STATUS_LABELS,
         "recent_shortcuts": recent_shortcuts,
         "recent_audit_log": recent_audit_log,
         "agenda_period": selected_agenda_period,
@@ -6642,7 +6708,7 @@ def update_event_status(event_id: str):
         flash(f"Evento {event_id} nao encontrado.", "danger")
         return redirect(url_for("index"))
 
-    new_status = clean_text(request.form.get("status"), target.get("status") or "planejado")
+    new_status = normalize_event_status(request.form.get("status"), normalize_event_status(target.get("status"), "confirmado"))
     if new_status == "finalizado":
         clients = load_clients()
         inventory = build_inventory_view(clients, load_route_data(), load_field_confirmations())

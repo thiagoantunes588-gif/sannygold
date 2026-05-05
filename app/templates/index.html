@@ -1331,6 +1331,37 @@
         </div>
       </div>
       <div class="row g-3">
+        <div class="col-12">
+          <div class="entity-card p-3">
+            <div class="fw-semibold mb-2">Mapa geral de melhorias aplicadas</div>
+            <div class="row g-3 small">
+              <div class="col-lg-4">
+                <div class="text-secondary mb-1">Atalhos da tela inicial</div>
+                <div class="route-badges">
+                  {% for item in general_improvements.home_shortcuts %}
+                  <span class="route-badge badge-fixed">{{ item }}</span>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="col-lg-4">
+                <div class="text-secondary mb-1">Cadastros essenciais</div>
+                <div class="route-badges">
+                  {% for item in general_improvements.client_fields %}
+                  <span class="route-badge badge-avulso">{{ item }}</span>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="col-lg-4">
+                <div class="text-secondary mb-1">Controle dos equipamentos</div>
+                <div class="route-badges">
+                  {% for item in general_improvements.equipment_fields %}
+                  <span class="route-badge badge-success">{{ item }}</span>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
         <div class="col-lg-4">
           <div class="entity-card p-3 h-100">
             <div class="fw-semibold mb-2">Pendências críticas por área</div>
@@ -1371,6 +1402,31 @@
             <div class="d-grid gap-1 small">
               {% for report in general_improvements.report_shortcuts %}
               <a class="text-reset text-decoration-none" href="{{ report.target }}">{{ report.label }}</a>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="col-12">
+          <div class="entity-card p-3">
+            <div class="fw-semibold mb-2">Fluxos separados para evitar confusão</div>
+            <div class="row g-3 small">
+              {% for track in general_improvements.workflow_tracks %}
+              <div class="col-md">
+                <a class="text-reset text-decoration-none d-block h-100" href="{{ track.target }}">
+                  <span class="route-badge badge-fixed mb-2">{{ track.label }}</span>
+                  <div class="text-secondary">{{ track.detail }}</div>
+                </a>
+              </div>
+              {% endfor %}
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-3 small">
+              <span class="text-secondary">PDFs úteis:</span>
+              {% for item in general_improvements.pdf_outputs %}
+              <span class="route-badge badge-avulso">{{ item }}</span>
+              {% endfor %}
+              <span class="text-secondary ms-2">Perfis:</span>
+              {% for item in general_improvements.role_matrix %}
+              <span class="route-badge badge-success">{{ item }}</span>
               {% endfor %}
             </div>
           </div>
@@ -2787,9 +2843,9 @@
                     <div class="col-6">
                       <label class="form-label fw-semibold" for="event_status">Status</label>
                       <select class="form-select" id="event_status" name="status">
-                        <option value="planejado">planejado</option>
-                        <option value="em_execucao">em_execucao</option>
-                        <option value="finalizado">finalizado</option>
+                        {% for status in event_status_flow %}
+                        <option value="{{ status.key }}">{{ status.label }}</option>
+                        {% endfor %}
                       </select>
                     </div>
                   </div>
@@ -2948,9 +3004,9 @@
                     <label class="form-label fw-semibold" for="event-status-filter">Status</label>
                     <select class="form-select js-filter-select" id="event-status-filter" data-filter-target=".event-list-item" data-filter-attribute="status">
                       <option value="">Todos</option>
-                      <option value="planejado">planejado</option>
-                      <option value="em_execucao">em_execucao</option>
-                      <option value="finalizado">finalizado</option>
+                      {% for status in event_status_flow %}
+                      <option value="{{ status.key }}">{{ status.label }}</option>
+                      {% endfor %}
                     </select>
                   </div>
                   <div>
@@ -2965,11 +3021,12 @@
                 <div class="d-grid gap-3">
                   {% if events %}
                     {% for event in events %}
-                    <div class="event-card p-3 event-list-item" id="event-{{ event.event_id }}" data-filter-text="{{ event.event_id }} {{ event.title }} {{ event.status }} {{ event.event_period_label }}" data-status="{{ event.status }}" data-recurring="{{ 'true' if event.recurrence_enabled == 'true' else 'false' }}">
+                    {% set normalized_event_status = event.status if event.status in event_status_labels else {'planejado':'confirmado','em_execucao':'em_andamento','novo':'orcamento'}.get(event.status, event.status) %}
+                    <div class="event-card p-3 event-list-item" id="event-{{ event.event_id }}" data-filter-text="{{ event.event_id }} {{ event.title }} {{ event_status_labels.get(normalized_event_status, event.status) }} {{ event.event_period_label }}" data-status="{{ normalized_event_status }}" data-recurring="{{ 'true' if event.recurrence_enabled == 'true' else 'false' }}">
                       <div class="d-flex justify-content-between gap-3">
                         <div>
                           <div class="fw-semibold">{{ event.event_id }} • {{ event.title }}</div>
-                          <div class="small text-secondary">{{ event.event_date|date_br }}{% if event.event_end_date and event.event_end_date != event.event_date %} até {{ event.event_end_date|date_br }}{% endif %} • status {{ event.status }}</div>
+                          <div class="small text-secondary">{{ event.event_date|date_br }}{% if event.event_end_date and event.event_end_date != event.event_date %} até {{ event.event_end_date|date_br }}{% endif %} • status {{ event_status_labels.get(normalized_event_status, event.status) }}</div>
                           <div class="route-badges">
                             <span class="route-badge badge-fixed">{{ event.clients_count }} clientes</span>
                             <span class="route-badge badge-avulso">{{ event.vehicles_count }} veículos</span>
@@ -3017,8 +3074,8 @@
                           </form>
                           {% endif %}
                           <form method="post" action="{{ url_for('update_event_status', event_id=event.event_id) }}">
-                            <input type="hidden" name="status" value="em_execucao">
-                            <button class="btn btn-sm btn-outline-secondary rounded-pill" type="submit" data-confirm-message="Iniciar este evento agora?">Iniciar</button>
+                            <input type="hidden" name="status" value="em_andamento">
+                            <button class="btn btn-sm btn-outline-secondary rounded-pill" type="submit" data-confirm-message="Iniciar este evento agora?">Em andamento</button>
                           </form>
                           <form method="post" action="{{ url_for('update_event_status', event_id=event.event_id) }}">
                             <input type="hidden" name="status" value="finalizado">
