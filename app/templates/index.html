@@ -712,6 +712,33 @@
       gap: 0.75rem;
       margin-bottom: 1rem;
     }
+    .empty-state {
+      border: 1px dashed rgba(185, 129, 33, 0.32);
+      border-radius: 16px;
+      background: rgba(255, 250, 241, 0.76);
+      padding: 1rem;
+      text-align: center;
+      color: var(--muted);
+    }
+    .empty-state .btn {
+      min-height: 44px;
+      margin-top: 0.75rem;
+    }
+    .security-checklist-grid {
+      display: grid;
+      gap: 0.65rem;
+    }
+    .security-checklist-item {
+      display: grid;
+      grid-template-columns: 1.25fr 0.7fr 0.65fr 1.4fr;
+      gap: 0.75rem;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255, 253, 248, 0.84);
+      padding: 0.75rem;
+      font-size: 0.88rem;
+    }
     .global-search-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -895,6 +922,53 @@
       margin-top: 1.25rem;
     }
     @media (max-width: 767.98px) {
+      body {
+        font-size: 16px;
+      }
+      .container {
+        padding-inline: 0.75rem;
+      }
+      .glass {
+        padding: 1rem !important;
+      }
+      .sticky-global-search {
+        top: 0.35rem;
+        border-radius: 14px;
+      }
+      .sticky-global-search .d-flex {
+        align-items: stretch !important;
+      }
+      .sticky-global-search label {
+        width: 100%;
+      }
+      .sticky-global-search .form-control {
+        min-height: 46px;
+        font-size: 1rem;
+      }
+      .btn,
+      .form-control,
+      .form-select {
+        min-height: 44px;
+      }
+      .btn-sm {
+        min-height: 40px;
+        padding: 0.45rem 0.75rem;
+      }
+      .module-toolbar,
+      .entity-actions {
+        align-items: stretch;
+      }
+      .module-toolbar .btn,
+      .entity-actions .btn,
+      .entity-actions form {
+        width: 100%;
+      }
+      .ops-card {
+        padding: 0.85rem !important;
+      }
+      .ops-card .display-6 {
+        font-size: 1.8rem;
+      }
       .today-command-strip {
         grid-template-columns: 1fr 1fr;
       }
@@ -902,15 +976,26 @@
         grid-column: 1 / -1;
       }
       .ops-tabs-nav {
+        position: sticky;
+        top: 4.25rem;
+        z-index: 28;
+        padding: 0.45rem;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: rgba(255, 253, 249, 0.96);
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
       .ops-tabs-nav .nav-link {
         width: 100%;
         text-align: center;
+        min-height: 44px;
+        padding: 0.65rem 0.5rem;
       }
       .quick-actions-bar {
-        position: static;
+        position: sticky;
+        top: 0.35rem;
+        border-radius: 14px;
       }
       .mobile-control-center {
         display: block;
@@ -933,6 +1018,42 @@
         flex: 1 1 44%;
       }
       .calendar-grid {
+        grid-template-columns: 1fr;
+      }
+      .table-responsive {
+        overflow: visible;
+      }
+      .table-responsive table.mobile-stack-table,
+      .table-responsive table.mobile-stack-table thead,
+      .table-responsive table.mobile-stack-table tbody,
+      .table-responsive table.mobile-stack-table tr,
+      .table-responsive table.mobile-stack-table td,
+      .table-responsive table.mobile-stack-table th {
+        display: block;
+        width: 100%;
+      }
+      .table-responsive table.mobile-stack-table thead {
+        display: none;
+      }
+      .table-responsive table.mobile-stack-table tr {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(255,253,248,0.88);
+        margin-bottom: 0.75rem;
+        padding: 0.65rem;
+      }
+      .table-responsive table.mobile-stack-table td {
+        border: 0;
+        padding: 0.25rem 0;
+      }
+      .table-responsive table.mobile-stack-table td::before {
+        content: attr(data-label);
+        display: block;
+        font-size: 0.75rem;
+        font-weight: 800;
+        color: var(--gold-shadow);
+      }
+      .security-checklist-item {
         grid-template-columns: 1fr;
       }
     }
@@ -1582,7 +1703,7 @@
         <div class="col-md-3"><div class="stat-card p-3"><div class="fs-4 fw-bold">{{ 'OK' if system_status.health.storage_ready else 'ATENÇÃO' }}</div><div class="small text-secondary">Armazenamento</div></div></div>
       </div>
       <div class="route-badges mt-3">
-        <span class="route-badge {{ 'badge-success' if system_status.health.has_secret_key else 'badge-danger' }}">Secret key {{ 'configurada' if system_status.health.has_secret_key else 'padrão' }}</span>
+        <span class="route-badge {{ 'badge-success' if system_status.health.has_secret_key else 'badge-avulso' }}">Secret key {{ 'configurada' if system_status.health.has_secret_key else 'temporária' }}</span>
         <span class="route-badge {{ 'badge-success' if system_status.operations.has_route_pdf else 'badge-avulso' }}">PDF {{ 'disponível' if system_status.operations.has_route_pdf else 'pendente' }}</span>
         <span class="route-badge {{ 'badge-success' if system_status.operations.has_route_json else 'badge-avulso' }}">JSON {{ 'disponível' if system_status.operations.has_route_json else 'pendente' }}</span>
         <span class="route-badge badge-fixed">Último backup {{ last_backup_label }}</span>
@@ -1824,22 +1945,26 @@
                 <div class="ops-card p-3">
                   <div class="small text-secondary">Próximos eventos</div>
                   <div class="display-6 fw-bold">{{ usability_home.next_events|length }}</div>
-                  <div class="small text-secondary">planejados na agenda</div>
+                  <div class="small text-secondary">{% if usability_home.next_events|length %}planejados na agenda{% else %}Nenhum evento hoje. Veja próximos 7 dias.{% endif %}</div>
+                  {% if usability_home.next_events|length == 0 %}<a class="btn btn-sm btn-outline-secondary rounded-pill mt-2 js-tab-link" href="#agenda-pane" data-tab-target="agenda-tab">Ver agenda</a>{% endif %}
                 </div>
                 <div class="ops-card p-3">
                   <div class="small text-secondary">Limpezas de hoje</div>
                   <div class="display-6 fw-bold">{{ usability_home.today_cleanings|length }}</div>
-                  <div class="small text-secondary">clientes fixos na rota</div>
+                  <div class="small text-secondary">{% if usability_home.today_cleanings|length %}clientes fixos na rota{% else %}Nenhuma limpeza hoje. Confira clientes fixos.{% endif %}</div>
+                  {% if usability_home.today_cleanings|length == 0 %}<a class="btn btn-sm btn-outline-secondary rounded-pill mt-2 js-tab-link" href="#clients-pane" data-tab-target="clients-tab">Abrir clientes</a>{% endif %}
                 </div>
                 <div class="ops-card p-3">
                   <div class="small text-secondary">Equipamentos livres</div>
                   <div class="display-6 fw-bold">{{ usability_home.available_equipment }}</div>
-                  <div class="small text-secondary">banheiros e apoio disponíveis</div>
+                  <div class="small text-secondary">{% if usability_home.available_equipment %}banheiros e apoio disponíveis{% else %}Nenhum equipamento livre. Revise frota e manutenção.{% endif %}</div>
+                  {% if not usability_home.available_equipment %}<a class="btn btn-sm btn-outline-secondary rounded-pill mt-2 js-tab-link" href="#fleet-pane" data-tab-target="fleet-tab">Abrir equipamentos</a>{% endif %}
                 </div>
                 <div class="ops-card {{ 'crit-attention' if usability_home.low_stock else 'crit-ready' }} p-3">
                   <div class="small text-secondary">Alertas de estoque</div>
                   <div class="display-6 fw-bold">{{ usability_home.low_stock }}</div>
-                  <div class="small text-secondary">materiais baixos ou zerados</div>
+                  <div class="small text-secondary">{% if usability_home.low_stock %}materiais baixos ou zerados{% else %}Estoque sem alerta. Abrir almoxarifado.{% endif %}</div>
+                  <a class="btn btn-sm btn-outline-secondary rounded-pill mt-2 js-tab-link" href="#warehouse-pane" data-tab-target="warehouse-tab">Abrir estoque</a>
                 </div>
               </div>
 
@@ -1963,7 +2088,7 @@
                     <div class="d-grid gap-1 small">
                       {% for item in daily_command_center.today_events %}
                       <div>{{ item.title }} • {{ item.status }}</div>
-                      {% else %}<div class="text-secondary">Nenhum evento hoje.</div>{% endfor %}
+                      {% else %}<div class="empty-state small">Nenhum evento hoje. Veja os próximos 7 dias ou crie uma locação quando chegar um pedido.<br><a class="btn btn-sm btn-outline-secondary rounded-pill js-tab-link" href="#agenda-pane" data-tab-target="agenda-tab">Ver agenda</a></div>{% endfor %}
                     </div>
                   </div>
                   <div class="col-lg-3">
@@ -2542,7 +2667,7 @@
                             {% endif %}
                           </div>
                           {% else %}
-                          <div class="text-secondary">Nenhuma vencida.</div>
+                          <div class="empty-state small">Nenhuma cobrança vencida. Abra o financeiro para acompanhar próximos recebimentos.<br><a class="btn btn-sm btn-outline-secondary rounded-pill js-tab-link" href="#financial-pane" data-tab-target="financial-tab">Abrir financeiro</a></div>
                           {% endfor %}
                         </div>
                       </div>
@@ -2568,7 +2693,7 @@
                           {% for item in financial_management.receivables_paid %}
                           <div><span class="route-badge badge-success">{{ item.amount|currency_br }}</span> {{ item.client_name }} <a class="route-badge badge-avulso text-decoration-none" href="{{ url_for('download_receivable_receipt', receivable_id=item.id) }}">recibo</a>{% if item.attachment_url %} <a class="route-badge badge-avulso text-decoration-none" href="{{ item.attachment_url }}" target="_blank" rel="noreferrer">anexo</a>{% endif %}</div>
                           {% else %}
-                          <div class="text-secondary">Nenhuma paga registrada.</div>
+                          <div class="empty-state small">Nenhuma paga registrada. Quando receber, baixe no financeiro para manter o caixa atualizado.<br><a class="btn btn-sm btn-outline-secondary rounded-pill js-tab-link" href="#financial-pane" data-tab-target="financial-tab">Abrir financeiro</a></div>
                           {% endfor %}
                         </div>
                       </div>
@@ -3228,7 +3353,7 @@
                     </div>
                     {% endfor %}
                   {% else %}
-                  <div class="text-center text-secondary py-4">Nenhum evento cadastrado ainda.</div>
+                  <div class="empty-state">Nenhum evento cadastrado. Crie um evento para planejar equipamentos, horários e rota.<br><button class="btn btn-dark rounded-pill js-create-toggle" type="button" data-target="event-create-panel">Criar evento</button></div>
                   {% endif %}
                 </div>
               </div>
@@ -3387,7 +3512,7 @@
                     </button>
                     <a class="btn btn-sm btn-outline-dark rounded-pill" href="{{ map_route.google_maps_url }}" target="_blank" rel="noreferrer">Abrir Google Maps</a>
                     {% else %}
-                    <span class="small text-secondary">Gere uma rota para liberar o mapa real.</span>
+                    <span class="empty-state small">Nenhuma rota gerada ainda. Valide clientes, veículos e equipamentos para liberar links de endereço.<br><a class="btn btn-sm btn-outline-secondary rounded-pill js-tab-link" href="#operations-pane" data-tab-target="operations-tab">Validar/Gerar rota</a></span>
                     {% endfor %}
                   </div>
                   {% if google_maps_enabled and route_data and route_data.routes %}
@@ -3496,7 +3621,7 @@
                     </div>
                     {% endif %}
                   {% else %}
-                  <div class="text-center text-secondary py-4">Nenhuma rota gerada ainda.</div>
+                  <div class="empty-state">Nenhuma rota gerada ainda. Valide os cadastros e gere a rota para separar veículos e equipamentos.<br><a class="btn btn-dark rounded-pill js-tab-link" href="#operations-pane" data-tab-target="operations-tab">Validar/Gerar rota</a></div>
                   {% endif %}
                 </div>
               </section>
@@ -3918,7 +4043,7 @@
                   </div>
                   {% endfor %}
                 {% else %}
-                <div class="text-center text-secondary py-4">Nenhum cliente cadastrado ainda.</div>
+                <div class="empty-state">Nenhum cliente cadastrado. Criar o primeiro cliente libera histórico, rota e cobranças.<br><button class="btn btn-dark rounded-pill js-create-toggle" type="button" data-target="manual-client-form">Criar primeiro cliente</button></div>
                 {% endif %}
               </div>
             </section>
@@ -4208,7 +4333,7 @@
                   </div>
                   {% endfor %}
                 {% else %}
-                <div class="text-center text-secondary py-4">Nenhum veículo cadastrado ainda.</div>
+                <div class="empty-state">Nenhum veículo cadastrado. Cadastre um veículo para gerar rotas e acompanhar disponibilidade.<br><button class="btn btn-dark rounded-pill js-create-toggle" type="button" data-target="vehicle-create-panel">Cadastrar veículo</button></div>
                 {% endif %}
               </div>
             </section>
@@ -4350,7 +4475,7 @@
               </div>
               {% endfor %}
             {% else %}
-            <div class="text-center text-secondary py-4">Nenhum equipamento cadastrado ainda.</div>
+            <div class="empty-state">Nenhum equipamento cadastrado. Cadastre trailers, banheiros químicos, climatizadores ou pontos de hidratação.<br><button class="btn btn-dark rounded-pill js-create-toggle" type="button" data-target="equipment-create-panel">Cadastrar equipamento</button></div>
             {% endif %}
           </div>
         </section>
@@ -4405,6 +4530,11 @@
                   </div>
                   <div class="modal-body">
                   <input type="hidden" id="warehouse_item_id" name="item_id" value="">
+                  <div class="field-stepper">
+                    <span>1. Identifique o material</span>
+                    <span>2. Informe saldo e mínimo</span>
+                    <span>3. Complete local e compra</span>
+                  </div>
                   <div class="mb-3">
                     <label class="form-label fw-semibold" for="warehouse_name">Material</label>
                     <input class="form-control" id="warehouse_name" name="name" type="text" placeholder="Papel toalha" required>
@@ -4494,8 +4624,11 @@
                     <span class="{{ 'severity-block' if warehouse_dashboard.counts.zero else 'severity-attention' if warehouse_dashboard.counts.low else 'severity-ready' }}">
                       {{ warehouse_dashboard.counts.low + warehouse_dashboard.counts.zero }} alerta(s)
                     </span>
+                    <a class="btn btn-outline-secondary rounded-pill" href="{{ url_for('download_warehouse_low_stock_pdf') }}">Estoque baixo PDF</a>
                     <a class="btn btn-outline-secondary rounded-pill" href="{{ url_for('download_warehouse_pdf') }}">Exportar PDF</a>
+                    {% if '*' in current_user.permissions or 'warehouse.manage' in current_user.permissions %}
                     <button class="btn btn-dark rounded-pill" type="button" id="open-warehouse-item-modal" data-bs-toggle="modal" data-bs-target="#warehouseItemModal">Adicionar item</button>
+                    {% endif %}
                   </div>
                 </div>
 
@@ -4532,7 +4665,7 @@
                 </div>
 
                 <div class="table-responsive mb-3">
-                  <table class="table table-sm align-middle mb-0">
+                  <table class="table table-sm align-middle mb-0 mobile-stack-table">
                     <caption class="text-secondary small">Lista completa do almoxarifado</caption>
                     <thead>
                       <tr>
@@ -4548,13 +4681,13 @@
                     <tbody>
                       {% for item in warehouse_dashboard["items"] %}
                       <tr class="warehouse-list-item" data-filter-text="{{ item.name }} {{ item.category }} {{ item.description }} {{ item.storage_location }} {{ item.purchase_link }} {{ item.purchase_location }} {{ item.notes }}" data-category="{{ item.category }}" data-stock-status="{{ item.stock_status }}">
-                        <td class="fw-semibold">{{ item.name }}</td>
-                        <td>{{ item.category }}</td>
-                        <td>{{ item.quantity_current }} {{ item.unit }}</td>
-                        <td>{{ item.stock_minimum }} {{ item.unit }}</td>
-                        <td><span class="route-badge {{ 'badge-success' if item.stock_status == 'normal' else 'badge-danger' if item.stock_status == 'zerado' else 'badge-avulso' }}">{{ item.stock_status_label }}</span></td>
-                        <td>{{ item.storage_location or "n/d" }}</td>
-                        <td>
+                        <td class="fw-semibold" data-label="Material">{{ item.name }}</td>
+                        <td data-label="Categoria">{{ item.category }}</td>
+                        <td data-label="Quantidade">{{ item.quantity_current }} {{ item.unit }}</td>
+                        <td data-label="Mínimo">{{ item.stock_minimum }} {{ item.unit }}</td>
+                        <td data-label="Status"><span class="route-badge {{ 'badge-success' if item.stock_status == 'normal' else 'badge-danger' if item.stock_status == 'zerado' else 'badge-avulso' }}">{{ item.stock_status_label }}</span></td>
+                        <td data-label="Local">{{ item.storage_location or "n/d" }}</td>
+                        <td data-label="Compra">
                           {% if item.purchase_link %}
                           <a href="{{ item.purchase_link }}" target="_blank" rel="noreferrer">Link</a>
                           {% elif item.purchase_location %}
@@ -4565,7 +4698,7 @@
                         </td>
                       </tr>
                       {% else %}
-                      <tr><td class="text-secondary text-center py-3" colspan="7">Nenhum material cadastrado no almoxarifado.</td></tr>
+                      <tr><td colspan="7"><div class="empty-state">Nenhum material cadastrado. Cadastre materiais internos para controlar entrada, saída e estoque mínimo.{% if '*' in current_user.permissions or 'warehouse.manage' in current_user.permissions %}<br><button class="btn btn-dark rounded-pill" type="button" data-bs-toggle="modal" data-bs-target="#warehouseItemModal">Cadastrar material</button>{% endif %}</div></td></tr>
                       {% endfor %}
                     </tbody>
                   </table>
@@ -4606,10 +4739,14 @@
                       </div>
                     </div>
                     <div class="entity-actions mt-3">
+                      {% if '*' in current_user.permissions or 'warehouse.manage' in current_user.permissions %}
                       <button class="btn btn-sm btn-outline-secondary rounded-pill edit-warehouse-item-button" type="button" data-item='{{ item|tojson }}'>Editar cadastro</button>
-                      <button class="btn btn-sm btn-dark rounded-pill warehouse-movement-button" type="button" data-bs-toggle="modal" data-bs-target="#warehouseMovementModal" data-item-id="{{ item.id }}" data-item-name="{{ item.name }}" data-unit="{{ item.unit }}" data-current="{{ item.quantity_current }}" data-type="reposição">Repor estoque</button>
-                      <button class="btn btn-sm btn-outline-danger rounded-pill warehouse-movement-button" type="button" data-bs-toggle="modal" data-bs-target="#warehouseMovementModal" data-item-id="{{ item.id }}" data-item-name="{{ item.name }}" data-unit="{{ item.unit }}" data-current="{{ item.quantity_current }}" data-type="baixa">Dar baixa</button>
+                      {% endif %}
+                      <button class="btn btn-sm btn-dark rounded-pill warehouse-movement-button" type="button" data-bs-toggle="modal" data-bs-target="#warehouseMovementModal" data-item-id="{{ item.id }}" data-item-name="{{ item.name }}" data-unit="{{ item.unit }}" data-current="{{ item.quantity_current }}" data-type="entrada">Registrar entrada</button>
+                      <button class="btn btn-sm btn-outline-danger rounded-pill warehouse-movement-button" type="button" data-bs-toggle="modal" data-bs-target="#warehouseMovementModal" data-item-id="{{ item.id }}" data-item-name="{{ item.name }}" data-unit="{{ item.unit }}" data-current="{{ item.quantity_current }}" data-type="saida">Registrar saída</button>
+                      {% if '*' in current_user.permissions or 'warehouse.manage' in current_user.permissions %}
                       <button class="btn btn-sm btn-outline-secondary rounded-pill warehouse-movement-button" type="button" data-bs-toggle="modal" data-bs-target="#warehouseMovementModal" data-item-id="{{ item.id }}" data-item-name="{{ item.name }}" data-unit="{{ item.unit }}" data-current="{{ item.quantity_current }}" data-type="ajuste manual">Ajustar quantidade</button>
+                      {% endif %}
                     </div>
                     <details class="mt-3">
                       <summary class="small fw-semibold text-secondary" style="cursor:pointer;">Histórico de movimentações</summary>
@@ -4629,7 +4766,7 @@
                     </details>
                   </div>
                   {% else %}
-                  <div class="text-center text-secondary py-4">Nenhum material cadastrado no almoxarifado.</div>
+                  <div class="empty-state">Nenhum material cadastrado. Cadastre materiais internos para ativar alertas de estoque baixo.{% if '*' in current_user.permissions or 'warehouse.manage' in current_user.permissions %}<br><button class="btn btn-dark rounded-pill" type="button" data-bs-toggle="modal" data-bs-target="#warehouseItemModal">Cadastrar material</button>{% endif %}</div>
                   {% endfor %}
                 </div>
               </section>
@@ -4911,6 +5048,32 @@
                 </div>
               </div>
 
+              <div class="entity-card p-3 mb-3">
+                <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+                  <div>
+                    <div class="fw-semibold">Checklist técnico antes da produção</div>
+                    <div class="small text-secondary">Itens críticos de acesso, senha, permissão, backup e exposição de dados.</div>
+                  </div>
+                  <span class="route-badge badge-fixed">produção</span>
+                </div>
+                <div class="security-checklist-grid">
+                  <div class="security-checklist-item fw-semibold text-secondary d-none d-md-grid">
+                    <div>Item verificado</div>
+                    <div>Status</div>
+                    <div>Risco</div>
+                    <div>Próxima ação</div>
+                  </div>
+                  {% for item in security_technical_checklist %}
+                  <div class="security-checklist-item">
+                    <div class="fw-semibold">{{ item.item }}</div>
+                    <div><span class="route-badge {{ 'badge-success' if item.status == 'Verificado' else 'badge-avulso' if item.status == 'Atenção' else 'badge-danger' }}">{{ item.status }}</span></div>
+                    <div><span class="route-badge {{ 'badge-success' if item.risk == 'Baixo' else 'badge-avulso' if item.risk == 'Médio' else 'badge-danger' }}">{{ item.risk }}</span></div>
+                    <div class="small text-secondary">{{ item.next_action }}</div>
+                  </div>
+                  {% endfor %}
+                </div>
+              </div>
+
               <div class="row g-3">
                 <div class="col-lg-5">
                   <div class="entity-card p-3 h-100">
@@ -5156,7 +5319,7 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
         </div>
         <div class="modal-body">
-          <input type="hidden" name="movement_type" id="warehouse_movement_type" value="reposição">
+          <input type="hidden" name="movement_type" id="warehouse_movement_type" value="entrada">
           <div class="mb-3" id="warehouse_quantity_group">
             <label class="form-label fw-semibold" for="warehouse_movement_quantity">Quantidade</label>
             <input class="form-control" id="warehouse_movement_quantity" name="quantity" type="number" min="0.01" step="0.01">
@@ -5799,13 +5962,14 @@
     document.querySelectorAll(".warehouse-movement-button").forEach((button) => {
       button.addEventListener("click", () => {
         const form = document.getElementById("warehouse-movement-form");
-        const type = button.dataset.type || "reposição";
+        const type = button.dataset.type || "entrada";
+        const typeLabel = type === "saida" ? "Saída" : type === "entrada" ? "Entrada" : "Ajuste manual";
         const itemName = button.dataset.itemName || "material";
         const current = button.dataset.current || "0";
         const unit = button.dataset.unit || "un";
         const itemId = button.dataset.itemId;
         form.action = `/warehouse/items/${encodeURIComponent(itemId)}/movement`;
-        document.getElementById("warehouseMovementModalLabel").textContent = `${type} • ${itemName}`;
+        document.getElementById("warehouseMovementModalLabel").textContent = `${typeLabel} • ${itemName}`;
         document.getElementById("warehouse-movement-current").textContent = `Saldo atual: ${current} ${unit}`;
         document.getElementById("warehouse_movement_type").value = type;
         document.getElementById("warehouse_movement_quantity").value = "";
@@ -5817,7 +5981,7 @@
         document.getElementById("warehouse_final_quantity_group").classList.toggle("d-none", !isAdjustment);
         document.getElementById("warehouse_movement_quantity").required = !isAdjustment;
         document.getElementById("warehouse_final_quantity").required = isAdjustment;
-        document.getElementById("warehouse-movement-submit").textContent = type === "baixa" ? "Dar baixa" : type === "reposição" ? "Repor estoque" : "Ajustar quantidade";
+        document.getElementById("warehouse-movement-submit").textContent = type === "saida" ? "Registrar saída" : type === "entrada" ? "Registrar entrada" : "Ajustar quantidade";
       });
     });
 

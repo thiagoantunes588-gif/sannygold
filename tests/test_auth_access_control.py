@@ -112,6 +112,8 @@ class AuthAccessControlTest(unittest.TestCase):
         self.assertTrue(has_permission({"role": "admin"}, "settings.manage"))
         self.assertTrue(has_permission({"role": "financeiro"}, "finance.view"))
         self.assertTrue(has_permission({"role": "leitura"}, "clients.view"))
+        self.assertTrue(has_permission({"role": "operacional"}, "warehouse.edit"))
+        self.assertFalse(has_permission({"role": "operacional"}, "warehouse.manage"))
         self.assertFalse(has_permission({"role": "guest"}, "clients.view"))
         self.assertFalse(has_permission({"role": "operacional"}, "finance.view"))
 

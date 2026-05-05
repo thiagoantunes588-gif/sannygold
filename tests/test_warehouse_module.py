@@ -34,6 +34,17 @@ class WarehouseModuleTest(unittest.TestCase):
                         "must_change_password": True,
                         "created_at": "2026-04-22T08:00:00",
                         "updated_at": "2026-04-22T08:00:00",
+                    },
+                    {
+                        "id": "USR-002",
+                        "nome": "Operador SannyGold",
+                        "email": "operador@sannygold.local",
+                        "senha_hash": generate_password_hash("Operador1234", method="pbkdf2:sha256"),
+                        "status": "ativo",
+                        "role": "operacional",
+                        "must_change_password": False,
+                        "created_at": "2026-04-22T08:00:00",
+                        "updated_at": "2026-04-22T08:00:00",
                     }
                 ],
                 indent=2,
@@ -46,10 +57,10 @@ class WarehouseModuleTest(unittest.TestCase):
         app.config.update(TESTING=True)
         self.client = app.test_client()
 
-    def login(self):
+    def login(self, email="admin@sannygold.local", password="Sanny123Gold"):
         return self.client.post(
             "/auth/login",
-            data={"email": "admin@sannygold.local", "password": "Sanny123Gold"},
+            data={"email": email, "password": password},
             follow_redirects=True,
         )
 
@@ -97,13 +108,14 @@ class WarehouseModuleTest(unittest.TestCase):
         self.assertIn('id="warehouseItemModal"', html)
         self.assertIn("Adicionar item", html)
         self.assertIn("Exportar PDF", html)
+        self.assertIn("Estoque baixo PDF", html)
         self.assertIn("Lista completa do almoxarifado", html)
         self.assertIn("warehouse-search", html)
         self.assertIn("Comprar online", html)
         self.assertIn("Distribuidora Central", html)
         self.assertIn("https://cdn.example/papel-toalha.jpg", html)
-        self.assertIn("Repor estoque", html)
-        self.assertIn("Dar baixa", html)
+        self.assertIn("Registrar entrada", html)
+        self.assertIn("Registrar saída", html)
         self.assertIn("Ajustar quantidade", html)
         self.assertIn("1 item(ns) baixo(s)", html)
 
@@ -133,6 +145,19 @@ class WarehouseModuleTest(unittest.TestCase):
         self.assertIn(b"Distribuidora Central", pdf_bytes)
         self.assertIn(b"https://fornecedor.example/papel-toalha", pdf_bytes)
 
+    def test_can_export_low_stock_warehouse_pdf(self):
+        self.login()
+        self.create_item()
+
+        response = self.client.get("/warehouse/low-stock.pdf")
+        pdf_bytes = response.get_data()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.mimetype, "application/pdf")
+        self.assertIn(b"SannyGold - Estoque baixo", pdf_bytes)
+        self.assertIn(b"Papel toalha", pdf_bytes)
+        self.assertIn(b"repor antes", pdf_bytes)
+
     def test_movements_update_balance_and_register_history_with_user(self):
         self.login()
         self.create_item()
@@ -140,11 +165,11 @@ class WarehouseModuleTest(unittest.TestCase):
 
         self.client.post(
             f"/warehouse/items/{item_id}/movement",
-            data={"movement_type": "reposição", "quantity": "7", "observation": "Compra semanal"},
+            data={"movement_type": "entrada", "quantity": "7", "observation": "Compra semanal"},
         )
         self.client.post(
             f"/warehouse/items/{item_id}/movement",
-            data={"movement_type": "baixa", "quantity": "4", "observation": "Uso na sede"},
+            data={"movement_type": "saida", "quantity": "4", "observation": "Uso na sede"},
         )
         self.client.post(
             f"/warehouse/items/{item_id}/movement",
@@ -155,7 +180,7 @@ class WarehouseModuleTest(unittest.TestCase):
         movements = json.loads(WAREHOUSE_MOVEMENTS_PATH.read_text(encoding="utf-8"))
 
         self.assertEqual(items[0]["quantity_current"], 12.0)
-        self.assertEqual([item["movement_type"] for item in movements], ["reposição", "baixa", "ajuste manual"])
+        self.assertEqual([item["movement_type"] for item in movements], ["entrada", "saida", "ajuste manual"])
         self.assertEqual(movements[0]["previous_balance"], 3.0)
         self.assertEqual(movements[0]["final_balance"], 10.0)
         self.assertEqual(movements[1]["previous_balance"], 10.0)
@@ -180,6 +205,38 @@ class WarehouseModuleTest(unittest.TestCase):
         self.assertIn("não pode ficar negativa", response.get_data(as_text=True))
         self.assertEqual(items[0]["quantity_current"], 3.0)
         self.assertEqual(movements, [])
+
+    def test_operator_can_move_stock_but_cannot_manage_item_or_manual_adjust(self):
+        self.login()
+        self.create_item()
+        item_id = json.loads(WAREHOUSE_ITEMS_PATH.read_text(encoding="utf-8"))[0]["id"]
+        self.client.post("/auth/logout")
+        self.login("operador@sannygold.local", "Operador1234")
+
+        create_response = self.client.post(
+            "/warehouse/items",
+            data={"name": "Material bloqueado", "category": "Teste", "quantity_current": "1", "stock_minimum": "1"},
+            follow_redirects=True,
+        )
+        entry_response = self.client.post(
+            f"/warehouse/items/{item_id}/movement",
+            data={"movement_type": "entrada", "quantity": "2", "observation": "Reposicao operacional"},
+            follow_redirects=True,
+        )
+        adjustment_response = self.client.post(
+            f"/warehouse/items/{item_id}/movement",
+            data={"movement_type": "ajuste manual", "final_quantity": "99", "observation": "Contagem"},
+            follow_redirects=True,
+        )
+        items = json.loads(WAREHOUSE_ITEMS_PATH.read_text(encoding="utf-8"))
+        movements = json.loads(WAREHOUSE_MOVEMENTS_PATH.read_text(encoding="utf-8"))
+
+        self.assertIn("Acesso restrito", create_response.get_data(as_text=True))
+        self.assertIn("Movimentação registrada", entry_response.get_data(as_text=True))
+        self.assertIn("permitido apenas para administrador", adjustment_response.get_data(as_text=True))
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]["quantity_current"], 5.0)
+        self.assertEqual([item["movement_type"] for item in movements], ["entrada"])
 
 
 if __name__ == "__main__":

@@ -41,6 +41,7 @@ def password_change_required(user: dict | None) -> bool:
 def build_security_posture(
     *,
     secret_key: str,
+    secret_key_configured: bool = True,
     users: list[dict],
     current_user: dict,
     last_backup_at: str = "",
@@ -51,12 +52,20 @@ def build_security_posture(
     password_rotation_pending = [user for user in active_users if password_change_required(user)]
     items: list[dict] = []
 
-    if secret_key == DEFAULT_SECRET_KEY:
+    if not secret_key_configured:
+        items.append(
+            {
+                "level": "warning",
+                "title": "Secret key temporária",
+                "detail": "Não há chave fixa no ambiente; defina SANNYGOLD_SECRET_KEY antes do uso diário contínuo.",
+            }
+        )
+    elif secret_key == DEFAULT_SECRET_KEY:
         items.append(
             {
                 "level": "danger",
-                "title": "Secret key padrão em uso",
-                "detail": "Defina uma chave forte no ambiente antes de expor o sistema fora do uso local.",
+                "title": "Secret key padrão bloqueada",
+                "detail": "A chave padrão antiga não deve ser usada em produção.",
             }
         )
     else:

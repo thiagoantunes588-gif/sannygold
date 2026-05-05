@@ -5,6 +5,7 @@ import importlib.util
 import io
 import json
 import os
+import secrets
 import sys
 import tempfile
 import urllib.parse
@@ -120,7 +121,8 @@ EVENT_STATUS_ALIASES = {
 ACTIVE_EVENT_STATUSES = {"orcamento", "confirmado", "em_preparacao", "em_andamento", "planejado", "em_execucao"}
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = os.environ.get("SANNYGOLD_SECRET_KEY", "rotaflow-local-dev")
+SECRET_KEY_CONFIGURED = bool(os.environ.get("SANNYGOLD_SECRET_KEY"))
+app.config["SECRET_KEY"] = os.environ.get("SANNYGOLD_SECRET_KEY") or secrets.token_urlsafe(32)
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=12)
 
@@ -830,22 +832,34 @@ def apply_warehouse_movement(item_id: str, form, user: dict) -> dict:
         raise ValueError("Material não encontrado no almoxarifado.")
 
     movement_type = clean_text(form.get("movement_type")).lower()
+    movement_aliases = {
+        "reposição": "entrada",
+        "reposicao": "entrada",
+        "entrada": "entrada",
+        "baixa": "saida",
+        "saída": "saida",
+        "saida": "saida",
+        "ajuste manual": "ajuste manual",
+    }
+    movement_type = movement_aliases.get(movement_type, movement_type)
     previous_balance = parse_decimal(target.get("quantity_current"))
     final_balance = previous_balance
     quantity_changed = 0.0
-    if movement_type == "reposição":
+    if movement_type == "entrada":
         quantity_changed = parse_decimal(form.get("quantity"))
         if quantity_changed <= 0:
-            raise ValueError("Informe uma quantidade de reposição maior que zero.")
+            raise ValueError("Informe uma quantidade de entrada maior que zero.")
         final_balance = round(previous_balance + quantity_changed, 2)
-    elif movement_type == "baixa":
+    elif movement_type == "saida":
         quantity_changed = parse_decimal(form.get("quantity"))
         if quantity_changed <= 0:
-            raise ValueError("Informe uma quantidade de baixa maior que zero.")
+            raise ValueError("Informe uma quantidade de saída maior que zero.")
         final_balance = round(previous_balance - quantity_changed, 2)
         if final_balance < 0 and clean_text(form.get("allow_negative")) != "true":
             raise ValueError("A quantidade não pode ficar negativa sem confirmação explícita.")
     elif movement_type == "ajuste manual":
+        if not has_permission(user, "warehouse.manage"):
+            raise ValueError("Ajuste manual de quantidade é permitido apenas para administrador.")
         final_balance = parse_decimal(form.get("final_quantity"))
         if final_balance < 0 and clean_text(form.get("allow_negative")) != "true":
             raise ValueError("A quantidade não pode ficar negativa sem confirmação explícita.")
@@ -1023,6 +1037,32 @@ def build_warehouse_pdf() -> bytes:
     if not dashboard["items"]:
         lines.append("Nenhum material cadastrado.")
     return build_simple_text_pdf("SannyGold - Almoxarifado", lines)
+
+
+def build_low_stock_warehouse_pdf() -> bytes:
+    dashboard = build_warehouse_dashboard()
+    alert_items = [item for item in dashboard["items"] if item.get("stock_status") in {"baixo", "zerado"}]
+    lines = [
+        f"Gerado em {format_datetime_br(now_iso())}",
+        f"Materiais em alerta: {len(alert_items)}",
+        "",
+        "Relatório de estoque baixo e zerado",
+        "",
+    ]
+    for index, item in enumerate(alert_items, start=1):
+        lines.extend(
+            [
+                f"{index}. {item.get('name')} | {item.get('category')} | {item.get('stock_status_label')}",
+                f"   Saldo atual: {item.get('quantity_current')} {item.get('unit')} | mínimo: {item.get('stock_minimum')} {item.get('unit')}",
+                f"   Local: {item.get('storage_location') or 'n/d'}",
+                f"   Comprar: {item.get('purchase_link') or item.get('purchase_location') or 'n/d'}",
+                f"   Próxima ação: {'comprar imediatamente' if item.get('stock_status') == 'zerado' else 'repor antes da próxima operação'}",
+                "",
+            ]
+        )
+    if not alert_items:
+        lines.append("Nenhum material com estoque baixo ou zerado no momento.")
+    return build_simple_text_pdf("SannyGold - Estoque baixo", lines)
 
 
 def module_export_data(module: str) -> tuple[str, list[str], list[list[str]], str]:
@@ -1316,7 +1356,7 @@ def build_system_status_snapshot() -> dict:
     health = {
         "ok": True,
         "storage_ready": storage_ready,
-        "has_secret_key": app.config.get("SECRET_KEY") not in {"", DEFAULT_SECRET_KEY},
+        "has_secret_key": SECRET_KEY_CONFIGURED,
         "has_recent_backup": bool(clean_text(settings.get("last_backup_at"))),
         "has_recent_closeout": bool(clean_text(settings.get("last_closeout_at"))),
     }
@@ -1345,6 +1385,72 @@ def build_system_status_snapshot() -> dict:
         "counts": counts,
         "operations": operations,
     }
+
+
+def build_security_technical_checklist(security_posture: dict, system_status: dict) -> list[dict]:
+    health = system_status.get("health") or {}
+    return [
+        {
+            "item": "Login obrigatório para áreas internas",
+            "status": "Verificado",
+            "risk": "Baixo",
+            "next_action": "Manter rotas internas com permissão obrigatória.",
+        },
+        {
+            "item": "Senhas fortes",
+            "status": "Verificado" if security_posture.get("password_rotation_pending", 0) == 0 else "Atenção",
+            "risk": "Médio" if security_posture.get("password_rotation_pending", 0) else "Baixo",
+            "next_action": "Concluir trocas de senha inicial pendentes.",
+        },
+        {
+            "item": "Hash seguro de senha",
+            "status": "Verificado",
+            "risk": "Baixo",
+            "next_action": "Continuar salvando somente senha criptografada.",
+        },
+        {
+            "item": "Proteção de rotas e permissões por perfil",
+            "status": "Verificado",
+            "risk": "Baixo",
+            "next_action": "Revisar funções quando criar novos acessos.",
+        },
+        {
+            "item": "Sessão com expiração e logout",
+            "status": "Verificado",
+            "risk": "Baixo",
+            "next_action": "Avaliar reduzir a sessão se celulares forem compartilhados.",
+        },
+        {
+            "item": "Variáveis sensíveis fora do código",
+            "status": "Verificado" if health.get("has_secret_key") else "Atenção",
+            "risk": "Médio" if not health.get("has_secret_key") else "Baixo",
+            "next_action": "Definir SANNYGOLD_SECRET_KEY fixa no provedor antes do uso diário.",
+        },
+        {
+            "item": "Secret key padrão removida",
+            "status": "Verificado",
+            "risk": "Baixo",
+            "next_action": "Usar uma chave forte em ambiente de produção.",
+        },
+        {
+            "item": "Logs de ações críticas",
+            "status": "Verificado",
+            "risk": "Baixo",
+            "next_action": "Acompanhar alterações de usuários, financeiro, estoque e cadastros.",
+        },
+        {
+            "item": "Backup manual",
+            "status": "Verificado" if health.get("has_recent_backup") else "Atenção",
+            "risk": "Baixo" if health.get("has_recent_backup") else "Médio",
+            "next_action": "Gerar backup antes de iniciar uso diário da equipe.",
+        },
+        {
+            "item": "Backup automático",
+            "status": "Pendente",
+            "risk": "Médio",
+            "next_action": "Configurar rotina externa ou agendamento no provedor.",
+        },
+    ]
 
 
 def upsert_item(items: list[dict], record: dict, key: str) -> list[dict]:
@@ -5487,6 +5593,7 @@ def build_dashboard_context() -> dict:
     users = load_users()
     security_posture = build_security_posture(
         secret_key=app.config.get("SECRET_KEY", DEFAULT_SECRET_KEY),
+        secret_key_configured=SECRET_KEY_CONFIGURED,
         users=users,
         current_user=user,
         last_backup_at=clean_text(settings.get("last_backup_at")),
@@ -5616,6 +5723,7 @@ def build_dashboard_context() -> dict:
         "maintenance_preventive_dashboard": build_maintenance_preventive_dashboard(inventory, service_log),
         "mobile_sync_dashboard": mobile_sync_dashboard,
         "security_posture": security_posture,
+        "security_technical_checklist": build_security_technical_checklist(security_posture, system_status),
         "team_weekly_review": team_weekly_review,
         "system_status": system_status,
         "global_search_items": build_global_search_items(clients, events, vehicles, inventory, warehouse_dashboard, financial_receivables),
@@ -5658,6 +5766,7 @@ def build_dashboard_context() -> dict:
                 "settings.manage",
                 "warehouse.view",
                 "warehouse.edit",
+                "warehouse.manage",
             }
         ),
         "role_permission_matrix": {role: sorted(permissions) for role, permissions in ROLE_PERMISSIONS.items()},
@@ -5767,7 +5876,7 @@ def save_user():
 
 
 @app.route("/warehouse/items", methods=["POST"])
-@require_permission("warehouse.edit")
+@require_permission("warehouse.manage")
 def save_warehouse_item():
     try:
         record = create_warehouse_item_record(request.form)
@@ -5958,6 +6067,17 @@ def download_warehouse_pdf():
         mimetype="application/pdf",
         as_attachment=True,
         download_name=f"sannygold-almoxarifado-{datetime.now().date().isoformat()}.pdf",
+    )
+
+
+@app.route("/warehouse/low-stock.pdf", methods=["GET"])
+@require_permission("warehouse.view")
+def download_warehouse_low_stock_pdf():
+    return send_file(
+        io.BytesIO(build_low_stock_warehouse_pdf()),
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=f"sannygold-estoque-baixo-{datetime.now().date().isoformat()}.pdf",
     )
 
 
