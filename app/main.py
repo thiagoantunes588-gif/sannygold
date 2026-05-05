@@ -1453,6 +1453,224 @@ def build_security_technical_checklist(security_posture: dict, system_status: di
     ]
 
 
+def homologation_item(
+    name: str,
+    approved: bool,
+    *,
+    problem: str,
+    next_action: str,
+    target_href: str,
+    target_tab: str = "",
+    action: str = "Abrir módulo",
+    error: bool = False,
+) -> dict:
+    return {
+        "name": name,
+        "status": "Aprovado" if approved else "Erro" if error else "Pendente",
+        "problem": "Sem problema encontrado." if approved else problem,
+        "next_action": "Manter validação antes da produção." if approved else next_action,
+        "target_href": target_href,
+        "target_tab": target_tab,
+        "action": action,
+    }
+
+
+def build_homologation_checklist(
+    *,
+    clients: list[dict],
+    events: list[dict],
+    vehicles: list[dict],
+    inventory: list[dict],
+    route_data: dict | None,
+    users: list[dict],
+    settings: dict,
+    system_status: dict,
+    field_confirmations: list[dict],
+) -> dict:
+    active_users = [user for user in users if clean_text(user.get("status")) == "ativo"]
+    admin_password_env = os.environ.get("SANNYGOLD_ADMIN_PASSWORD", "")
+    has_default_password_env = not admin_password_env or admin_password_env == "Sanny123Gold"
+    password_rotation_pending = any(bool(user.get("must_change_password")) for user in active_users)
+    event_has_equipment = any(
+        any(client.get("client_id") in event.get("client_ids", []) and clean_text(client.get("equipment_number")) for client in clients)
+        for event in events
+    )
+    checklist_marked = any(any(item.get("done") for item in event.get("checklist", [])) for event in events)
+    equipment_returned = any(clean_text(item.get("returned_at")) for item in inventory) or any(
+        clean_text(item.get("return_confirmed_at")) for item in field_confirmations
+    )
+    required_env = {
+        "SANNYGOLD_SECRET_KEY": SECRET_KEY_CONFIGURED,
+        "SANNYGOLD_ADMIN_EMAIL": bool(os.environ.get("SANNYGOLD_ADMIN_EMAIL")),
+        "SANNYGOLD_ADMIN_PASSWORD": bool(admin_password_env) and not has_default_password_env,
+    }
+    persistent_storage_ready = bool(os.environ.get("ROTAFLOW_STORAGE_DIR")) and STORAGE_ROOT.exists()
+    route_ready = bool(route_data and route_data.get("routes"))
+    pdf_ready = ROUTE_PDF_PATH.exists()
+    health_ready = bool(system_status.get("health", {}).get("ok") and system_status.get("health", {}).get("storage_ready"))
+    permission_ready = (
+        has_permission({"role": "admin"}, "settings.manage")
+        and has_permission({"role": "operacional"}, "routes.generate")
+        and not has_permission({"role": "operacional"}, "finance.view")
+        and not has_permission({"role": "leitura"}, "clients.edit")
+    )
+
+    items = [
+        homologation_item(
+            "1. Criar cliente",
+            bool(clients),
+            problem="Nenhum cliente cadastrado para validar a operação.",
+            next_action="Criar um cliente real ou de teste com endereço completo.",
+            target_href="#clients-pane",
+            target_tab="clients-tab",
+            action="Abrir clientes",
+        ),
+        homologation_item(
+            "2. Criar locação/evento",
+            bool(events),
+            problem="Nenhuma locação ou evento cadastrado.",
+            next_action="Criar uma locação/evento com data, cliente e status definido.",
+            target_href="#events-pane",
+            target_tab="events-tab",
+            action="Abrir eventos",
+        ),
+        homologation_item(
+            "3. Cadastrar veículo",
+            bool(vehicles),
+            problem="Nenhum veículo cadastrado.",
+            next_action="Cadastrar ao menos um veículo para geração de rota.",
+            target_href="#fleet-pane",
+            target_tab="fleet-tab",
+            action="Abrir frota",
+        ),
+        homologation_item(
+            "4. Cadastrar equipamento",
+            bool(inventory),
+            problem="Nenhum equipamento cadastrado.",
+            next_action="Cadastrar ao menos um banheiro, trailer ou equipamento de apoio.",
+            target_href="#fleet-pane",
+            target_tab="fleet-tab",
+            action="Abrir equipamentos",
+        ),
+        homologation_item(
+            "5. Vincular equipamento ao evento",
+            event_has_equipment,
+            problem="Ainda não há evento com cliente/equipamento vinculado.",
+            next_action="Vincular cliente com equipamento a uma locação/evento.",
+            target_href="#events-pane",
+            target_tab="events-tab",
+            action="Revisar evento",
+        ),
+        homologation_item(
+            "6. Gerar rota",
+            route_ready,
+            problem="Nenhuma rota válida gerada.",
+            next_action="Validar dados e gerar uma rota com cliente e veículo.",
+            target_href="#operations-pane",
+            target_tab="operations-tab",
+            action="Gerar rota",
+        ),
+        homologation_item(
+            "7. Gerar PDF/Ordem de Serviço",
+            pdf_ready or bool(events),
+            problem="Nenhum PDF de rota ou ordem de serviço foi validado.",
+            next_action="Gerar rota em PDF ou baixar a OS de um evento.",
+            target_href="#operations-pane",
+            target_tab="operations-tab",
+            action="Abrir PDFs",
+        ),
+        homologation_item(
+            "8. Registrar checklist de saída",
+            checklist_marked,
+            problem="Nenhum checklist de saída foi marcado em evento.",
+            next_action="Editar um evento e marcar os itens conferidos antes da saída.",
+            target_href="#events-pane",
+            target_tab="events-tab",
+            action="Abrir eventos",
+        ),
+        homologation_item(
+            "9. Registrar retorno de equipamento",
+            equipment_returned,
+            problem="Nenhum retorno de equipamento foi registrado.",
+            next_action="Confirmar retorno pelo mapa/rota ou pelo cadastro do equipamento.",
+            target_href="#operations-pane",
+            target_tab="operations-tab",
+            action="Confirmar retorno",
+        ),
+        homologation_item(
+            "10. Gerar backup",
+            bool(clean_text(settings.get("last_backup_at"))),
+            problem="Backup completo ainda não foi gerado.",
+            next_action="Baixar um backup antes de liberar uso diário.",
+            target_href=url_for("download_system_backup"),
+            action="Gerar backup",
+        ),
+        homologation_item(
+            "11. Validar persistência após reinício/redeploy",
+            persistent_storage_ready,
+            problem="Diretório persistente não foi confirmado por variável ROTAFLOW_STORAGE_DIR.",
+            next_action="Configurar ROTAFLOW_STORAGE_DIR em disco persistente no Render e testar redeploy.",
+            target_href="#system-readiness-panel",
+            action="Ver status",
+            error=DEPLOY_TARGET == "render",
+        ),
+        homologation_item(
+            "12. Validar login",
+            bool(active_users),
+            problem="Nenhum usuário ativo cadastrado.",
+            next_action="Criar ou reativar usuário administrador antes da produção.",
+            target_href="#access-pane",
+            target_tab="access-tab",
+            action="Abrir acessos",
+            error=not active_users,
+        ),
+        homologation_item(
+            "13. Validar permissões por perfil",
+            permission_ready,
+            problem="Matriz básica de permissões não está consistente.",
+            next_action="Revisar permissões de admin, operação, financeiro e leitura.",
+            target_href="#access-pane",
+            target_tab="access-tab",
+            action="Abrir acessos",
+            error=not permission_ready,
+        ),
+        homologation_item(
+            "14. Validar se não existe senha padrão ativa",
+            not has_default_password_env and not password_rotation_pending,
+            problem="Senha inicial padrão ou troca de senha pendente ainda existe.",
+            next_action="Definir SANNYGOLD_ADMIN_PASSWORD forte e trocar senhas iniciais pendentes.",
+            target_href="#access-pane",
+            target_tab="access-tab",
+            action="Abrir acessos",
+            error=has_default_password_env,
+        ),
+        homologation_item(
+            "15. Validar variáveis de ambiente obrigatórias",
+            all(required_env.values()),
+            problem="Faltam variáveis obrigatórias: " + ", ".join(key for key, ok in required_env.items() if not ok),
+            next_action="Configurar variáveis sensíveis no Render, fora do código.",
+            target_href="#system-readiness-panel",
+            action="Ver ambiente",
+            error=not all(required_env.values()),
+        ),
+        homologation_item(
+            "16. Validar endpoint /health ou /status",
+            health_ready,
+            problem="/health não confirmou armazenamento e execução saudáveis.",
+            next_action="Abrir /health e corrigir armazenamento ou inicialização se retornar erro.",
+            target_href=url_for("healthcheck"),
+            action="Abrir health",
+            error=not health_ready,
+        ),
+    ]
+    return {
+        "items": items,
+        "approved": sum(1 for item in items if item["status"] == "Aprovado"),
+        "pending": sum(1 for item in items if item["status"] == "Pendente"),
+        "errors": sum(1 for item in items if item["status"] == "Erro"),
+    }
+
+
 def upsert_item(items: list[dict], record: dict, key: str) -> list[dict]:
     by_key = {item[key]: item for item in items if item.get(key)}
     by_key[record[key]] = record
@@ -5616,6 +5834,17 @@ def build_dashboard_context() -> dict:
         security_posture=security_posture,
     )
     system_status = build_system_status_snapshot()
+    homologation_checklist = build_homologation_checklist(
+        clients=clients,
+        events=events,
+        vehicles=vehicles,
+        inventory=inventory,
+        route_data=route_data,
+        users=users,
+        settings=settings,
+        system_status=system_status,
+        field_confirmations=field_confirmations,
+    )
     role_home_labels = {
         "admin": "Tela inicial personalizada: visão completa da empresa",
         "operacional": "Tela inicial personalizada: operação, eventos, equipamentos e almoxarifado",
@@ -5724,6 +5953,7 @@ def build_dashboard_context() -> dict:
         "mobile_sync_dashboard": mobile_sync_dashboard,
         "security_posture": security_posture,
         "security_technical_checklist": build_security_technical_checklist(security_posture, system_status),
+        "homologation_checklist": homologation_checklist,
         "team_weekly_review": team_weekly_review,
         "system_status": system_status,
         "global_search_items": build_global_search_items(clients, events, vehicles, inventory, warehouse_dashboard, financial_receivables),
@@ -5788,7 +6018,12 @@ def index():
 def healthcheck():
     snapshot = build_system_status_snapshot()
     status_code = 200 if snapshot["health"]["ok"] and snapshot["health"]["storage_ready"] else 503
-    return jsonify({"ok": status_code == 200, **snapshot}), status_code
+    return jsonify({"ok": status_code == 200, "status": "OK" if status_code == 200 else "ERRO", **snapshot}), status_code
+
+
+@app.route("/status", methods=["GET"])
+def statuscheck():
+    return healthcheck()
 
 
 @app.route("/system/status.json", methods=["GET"])

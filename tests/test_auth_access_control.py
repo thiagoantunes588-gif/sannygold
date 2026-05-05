@@ -71,8 +71,13 @@ class AuthAccessControlTest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue(payload["ok"])
+        self.assertEqual(payload["status"], "OK")
         self.assertIn("metadata", payload)
         self.assertIn("counts", payload)
+
+        status_response = self.client.get("/status")
+        self.assertEqual(status_response.status_code, 200)
+        self.assertEqual(status_response.get_json()["status"], "OK")
 
     def test_login_reports_user_not_found_and_wrong_password(self):
         missing = self.client.post(
@@ -101,6 +106,9 @@ class AuthAccessControlTest(unittest.TestCase):
         self.assertIn("settings.manage", html)
         self.assertIn("Matriz de permissões por função", html)
         self.assertIn("Painel de acessos da equipe", html)
+        self.assertIn("Checklist de Homologação", html)
+        self.assertIn("Validar endpoint /health ou /status", html)
+        self.assertIn("Validar persistência após reinício/redeploy", html)
         self.assertIn("Novo acesso", html)
         self.assertIn("Revisão semanal", html)
         self.assertIn("Padrão mínimo de cadastro", html)

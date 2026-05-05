@@ -1720,11 +1720,14 @@
         <a class="btn btn-dark btn-sm js-tab-link" href="#quick-rental-panel" data-tab-target="summary-tab">Criar locação</a>
         <a class="btn btn-outline-secondary btn-sm js-tab-link" href="#clients-pane" data-tab-target="clients-tab" data-open-create="manual-client-form">Novo cliente</a>
         <a class="btn btn-outline-secondary btn-sm js-tab-link" href="#fleet-pane" data-tab-target="fleet-tab" data-open-create="equipment-create-panel">Novo equipamento</a>
+        {% if '*' in current_user.permissions or 'warehouse.manage' in current_user.permissions %}
         <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#warehouseItemModal">Novo material</button>
+        {% endif %}
         <a class="btn btn-outline-secondary btn-sm js-tab-link" href="#fleet-pane" data-tab-target="fleet-tab">Frota e equipamentos</a>
         <a class="btn btn-outline-secondary btn-sm js-tab-link" href="#warehouse-pane" data-tab-target="warehouse-tab">Almoxarifado</a>
         <a class="btn btn-outline-secondary btn-sm js-tab-link" href="#operations-pane" data-tab-target="operations-tab">Validar/Gerar rota</a>
         {% if '*' in current_user.permissions %}
+        <a class="btn btn-outline-secondary btn-sm js-tab-link" href="#homologation-pane" data-tab-target="homologation-tab">Homologação</a>
         <a class="btn btn-outline-secondary btn-sm js-tab-link" href="#access-management-panel" data-tab-target="access-tab">Novo acesso</a>
         {% endif %}
         {% if has_pdf %}
@@ -1922,6 +1925,9 @@
           <button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history-pane" type="button" role="tab" aria-controls="history-pane" aria-selected="false">Histórico</button>
         </li>
         {% if '*' in current_user.permissions %}
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="homologation-tab" data-bs-toggle="tab" data-bs-target="#homologation-pane" type="button" role="tab" aria-controls="homologation-pane" aria-selected="false">Homologação</button>
+        </li>
         <li class="nav-item" role="presentation">
           <button class="nav-link" id="access-tab" data-bs-toggle="tab" data-bs-target="#access-pane" type="button" role="tab" aria-controls="access-pane" aria-selected="false">Acessos</button>
         </li>
@@ -5005,6 +5011,70 @@
         </div>
 
         {% if '*' in current_user.permissions %}
+        <div class="tab-pane fade" id="homologation-pane" role="tabpanel" aria-labelledby="homologation-tab" tabindex="0">
+          <div class="tab-pane-stack">
+            <section class="glass p-4" id="homologation-checklist-panel">
+              <div class="module-toolbar mb-3">
+                <div>
+                  <div class="eyebrow mb-2">Produção</div>
+                  <h2 class="h4 mb-1">Checklist de Homologação</h2>
+                  <p class="text-secondary mb-0 small">Validação final antes do uso real no Render, com foco em operação, segurança, backup e persistência.</p>
+                </div>
+                <div class="route-badges">
+                  <span class="route-badge badge-success">{{ homologation_checklist.approved }} aprovado(s)</span>
+                  <span class="route-badge badge-avulso">{{ homologation_checklist.pending }} pendente(s)</span>
+                  <span class="route-badge {{ 'badge-danger' if homologation_checklist.errors else 'badge-success' }}">{{ homologation_checklist.errors }} erro(s)</span>
+                </div>
+              </div>
+
+              <div class="row g-3 mb-3">
+                <div class="col-md-4">
+                  <div class="stat-card p-3 h-100">
+                    <div class="fs-4 fw-bold">{{ 'OK' if system_status.health.storage_ready else 'ATENÇÃO' }}</div>
+                    <div class="small text-secondary">Armazenamento e inicialização</div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="stat-card p-3 h-100">
+                    <div class="fs-4 fw-bold">{{ 'OK' if system_status.health.has_secret_key else 'PENDENTE' }}</div>
+                    <div class="small text-secondary">Variáveis sensíveis</div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="stat-card p-3 h-100">
+                    <div class="fs-4 fw-bold">{{ 'OK' if homologation_checklist.errors == 0 else 'REVISAR' }}</div>
+                    <div class="small text-secondary">Pronto para produção</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="security-checklist-grid">
+                <div class="security-checklist-item fw-semibold text-secondary d-none d-md-grid">
+                  <div>Teste</div>
+                  <div>Status</div>
+                  <div>Problema</div>
+                  <div>Próxima ação</div>
+                </div>
+                {% for item in homologation_checklist["items"] %}
+                <div class="security-checklist-item">
+                  <div class="fw-semibold">{{ item.name }}</div>
+                  <div><span class="route-badge {{ 'badge-success' if item.status == 'Aprovado' else 'badge-danger' if item.status == 'Erro' else 'badge-avulso' }}">{{ item.status }}</span></div>
+                  <div class="small text-secondary">{{ item.problem }}</div>
+                  <div class="d-grid gap-2">
+                    <div class="small text-secondary">{{ item.next_action }}</div>
+                    {% if item.target_href.startswith('#') and item.target_tab %}
+                    <a class="btn btn-sm btn-outline-secondary rounded-pill js-tab-link" href="{{ item.target_href }}" data-tab-target="{{ item.target_tab }}">{{ item.action }}</a>
+                    {% else %}
+                    <a class="btn btn-sm btn-outline-secondary rounded-pill" href="{{ item.target_href }}" {% if not item.target_href.startswith('#') %}target="_blank" rel="noreferrer"{% endif %}>{{ item.action }}</a>
+                    {% endif %}
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+            </section>
+          </div>
+        </div>
+
         <div class="tab-pane fade" id="access-pane" role="tabpanel" aria-labelledby="access-tab" tabindex="0">
           <div class="tab-pane-stack">
             <section class="glass p-4" id="access-management-panel">
