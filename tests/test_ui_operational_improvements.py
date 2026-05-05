@@ -139,6 +139,11 @@ class OperationalUiImprovementsTest(unittest.TestCase):
         self.assertIn("Placa do trailer", html)
         self.assertIn("Em preparação", html)
         self.assertIn("Em andamento", html)
+        self.assertIn("today-home", html)
+        self.assertIn("Como operar sem se perder", html)
+        self.assertIn("usage-guide-panel", html)
+        self.assertIn("Manual PDF", html)
+        self.assertIn("Etapas do cadastro de evento", html)
         self.assertNotIn("driver-pane", html)
         self.assertNotIn("driver-tab", html)
         self.assertNotIn("Modo motorista", html)
@@ -280,6 +285,13 @@ class OperationalUiImprovementsTest(unittest.TestCase):
         self.assertIn('id="cleaning_frequency"', html)
         self.assertIn('id="service_profile"', html)
         self.assertIn("Limpeza semanal", html)
+
+    def test_user_manual_pdf_is_available(self):
+        response = self.client.get("/manual/sannygold-equipe.pdf")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.mimetype, "application/pdf")
+        self.assertIn(b"SannyGold - Manual rapido da equipe", response.get_data())
 
     def test_equipment_can_store_and_display_plate(self):
         response = self.client.post(

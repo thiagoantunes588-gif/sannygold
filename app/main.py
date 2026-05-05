@@ -54,6 +54,7 @@ UPLOADS_DIR = STORAGE_ROOT / "uploads"
 PREVIEW_DIR = STORAGE_ROOT / "preview"
 ROUTE_JSON_PATH = PREVIEW_DIR / "route-plan-mobile.json"
 ROUTE_PDF_PATH = PREVIEW_DIR / "route-plan.pdf"
+USER_MANUAL_PDF_PATH = BASE_DIR / "output" / "pdf" / "sannygold-manual-rapido-equipe.pdf"
 APP_VERSION = os.environ.get("SANNYGOLD_APP_VERSION", "v1.0.0")
 DEPLOY_TARGET = "vercel" if os.environ.get("VERCEL") else ("render" if os.environ.get("RENDER") else "local")
 HQ_ADDRESS = "Estrada Bento Pestana, 932 - Baldeador, Niterói - RJ"
@@ -6767,6 +6768,20 @@ def geocode():
 @require_permission("routes.view")
 def preview_file(filename: str):
     return send_from_directory(PREVIEW_DIR, filename, as_attachment=False)
+
+
+@app.route("/manual/sannygold-equipe.pdf", methods=["GET"])
+@require_permission("dashboard.view")
+def download_user_manual():
+    if not USER_MANUAL_PDF_PATH.exists():
+        flash("Manual ainda não foi gerado.", "danger")
+        return redirect(url_for("index"))
+    return send_file(
+        io.BytesIO(USER_MANUAL_PDF_PATH.read_bytes()),
+        mimetype="application/pdf",
+        as_attachment=False,
+        download_name="sannygold-manual-rapido-equipe.pdf",
+    )
 
 
 @app.route("/uploads/assets/<path:filename>", methods=["GET"])

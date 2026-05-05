@@ -1,17 +1,30 @@
 # Manual de uso diario - Sistema SannyGold
 
-Este manual orienta a equipe no uso do sistema para rotina administrativa, operacional e financeira. O fluxo recomendado e usar o painel internamente, gerar PDF quando necessario e compartilhar links de endereco somente quando ajudarem a operacao.
+Este manual orienta a equipe no uso do sistema para rotina administrativa, operacional e financeira. O fluxo recomendado e usar o painel internamente, resolver alertas, gerar PDF quando necessario e compartilhar links de endereco somente quando ajudarem a operacao.
 
-## Melhor forma de usar
+## Fluxo mais simples
 
-1. Entrar no sistema no inicio do dia.
-2. Conferir a Central de trabalho do dia.
-3. Resolver pendencias criticas antes de criar novas rotas.
-4. Cadastrar ou revisar clientes, eventos, equipamentos e financeiro.
-5. Validar a operacao antes de gerar rota.
-6. Gerar PDF da rota quando houver despacho.
-7. Usar links de endereco para conferencia ou envio interno quando necessario.
-8. Fazer fechamento e backup no fim do dia.
+1. Entrar no sistema.
+2. Olhar a area Hoje.
+3. Resolver alertas e cobrancas vencidas.
+4. Criar ou revisar cliente, evento e equipamento.
+5. Validar a operacao.
+6. Gerar rota e PDF quando houver despacho.
+7. Registrar pagamentos, manutencao ou retorno.
+8. Baixar fechamento e backup no fim do dia.
+
+## Design da tela
+
+O sistema foi organizado para trabalhar com menos procura.
+
+- O topo mostra os numeros principais do dia.
+- Os botoes escuros sao acoes principais.
+- Os botoes claros sao acoes secundarias.
+- Verde indica pronto ou pago.
+- Amarelo indica atencao.
+- Vermelho indica bloqueio, vencido ou risco.
+- Campos avancados aparecem mais abaixo para nao atrapalhar o cadastro rapido.
+- Cards compactos mostram primeiro o essencial.
 
 ## Entrar no sistema
 
@@ -29,14 +42,16 @@ Regras importantes:
 
 ## Tela inicial
 
-Use a tela inicial como ponto de partida.
+Use a tela inicial como ponto de partida. Depois do login, comece pela area Hoje.
 
 Ela mostra:
 
+- eventos do dia;
+- paradas da rota;
+- cobrancas vencidas;
+- alertas;
 - Central de trabalho do dia.
-- Eventos de hoje.
 - Rotas e PDF.
-- Cobrancas vencidas.
 - Pendencias e alertas.
 - Painel de controle e prevencao.
 - Busca global.
@@ -59,6 +74,28 @@ Use a busca para encontrar rapidamente:
 
 Quando encontrar o item, clique no resultado para abrir o modulo correto.
 
+## Botoes mais usados
+
+Use os atalhos fixos para evitar procurar nas abas.
+
+- Novo evento.
+- Criar locacao.
+- Novo cliente.
+- Novo equipamento.
+- Novo material.
+- Validar/Gerar rota.
+- PDF atual.
+- Fechar dia.
+- Backup.
+
+## Ordem de trabalho recomendada
+
+1. Hoje: confira evento, rota, alertas e financeiro.
+2. Cadastrar: use dados basicos primeiro.
+3. Validar: resolva bloqueios antes de gerar rota.
+4. Operar: gere rota, PDF, OS e links quando necessario.
+5. Fechar: registre pagamento, retorno, manutencao e backup.
+
 ## Clientes
 
 Use Novo cliente para cadastrar ou atualizar dados.
@@ -80,6 +117,7 @@ Boa pratica:
 - antes de criar cliente novo, pesquise nome, telefone e CPF/CNPJ;
 - confira duplicidades apontadas no Painel de controle e prevencao;
 - mantenha telefone e endereco atualizados.
+- use observacoes somente quando ajudarem a proxima pessoa da equipe.
 
 ## Eventos
 
@@ -87,12 +125,21 @@ Use Novo evento para criar uma operacao.
 
 Passos:
 
-1. Informe nome do evento.
-2. Informe data inicial e final.
-3. Vincule clientes.
-4. Vincule veiculos.
-5. Revise o checklist.
-6. Salve.
+1. Preencha Dados basicos.
+2. Vincule clientes e veiculos.
+3. Revise o checklist.
+4. Preencha financeiro se ja souber valores.
+5. Salve.
+
+Status padrao:
+
+- Orcamento: pedido recebido ou proposta em montagem.
+- Confirmado: cliente aprovou.
+- Em preparacao: equipe, equipamento, rota e financeiro em conferencia.
+- Em andamento: entrega, instalacao ou atendimento em execucao.
+- Finalizado: operacao concluida.
+- Pago: fechamento recebido.
+- Cancelado: sem continuidade.
 
 Checklist recomendado:
 
@@ -130,6 +177,12 @@ Nao foi criado um novo impresso por evento. A rotina continua usando os PDFs e r
 
 Use o PDF para entrega impressa ou envio interno.
 
+## Manual PDF
+
+O botao Manual PDF fica no painel de facilitacao de uso. Use para treinar a equipe, imprimir ou enviar internamente.
+
+O manual deve ser atualizado quando houver mudanca importante no fluxo.
+
 ## Links de endereco
 
 Os links de endereco ajudam na conferencia e no envio interno.
@@ -156,6 +209,18 @@ Use a aba Frota e equipamentos para:
 - liberar equipamento apos manutencao.
 
 Antes de vincular ao evento, confira se o equipamento esta disponivel.
+
+Status de equipamento:
+
+- disponivel;
+- reservado;
+- carregado;
+- em rota;
+- instalado;
+- retirada pendente;
+- retornado;
+- manutencao;
+- indisponivel.
 
 ## Manutencao preventiva
 
@@ -202,6 +267,14 @@ Use para:
 
 O anexo de comprovante e opcional.
 
+Rotina simples:
+
+1. Registrar conta a receber.
+2. Marcar pagamento quando entrar.
+3. Registrar saidas no fluxo de caixa.
+4. Conferir vencidas e vencendo.
+5. Fechar o mes e baixar PDF.
+
 ## Contas a receber
 
 Confira:
@@ -239,6 +312,18 @@ Relatorios recomendados:
 - rentabilidade por tipo de servico.
 
 Use PDF para conferencia e Excel quando precisar tratar dados.
+
+## Facilidade de uso
+
+Para reduzir erro:
+
+- pesquise antes de cadastrar;
+- use a acao rapida Criar locacao para casos simples;
+- deixe campos avancados para depois quando nao forem obrigatorios;
+- confira alertas vermelhos antes de despachar;
+- use filtros por status;
+- baixe PDF antes de imprimir ou enviar;
+- confirme exclusoes e finalizacoes com cuidado.
 
 ## Fechamento diario e backup
 

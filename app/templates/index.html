@@ -75,6 +75,17 @@
       color: var(--gold-shadow);
       text-shadow: 0 1px 0 rgba(255, 255, 255, 0.85);
     }
+    body.work-mode .hero-title {
+      font-size: clamp(2rem, 3.2vw, 3.1rem);
+      max-width: 13ch;
+    }
+    body.work-mode .glass {
+      border-radius: 22px;
+    }
+    body.work-mode .lead {
+      font-size: 1rem;
+      max-width: 760px;
+    }
     .eyebrow {
       display: inline-flex;
       padding: 0.45rem 0.85rem;
@@ -394,6 +405,56 @@
       font-size: 1.35rem;
       line-height: 1.1;
     }
+    .today-command-strip {
+      display: grid;
+      grid-template-columns: minmax(220px, 1.2fr) repeat(4, minmax(130px, 1fr));
+      gap: 0.75rem;
+      align-items: stretch;
+      margin-bottom: 1rem;
+    }
+    .today-command-main,
+    .today-command-metric {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 253, 248, 0.86);
+      padding: 0.9rem;
+    }
+    .today-command-main {
+      background:
+        radial-gradient(circle at top right, rgba(76, 197, 215, 0.13), transparent 28%),
+        linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,249,239,0.96));
+    }
+    .today-command-metric strong {
+      display: block;
+      font-size: 1.55rem;
+      line-height: 1;
+    }
+    .assist-panel {
+      border: 1px solid rgba(21, 135, 155, 0.18);
+      border-radius: 16px;
+      background:
+        radial-gradient(circle at top right, rgba(76, 197, 215, 0.12), transparent 30%),
+        linear-gradient(180deg, rgba(255,255,255,0.9), rgba(246,252,253,0.96));
+      padding: 1rem;
+    }
+    .assist-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.65rem;
+      min-height: 44px;
+    }
+    .assist-step-number {
+      width: 1.7rem;
+      height: 1.7rem;
+      border-radius: 8px;
+      display: inline-grid;
+      place-items: center;
+      flex: 0 0 auto;
+      background: var(--aqua-soft);
+      color: var(--aqua-deep);
+      font-weight: 800;
+      font-size: 0.78rem;
+    }
     .usability-checklist {
       display: grid;
       gap: 0.45rem;
@@ -559,6 +620,21 @@
       padding: 0.85rem 1rem;
       color: var(--muted);
       font-size: 0.88rem;
+    }
+    .field-stepper {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 0.6rem;
+      margin-bottom: 1rem;
+    }
+    .field-stepper span {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(255, 253, 248, 0.82);
+      padding: 0.6rem 0.75rem;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 700;
     }
     .top-auth-bar {
       display: flex;
@@ -819,6 +895,12 @@
       margin-top: 1.25rem;
     }
     @media (max-width: 767.98px) {
+      .today-command-strip {
+        grid-template-columns: 1fr 1fr;
+      }
+      .today-command-main {
+        grid-column: 1 / -1;
+      }
       .ops-tabs-nav {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -856,7 +938,7 @@
     }
   </style>
 </head>
-<body>
+<body class="{{ 'work-mode' if is_authenticated else 'public-mode' }}">
   <a class="btn btn-dark sr-only-focusable" href="#operationsTabs">Ir para operacao</a>
   <main class="container py-4 shell">
     <div class="top-auth-bar" aria-label="Conta e configurações">
@@ -977,6 +1059,31 @@
             <span class="route-badge badge-avulso">Trailers com placa</span>
             <span class="route-badge badge-success">Apoio: clima e hidratação</span>
           </div>
+          {% if is_authenticated %}
+          <div class="today-command-strip" id="today-home">
+            <div class="today-command-main">
+              <div class="eyebrow mb-2">Hoje</div>
+              <div class="fw-semibold">Comece por alertas, evento do dia e cobranças vencidas.</div>
+              <div class="small text-secondary mt-1">Use os botões abaixo para cair direto no trabalho sem rolar a tela.</div>
+            </div>
+            <a class="today-command-metric text-reset text-decoration-none js-tab-link" href="#events-pane" data-tab-target="events-tab">
+              <span class="small text-secondary">Eventos</span>
+              <strong>{{ daily_command_center.today_events|length }}</strong>
+            </a>
+            <a class="today-command-metric text-reset text-decoration-none js-tab-link" href="#operations-pane" data-tab-target="operations-tab">
+              <span class="small text-secondary">Paradas</span>
+              <strong>{{ daily_command_center.route_stops }}</strong>
+            </a>
+            <a class="today-command-metric text-reset text-decoration-none" href="#receivables-panel">
+              <span class="small text-secondary">Vencidas</span>
+              <strong>{{ financial_management.overdue|length }}</strong>
+            </a>
+            <a class="today-command-metric text-reset text-decoration-none" href="#dashboard-pendencias">
+              <span class="small text-secondary">Alertas</span>
+              <strong>{{ usability_alerts|length }}</strong>
+            </a>
+          </div>
+          {% endif %}
           <div class="d-flex flex-wrap gap-2">
             {% if is_authenticated %}
             <a class="btn btn-dark btn-lg rounded-pill px-4 js-tab-link" href="#operations-pane" data-tab-target="operations-tab" id="open-operations-tab">Gerar rota</a>
@@ -1168,6 +1275,32 @@
 
     <section class="glass p-4 mb-4" id="usability-helper-panel">
       <div class="row g-3">
+        <div class="col-12">
+          <div class="assist-panel" id="usage-guide-panel">
+            <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+              <div>
+                <div class="eyebrow mb-2">Facilitação de uso</div>
+                <h2 class="h5 mb-1">Como operar sem se perder</h2>
+                <p class="text-secondary small mb-0">Siga esta ordem quando abrir o sistema durante a rotina.</p>
+              </div>
+              <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('download_user_manual') }}">Manual PDF</a>
+            </div>
+            <div class="row g-3">
+              <div class="col-md">
+                <div class="assist-step"><span class="assist-step-number">1</span><span><strong>Hoje</strong><br><span class="text-secondary small">Veja alertas, eventos, paradas e cobranças.</span></span></div>
+              </div>
+              <div class="col-md">
+                <div class="assist-step"><span class="assist-step-number">2</span><span><strong>Cadastrar</strong><br><span class="text-secondary small">Use dados básicos primeiro e detalhes avançados depois.</span></span></div>
+              </div>
+              <div class="col-md">
+                <div class="assist-step"><span class="assist-step-number">3</span><span><strong>Validar</strong><br><span class="text-secondary small">Confira bloqueios antes de gerar rota ou PDF.</span></span></div>
+              </div>
+              <div class="col-md">
+                <div class="assist-step"><span class="assist-step-number">4</span><span><strong>Fechar</strong><br><span class="text-secondary small">Registre pagamentos, retorno e backup.</span></span></div>
+              </div>
+            </div>
+          </div>
+        </div>
         <div class="col-lg-3">
           <div class="entity-card compact-card p-3 h-100">
             <div class="fw-semibold mb-2">Cards compactos</div>
@@ -2818,6 +2951,12 @@
                 <form class="event-card p-3" method="post" action="{{ url_for('save_event') }}" id="event-form">
                   <div class="form-helper mb-3">
                     Menos esforço para operar: monte o evento primeiro, depois vincule clientes e veículos. Se for contrato recorrente, preencha categoria, frequência e próxima execução no mesmo cadastro.
+                  </div>
+                  <div class="field-stepper" aria-label="Etapas do cadastro de evento">
+                    <span>1. Dados básicos</span>
+                    <span>2. Clientes e veículos</span>
+                    <span>3. Checklist</span>
+                    <span>4. Financeiro</span>
                   </div>
                   <div class="row g-3 mb-3">
                     <div class="col-4">
