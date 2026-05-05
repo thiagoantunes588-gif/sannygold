@@ -1583,7 +1583,7 @@ def build_homologation_checklist(
             "8. Registrar checklist de saída",
             checklist_marked,
             problem="Nenhum checklist de saída foi marcado em evento.",
-            next_action="Editar um evento e marcar os itens conferidos antes da saída.",
+            next_action="Editar um evento e marcar os itens conferidos antes da operação.",
             target_href="#events-pane",
             target_tab="events-tab",
             action="Abrir eventos",
@@ -4267,7 +4267,7 @@ def build_daily_flow_guidance(
     opening_detail = "Painel pronto para começar a operação."
     if blocking_warnings:
         opening_status = "block"
-        opening_detail = f"{len(blocking_warnings)} bloqueio(s) precisam ser resolvidos antes da saída."
+        opening_detail = f"{len(blocking_warnings)} bloqueio(s) precisam ser resolvidos antes da liberação."
     elif attention_warnings:
         opening_status = "attention"
         opening_detail = f"{len(attention_warnings)} atenção(ões) recomendadas antes da liberação."
@@ -4285,17 +4285,17 @@ def build_daily_flow_guidance(
         dispatch_detail = f"{ready_count}/{checklist_total} item(ns) do despacho já estão prontos."
 
     closeout_status = "info"
-    closeout_detail = "Feche o dia quando as confirmações operacionais e o backup estiverem em dia."
+    closeout_detail = "Feche o dia quando os dados principais e o backup estiverem em dia."
     if last_closeout_at and str(last_closeout_at).startswith(datetime.now().date().isoformat()):
         closeout_status = "ready"
         closeout_detail = "O fechamento diário já foi gerado hoje."
     elif last_backup_at:
         closeout_status = "attention"
-        closeout_detail = "Faça o fechamento diário depois do backup e das confirmações finais."
+        closeout_detail = "Faça o fechamento diário depois do backup e da conferência administrativa."
 
     if opening_status == "block":
         next_action = {
-            "title": "Corrigir bloqueios antes da saída",
+            "title": "Corrigir bloqueios antes da liberação",
             "detail": opening_detail,
             "target_tab": "summary-tab",
             "target_href": "#dashboard-pendencias",
@@ -4311,11 +4311,11 @@ def build_daily_flow_guidance(
         }
     else:
         next_action = {
-            "title": "Concluir confirmações e fechamento",
+            "title": "Concluir fechamento administrativo",
             "detail": closeout_detail,
             "target_tab": "summary-tab",
-            "target_href": "#central-day-panel",
-            "action": "Finalizar dia",
+            "target_href": "#guided-closeout-panel",
+            "action": "Fechar dia",
         }
 
     return {
@@ -5193,7 +5193,7 @@ def build_general_improvements_dashboard(
     workflow_tracks = [
         {
             "label": "Orçamento",
-            "detail": "Pedido do cliente, modelo de serviço, quantidade, valor sugerido e retorno comercial.",
+            "detail": "Pedido do cliente, modelo de serviço, quantidade, valor sugerido e resposta comercial.",
             "target": "#quote-models-panel",
         },
         {
@@ -5413,20 +5413,196 @@ def build_daily_command_center(
         if clean_text(item.get("due_date")) == today
     ]
     route_stops = sum(len(route.get("stops", []) or []) for route in (route_data or {}).get("routes", []) or [])
-    returns_pending = [item for item in inventory if clean_text(item.get("status")) in {"instalado", "retirada_pendente"}]
+    stock_alerts = [item for item in usability_alerts if "Estoque" in clean_text(item.get("title"))]
     return {
         "today_events": today_events[:8],
         "today_cleanings": today_cleanings[:8],
         "today_receivables": today_receivables[:8],
         "route_stops": route_stops,
-        "returns_pending": returns_pending[:8],
+        "stock_alerts": stock_alerts[:4],
         "alerts": usability_alerts[:8],
         "next_actions": [
             {"label": "Cobrar vencidos", "count": len(financial_management.get("overdue", [])), "target": "financial-panel"},
             {"label": "Limpezas de hoje", "count": len(today_cleanings), "target": "contracts-quotes-panel"},
-            {"label": "Retiradas pendentes", "count": len(returns_pending), "target": "fleet-pane"},
+            {"label": "Alertas operacionais", "count": len(usability_alerts), "target": "usability-alerts-panel"},
             {"label": "Paradas em rota", "count": route_stops, "target": "route-list"},
         ],
+    }
+
+
+def build_guided_operation_flow(
+    *,
+    clients: list[dict],
+    events: list[dict],
+    vehicles: list[dict],
+    equipment: list[dict],
+    route_data: dict | None,
+    has_pdf: bool,
+    last_backup_at: str,
+    can_backup: bool = False,
+) -> dict:
+    event_has_equipment = any(
+        any(client.get("client_id") in event.get("client_ids", []) and clean_text(client.get("equipment_number")) for client in clients)
+        for event in events
+    )
+    steps = [
+        {
+            "label": "Cliente",
+            "status": "ready" if clients else "pending",
+            "detail": "Cliente cadastrado" if clients else "Crie o primeiro cliente com endereço completo.",
+            "target_tab": "clients-tab",
+            "target_href": "#clients-pane",
+            "action": "Abrir clientes",
+        },
+        {
+            "label": "Locação/evento",
+            "status": "ready" if events else "pending",
+            "detail": "Evento cadastrado" if events else "Crie uma locação com data, cliente e tipo de serviço.",
+            "target_tab": "events-tab",
+            "target_href": "#events-pane",
+            "action": "Abrir eventos",
+        },
+        {
+            "label": "Equipamento",
+            "status": "ready" if event_has_equipment else "attention" if equipment else "pending",
+            "detail": "Equipamento vinculado" if event_has_equipment else "Vincule um equipamento ao cliente/evento.",
+            "target_tab": "fleet-tab",
+            "target_href": "#fleet-pane",
+            "action": "Abrir equipamentos",
+        },
+        {
+            "label": "Veículo",
+            "status": "ready" if vehicles else "pending",
+            "detail": "Veículo disponível" if vehicles else "Cadastre ao menos um veículo para roteirização.",
+            "target_tab": "fleet-tab",
+            "target_href": "#fleet-pane",
+            "action": "Abrir frota",
+        },
+        {
+            "label": "Rota",
+            "status": "ready" if route_data and route_data.get("routes") else "pending",
+            "detail": "Rota gerada" if route_data and route_data.get("routes") else "Valide dados e gere a rota.",
+            "target_tab": "operations-tab",
+            "target_href": "#operations-pane",
+            "action": "Gerar rota",
+        },
+        {
+            "label": "PDF/OS",
+            "status": "ready" if has_pdf else "attention" if events else "pending",
+            "detail": "PDF/OS pronto para conferência" if has_pdf else "Baixe a OS ou gere o PDF da rota.",
+            "target_tab": "operations-tab",
+            "target_href": "#operations-pane",
+            "action": "Abrir PDFs",
+        },
+        {
+            "label": "Backup",
+            "status": "ready" if last_backup_at else "attention",
+            "detail": "Backup recente registrado" if last_backup_at else "Gere backup antes de liberar uso diário.",
+            "target_tab": "" if can_backup else "summary-tab",
+            "target_href": url_for("download_system_backup") if can_backup else "#system-readiness-panel",
+            "action": "Gerar backup" if can_backup else "Ver status",
+        },
+    ]
+    return {
+        "steps": steps,
+        "ready": sum(1 for step in steps if step["status"] == "ready"),
+        "total": len(steps),
+        "pending": sum(1 for step in steps if step["status"] != "ready"),
+    }
+
+
+def build_role_focus_cards(user: dict, can_view_finance: bool) -> list[dict]:
+    role = clean_text(user.get("role"), "guest")
+    if role == "admin":
+        return [
+            {"label": "Homologação", "detail": "Revise produção, ambiente e permissões.", "target_tab": "homologation-tab", "target_href": "#homologation-pane", "action": "Abrir homologação"},
+            {"label": "Acessos", "detail": "Crie usuários e acompanhe senhas pendentes.", "target_tab": "access-tab", "target_href": "#access-pane", "action": "Abrir acessos"},
+            {"label": "Backup", "detail": "Gere cópia antes de mudanças importantes.", "target_tab": "", "target_href": url_for("download_system_backup"), "action": "Gerar backup"},
+        ]
+    if role == "financeiro" or can_view_finance:
+        return [
+            {"label": "Recebimentos", "detail": "Veja vencidos, hoje e próximos dias.", "target_tab": "summary-tab", "target_href": "#receivables-panel", "action": "Abrir financeiro"},
+            {"label": "Fluxo de caixa", "detail": "Registre entradas, despesas e anexos opcionais.", "target_tab": "summary-tab", "target_href": "#cashflow-panel", "action": "Abrir caixa"},
+            {"label": "Fechamento", "detail": "Acompanhe mês, provisões e relatórios.", "target_tab": "summary-tab", "target_href": "#closeout-panel", "action": "Abrir fechamento"},
+        ]
+    if role == "operacional":
+        return [
+            {"label": "Central do Dia", "detail": "Comece por pendências, agenda e rota.", "target_tab": "summary-tab", "target_href": "#central-day-panel", "action": "Abrir central"},
+            {"label": "Eventos", "detail": "Crie locações e vincule cliente, veículo e equipamento.", "target_tab": "events-tab", "target_href": "#events-pane", "action": "Abrir eventos"},
+            {"label": "Almoxarifado", "detail": "Registre entrada ou saída de materiais internos.", "target_tab": "warehouse-tab", "target_href": "#warehouse-pane", "action": "Abrir estoque"},
+        ]
+    return [
+        {"label": "Resumo", "detail": "Acompanhe a operação sem alterar dados.", "target_tab": "summary-tab", "target_href": "#summary-pane", "action": "Abrir resumo"},
+        {"label": "Agenda", "detail": "Veja próximos eventos e capacidade.", "target_tab": "agenda-tab", "target_href": "#agenda-pane", "action": "Abrir agenda"},
+        {"label": "Histórico", "detail": "Consulte registros e PDFs disponíveis.", "target_tab": "history-tab", "target_href": "#history-pane", "action": "Abrir histórico"},
+    ]
+
+
+def build_attention_center(
+    *,
+    preventive_warnings: list[dict],
+    financial_management: dict,
+    warehouse_dashboard: dict,
+    system_status: dict,
+    guided_operation_flow: dict,
+    can_backup: bool = False,
+) -> dict:
+    items: list[dict] = []
+    for warning in preventive_warnings[:6]:
+        items.append({
+            "level": warning.get("level") or "warning",
+            "title": warning.get("title") or "Pendência operacional",
+            "detail": warning.get("detail") or "Revisar item da operação.",
+            "target_tab": warning.get("target_tab") or "summary-tab",
+            "target_href": warning.get("target_href") or "#summary-pane",
+            "action": warning.get("action") or "Abrir",
+        })
+    overdue = financial_management.get("overdue", [])
+    if overdue:
+        items.append({
+            "level": "danger",
+            "title": "Cobranças vencidas",
+            "detail": f"{len(overdue)} cobrança(s) precisam de ação.",
+            "target_tab": "summary-tab",
+            "target_href": "#receivables-panel",
+            "action": "Abrir financeiro",
+        })
+    warehouse_counts = warehouse_dashboard.get("counts") or {}
+    stock_alerts = (warehouse_counts.get("low", 0) or 0) + (warehouse_counts.get("zero", 0) or 0)
+    if stock_alerts:
+        items.append({
+            "level": "danger" if warehouse_counts.get("zero") else "warning",
+            "title": "Estoque em alerta",
+            "detail": f"{stock_alerts} material(is) baixo(s) ou zerado(s).",
+            "target_tab": "warehouse-tab",
+            "target_href": "#warehouse-pane",
+            "action": "Abrir almoxarifado",
+        })
+    if not system_status.get("health", {}).get("has_recent_backup"):
+        items.append({
+            "level": "warning",
+            "title": "Backup pendente",
+            "detail": "Gere um backup antes do uso diário ou após mudanças importantes.",
+            "target_tab": "" if can_backup else "summary-tab",
+            "target_href": url_for("download_system_backup") if can_backup else "#system-readiness-panel",
+            "action": "Gerar backup" if can_backup else "Ver status",
+        })
+    for step in guided_operation_flow.get("steps", []):
+        if step.get("status") != "ready":
+            items.append({
+                "level": "warning" if step.get("status") == "attention" else "danger",
+                "title": f"Fluxo incompleto: {step.get('label')}",
+                "detail": step.get("detail"),
+                "target_tab": step.get("target_tab"),
+                "target_href": step.get("target_href"),
+                "action": step.get("action"),
+            })
+            break
+    return {
+        "items": items[:8],
+        "open_total": len(items),
+        "danger_total": sum(1 for item in items if item.get("level") == "danger"),
+        "warning_total": sum(1 for item in items if item.get("level") == "warning"),
     }
 
 
@@ -5574,7 +5750,7 @@ def build_preventive_warnings(
     if not vehicles:
         warnings.append({"level": "danger", "title": "Nenhum veículo cadastrado", "detail": "Cadastre ao menos um veículo antes de gerar rota.", "target_tab": "fleet-tab", "target_href": "#fleet-pane", "action": "Abrir frota"})
     if not equipment:
-        warnings.append({"level": "warning", "title": "Equipamentos vazios", "detail": "Cadastre equipamentos para controlar vínculo e retorno.", "target_tab": "fleet-tab", "target_href": "#fleet-pane", "action": "Abrir equipamentos"})
+        warnings.append({"level": "warning", "title": "Equipamentos vazios", "detail": "Cadastre equipamentos para controlar vínculo e manutenção.", "target_tab": "fleet-tab", "target_href": "#fleet-pane", "action": "Abrir equipamentos"})
     warehouse_counts = warehouse_dashboard.get("counts") or {}
     if warehouse_counts.get("zero"):
         warnings.append({"level": "danger", "title": "Almoxarifado com item zerado", "detail": f"{warehouse_counts.get('zero')} material(is) estão sem saldo.", "target_tab": "warehouse-tab", "target_href": "#warehouse-pane", "action": "Abrir almoxarifado"})
@@ -5876,6 +6052,25 @@ def build_dashboard_context() -> dict:
         last_backup_at=clean_text(settings.get("last_backup_at")),
         last_closeout_at=clean_text(settings.get("last_closeout_at")),
     )
+    guided_operation_flow = build_guided_operation_flow(
+        clients=clients,
+        events=events,
+        vehicles=vehicles,
+        equipment=inventory,
+        route_data=route_data,
+        has_pdf=ROUTE_PDF_PATH.exists(),
+        last_backup_at=clean_text(settings.get("last_backup_at")),
+        can_backup=has_permission(user, "settings.manage"),
+    )
+    attention_center = build_attention_center(
+        preventive_warnings=preventive_warnings,
+        financial_management=financial_management,
+        warehouse_dashboard=warehouse_dashboard,
+        system_status=system_status,
+        guided_operation_flow=guided_operation_flow,
+        can_backup=has_permission(user, "settings.manage"),
+    )
+    role_focus_cards = build_role_focus_cards(user, can_view_finance)
     clients_by_id = {client.get("client_id"): client for client in clients}
     vehicles_by_id = {vehicle.get("vehicle_id"): vehicle for vehicle in vehicles}
     latest_financial_by_event: dict[str, dict] = {}
@@ -5918,6 +6113,9 @@ def build_dashboard_context() -> dict:
         "operational_dashboard": operational_dashboard,
         "dispatch_today": dispatch_today,
         "daily_flow": daily_flow,
+        "guided_operation_flow": guided_operation_flow,
+        "attention_center": attention_center,
+        "role_focus_cards": role_focus_cards,
         "operational_validations": validations,
         "pending_reasons": pending_reasons,
         "operation_validation": validation_payload,

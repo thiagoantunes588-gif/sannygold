@@ -739,6 +739,32 @@
       padding: 0.75rem;
       font-size: 0.88rem;
     }
+    .role-focus-grid,
+    .guided-flow-grid,
+    .attention-center-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 0.75rem;
+    }
+    .guided-step {
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--crit-ready);
+      border-radius: 14px;
+      background: rgba(255, 253, 248, 0.86);
+      padding: 0.85rem;
+    }
+    .guided-step.pending {
+      border-left-color: var(--crit-block);
+    }
+    .guided-step.attention {
+      border-left-color: var(--crit-attention);
+    }
+    .action-card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 253, 248, 0.88);
+      padding: 0.85rem;
+    }
     .global-search-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -1056,6 +1082,11 @@
       .security-checklist-item {
         grid-template-columns: 1fr;
       }
+      .role-focus-grid,
+      .guided-flow-grid,
+      .attention-center-grid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -1170,7 +1201,7 @@
           <h1 class="hero-title mb-3">Banheiros para eventos com controle claro da operação.</h1>
           <p class="lead text-secondary mb-4">
             {% if is_authenticated %}
-            O painel nasceu para a operação de banheiros móveis da SannyGold: trailers de luxo com placa, banheiros químicos, climatizadores e pontos de hidratação no mesmo fluxo de evento, rota, manutenção e retorno.
+            O painel nasceu para a operação de banheiros móveis da SannyGold: trailers de luxo com placa, banheiros químicos, climatizadores e pontos de hidratação no mesmo fluxo de evento, rota, manutenção e histórico.
             {% else %}
             Portal operacional da SannyGold para organizar banheiros móveis de luxo, banheiros químicos e equipamentos de apoio em eventos.
             {% endif %}
@@ -1417,7 +1448,7 @@
                 <div class="assist-step"><span class="assist-step-number">3</span><span><strong>Validar</strong><br><span class="text-secondary small">Confira bloqueios antes de gerar rota ou PDF.</span></span></div>
               </div>
               <div class="col-md">
-                <div class="assist-step"><span class="assist-step-number">4</span><span><strong>Fechar</strong><br><span class="text-secondary small">Registre pagamentos, retorno e backup.</span></span></div>
+                <div class="assist-step"><span class="assist-step-number">4</span><span><strong>Fechar</strong><br><span class="text-secondary small">Registre pagamentos, conferência e backup.</span></span></div>
               </div>
             </div>
           </div>
@@ -1782,7 +1813,9 @@
         <a class="btn btn-outline-secondary js-tab-link" href="#fleet-pane" data-tab-target="fleet-tab">Frota</a>
         <a class="btn btn-outline-secondary js-tab-link" href="#fleet-pane" data-tab-target="fleet-tab">Equipamentos</a>
         <a class="btn btn-outline-secondary js-tab-link" href="#warehouse-pane" data-tab-target="warehouse-tab">Almoxarifado</a>
+        {% if '*' in current_user.permissions or 'warehouse.manage' in current_user.permissions %}
         <button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#warehouseItemModal">Adicionar item</button>
+        {% endif %}
         <a class="btn btn-outline-secondary" href="#dashboard-pendencias">Alertas</a>
         <a class="btn btn-outline-secondary js-tab-link" href="#agenda-pane" data-tab-target="agenda-tab">Agenda</a>
         <a class="btn btn-outline-secondary js-tab-link" href="#history-pane" data-tab-target="history-tab">Histórico</a>
@@ -1974,6 +2007,86 @@
                 </div>
               </div>
 
+              <div class="entity-card p-3 mb-3" id="role-focus-panel">
+                <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+                  <div>
+                    <div class="fw-semibold">Prioridade da sua função</div>
+                    <div class="small text-secondary">Atalhos filtrados para reduzir busca e abrir direto o que importa agora.</div>
+                  </div>
+                  <span class="route-badge badge-fixed">{{ role_home_label }}</span>
+                </div>
+                <div class="role-focus-grid">
+                  {% for item in role_focus_cards %}
+                  <div class="action-card">
+                    <div class="fw-semibold mb-1">{{ item.label }}</div>
+                    <div class="small text-secondary mb-2">{{ item.detail }}</div>
+                    {% if item.target_href.startswith('#') and item.target_tab %}
+                    <a class="btn btn-sm btn-outline-secondary rounded-pill js-tab-link" href="{{ item.target_href }}" data-tab-target="{{ item.target_tab }}">{{ item.action }}</a>
+                    {% else %}
+                    <a class="btn btn-sm btn-outline-secondary rounded-pill" href="{{ item.target_href }}">{{ item.action }}</a>
+                    {% endif %}
+                  </div>
+                  {% endfor %}
+                </div>
+              </div>
+
+              <div class="entity-card p-3 mb-3" id="guided-operation-flow">
+                <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+                  <div>
+                    <div class="fw-semibold">Roteiro rápido da operação</div>
+                    <div class="small text-secondary">Sequência simples para uso diário, sem etapa de confirmação de saída ou retorno.</div>
+                  </div>
+                  <span class="route-badge {{ 'badge-success' if guided_operation_flow.pending == 0 else 'badge-avulso' }}">{{ guided_operation_flow.ready }}/{{ guided_operation_flow.total }} pronto(s)</span>
+                </div>
+                <div class="guided-flow-grid">
+                  {% for step in guided_operation_flow.steps %}
+                  <div class="guided-step {{ 'pending' if step.status == 'pending' else 'attention' if step.status == 'attention' else '' }}">
+                    <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                      <div class="fw-semibold">{{ step.label }}</div>
+                      <span class="route-badge {{ 'badge-success' if step.status == 'ready' else 'badge-avulso' if step.status == 'attention' else 'badge-danger' }}">{{ 'pronto' if step.status == 'ready' else 'atenção' if step.status == 'attention' else 'pendente' }}</span>
+                    </div>
+                    <div class="small text-secondary mb-2">{{ step.detail }}</div>
+                    {% if step.target_href.startswith('#') and step.target_tab %}
+                    <a class="btn btn-sm btn-outline-secondary rounded-pill js-tab-link" href="{{ step.target_href }}" data-tab-target="{{ step.target_tab }}">{{ step.action }}</a>
+                    {% else %}
+                    <a class="btn btn-sm btn-outline-secondary rounded-pill" href="{{ step.target_href }}">{{ step.action }}</a>
+                    {% endif %}
+                  </div>
+                  {% endfor %}
+                </div>
+              </div>
+
+              <div class="entity-card p-3 mb-3" id="attention-now-panel">
+                <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+                  <div>
+                    <div class="fw-semibold">O que precisa de atenção agora</div>
+                    <div class="small text-secondary">Pendências reunidas em um lugar para não deixar a tela parada em números ou alertas soltos.</div>
+                  </div>
+                  <div class="route-badges">
+                    <span class="route-badge {{ 'badge-danger' if attention_center.danger_total else 'badge-success' }}">{{ attention_center.danger_total }} crítico(s)</span>
+                    <span class="route-badge {{ 'badge-avulso' if attention_center.warning_total else 'badge-success' }}">{{ attention_center.warning_total }} atenção</span>
+                  </div>
+                </div>
+                <div class="attention-center-grid">
+                  {% for item in attention_center["items"] %}
+                  <div class="action-card">
+                    <div class="d-flex justify-content-between gap-2 mb-2">
+                      <div class="fw-semibold">{{ item.title }}</div>
+                      <span class="route-badge {{ 'badge-danger' if item.level == 'danger' else 'badge-avulso' }}">{{ item.level }}</span>
+                    </div>
+                    <div class="small text-secondary mb-2">{{ item.detail }}</div>
+                    {% if item.target_href.startswith('#') and item.target_tab %}
+                    <a class="btn btn-sm btn-outline-secondary rounded-pill js-tab-link" href="{{ item.target_href }}" data-tab-target="{{ item.target_tab }}">{{ item.action }}</a>
+                    {% else %}
+                    <a class="btn btn-sm btn-outline-secondary rounded-pill" href="{{ item.target_href }}">{{ item.action }}</a>
+                    {% endif %}
+                  </div>
+                  {% else %}
+                  <div class="empty-state">Nenhuma pendência crítica agora. Continue pela agenda ou gere backup antes de mudanças importantes.<br><a class="btn btn-sm btn-outline-secondary rounded-pill js-tab-link" href="#agenda-pane" data-tab-target="agenda-tab">Abrir agenda</a></div>
+                  {% endfor %}
+                </div>
+              </div>
+
               <div class="entity-card p-3 mb-3" id="quick-rental-panel">
                 <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
                   <div>
@@ -1984,6 +2097,12 @@
                   <span class="route-badge badge-fixed">Cliente + evento</span>
                 </div>
                 <form class="quick-rental-grid" method="post" action="{{ url_for('save_quick_rental') }}">
+                  <div class="span-6 field-stepper">
+                    <span>1. Cliente</span>
+                    <span>2. Data e endereço</span>
+                    <span>3. Equipamento</span>
+                    <span>4. Cobrança</span>
+                  </div>
                   <div class="span-2">
                     <label class="form-label fw-semibold" for="quick_customer_name">Cliente</label>
                     <input class="form-control" id="quick_customer_name" name="customer_name" type="text" required>
@@ -2111,15 +2230,12 @@
                     </div>
                   </div>
                   <div class="col-lg-3">
-                    <div class="fw-semibold mb-2">Retiradas e alertas</div>
+                    <div class="fw-semibold mb-2">Alertas operacionais</div>
                     <div class="d-grid gap-1 small">
-                      {% for item in daily_command_center.returns_pending %}
-                      <div>{{ item.equipment_id }} • {{ item.linked_client_name or item.status }}</div>
-                      {% endfor %}
                       {% for item in daily_command_center.alerts[:3] %}
                       <div><span class="route-badge {{ 'badge-danger' if item.level == 'danger' else 'badge-avulso' }}">{{ item.title }}</span> {{ item.detail }}</div>
                       {% else %}
-                        {% if not daily_command_center.returns_pending %}<div class="text-secondary">Sem retirada pendente.</div>{% endif %}
+                      <div class="text-secondary">Nenhum alerta operacional agora.</div>
                       {% endfor %}
                     </div>
                   </div>
@@ -2168,7 +2284,7 @@
                 <div class="col-lg-4">
                   <div class="daily-flow-card {{ criticality_class(daily_flow.closeout.status) }} p-3 h-100">
                     <div class="small text-secondary">3. Fechamento do dia</div>
-                    <div class="fw-semibold mb-2">Confirmar retorno e backup</div>
+                    <div class="fw-semibold mb-2">Backup e conferência</div>
                     <div class="small text-secondary">{{ daily_flow.closeout.detail }}</div>
                   </div>
                 </div>
@@ -2190,14 +2306,14 @@
               <div class="entity-card p-3 mb-3" id="guided-closeout-panel">
                 <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
                   <div>
-                    <div class="fw-semibold">Fechamento de dia guiado</div>
-                    <div class="small text-secondary">Confira rota, retorno, limpezas, recebimentos e backup antes de encerrar.</div>
+                    <div class="fw-semibold">Fechamento administrativo do dia</div>
+                    <div class="small text-secondary">Confira rota, limpezas, recebimentos e backup antes de encerrar.</div>
                   </div>
                   <a class="btn btn-sm btn-dark rounded-pill" href="{{ url_for('download_daily_closeout') }}">Gerar fechamento</a>
                 </div>
                 <div class="row g-2 mt-2 small">
                   <div class="col-md"><div class="{{ criticality_class(daily_flow.dispatch.status) }} p-2">Rotas e PDF<br><strong>{{ criticality_label(daily_flow.dispatch.status) }}</strong></div></div>
-                  <div class="col-md"><div class="{{ 'crit-ready' if not daily_command_center.returns_pending else 'crit-attention' }} p-2">Equipamentos retornados<br><strong>{{ daily_command_center.returns_pending|length }} pendente(s)</strong></div></div>
+                  <div class="col-md"><div class="{{ 'crit-ready' if not attention_center.open_total else 'crit-attention' }} p-2">Pendências abertas<br><strong>{{ attention_center.open_total }} item(ns)</strong></div></div>
                   <div class="col-md"><div class="{{ 'crit-ready' if not daily_command_center.today_cleanings else 'crit-attention' }} p-2">Limpezas do dia<br><strong>{{ daily_command_center.today_cleanings|length }} prevista(s)</strong></div></div>
                   <div class="col-md"><div class="{{ 'crit-ready' if not financial_management.overdue else 'crit-block' }} p-2">Recebimentos<br><strong>{{ financial_management.overdue|length }} vencido(s)</strong></div></div>
                   <div class="col-md"><div class="{{ criticality_class(daily_flow.closeout.status) }} p-2">Backup e fechamento<br><strong>{{ criticality_label(daily_flow.closeout.status) }}</strong></div></div>
@@ -2673,7 +2789,7 @@
                             {% endif %}
                           </div>
                           {% else %}
-                          <div class="empty-state small">Nenhuma cobrança vencida. Abra o financeiro para acompanhar próximos recebimentos.<br><a class="btn btn-sm btn-outline-secondary rounded-pill js-tab-link" href="#financial-pane" data-tab-target="financial-tab">Abrir financeiro</a></div>
+                          <div class="empty-state small">Nenhuma cobrança vencida. Abra o financeiro para acompanhar próximos recebimentos.<br><a class="btn btn-sm btn-outline-secondary rounded-pill js-tab-link" href="#receivables-panel" data-tab-target="summary-tab">Abrir financeiro</a></div>
                           {% endfor %}
                         </div>
                       </div>
@@ -2699,7 +2815,7 @@
                           {% for item in financial_management.receivables_paid %}
                           <div><span class="route-badge badge-success">{{ item.amount|currency_br }}</span> {{ item.client_name }} <a class="route-badge badge-avulso text-decoration-none" href="{{ url_for('download_receivable_receipt', receivable_id=item.id) }}">recibo</a>{% if item.attachment_url %} <a class="route-badge badge-avulso text-decoration-none" href="{{ item.attachment_url }}" target="_blank" rel="noreferrer">anexo</a>{% endif %}</div>
                           {% else %}
-                          <div class="empty-state small">Nenhuma paga registrada. Quando receber, baixe no financeiro para manter o caixa atualizado.<br><a class="btn btn-sm btn-outline-secondary rounded-pill js-tab-link" href="#financial-pane" data-tab-target="financial-tab">Abrir financeiro</a></div>
+                          <div class="empty-state small">Nenhuma paga registrada. Quando receber, baixe no financeiro para manter o caixa atualizado.<br><a class="btn btn-sm btn-outline-secondary rounded-pill js-tab-link" href="#receivables-panel" data-tab-target="summary-tab">Abrir financeiro</a></div>
                           {% endfor %}
                         </div>
                       </div>
