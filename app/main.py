@@ -1099,6 +1099,22 @@ def module_export_data(module: str) -> tuple[str, list[str], list[list[str]], st
             for item in load_equipment_registry()
         ]
         return "Equipamentos", headers, rows, "inventory.view"
+    if module in {"vehicles", "fleet"}:
+        headers = ["ID", "Tipo", "Placa", "Modelo", "Capacidade", "Max Paradas", "Max Minutos", "Base"]
+        rows = [
+            [
+                item.get("vehicle_id", ""),
+                item.get("vehicle_type", ""),
+                item.get("plate", ""),
+                item.get("model", ""),
+                item.get("capacity", ""),
+                item.get("max_stops", ""),
+                item.get("max_minutes", ""),
+                f"{item.get('start_lat', '')}, {item.get('start_lng', '')}",
+            ]
+            for item in load_vehicles_registry()
+        ]
+        return "Frota", headers, rows, "fleet.view"
     if module == "warehouse":
         headers = ["ID", "Material", "Categoria", "Qtd", "Unidade", "Minimo", "Status", "Local", "Comprar"]
         rows = [
@@ -5606,6 +5622,162 @@ def build_attention_center(
     }
 
 
+def build_search_module_counts(global_search_items: list[dict], *, can_view_finance: bool) -> list[dict]:
+    module_order = [
+        ("clientes", "Clientes"),
+        ("eventos", "Eventos"),
+        ("frota", "Frota"),
+        ("equipamentos", "Equipamentos"),
+        ("almoxarifado", "Almoxarifado"),
+    ]
+    if can_view_finance:
+        module_order.insert(2, ("financeiro", "Financeiro"))
+    counts = {key: 0 for key, _ in module_order}
+    for item in global_search_items:
+        key = clean_text(item.get("module_key"))
+        if key in counts:
+            counts[key] += 1
+    return [{"key": key, "label": label, "count": counts.get(key, 0)} for key, label in module_order]
+
+
+def build_reports_hub(
+    *,
+    can_view_finance: bool,
+    clients: list[dict],
+    events: list[dict],
+    vehicles: list[dict],
+    equipment: list[dict],
+    warehouse_dashboard: dict,
+    financial_management: dict,
+) -> list[dict]:
+    reports = [
+        {
+            "label": "Clientes",
+            "detail": f"{len(clients)} cadastro(s)",
+            "status": "pronto" if clients else "sem dados",
+            "target_href": "#clients-pane",
+            "target_tab": "clients-tab",
+            "pdf_href": url_for("download_module_pdf", module="clients"),
+            "xlsx_href": url_for("download_module_xlsx", module="clients"),
+        },
+        {
+            "label": "Eventos",
+            "detail": f"{len(events)} evento(s)",
+            "status": "pronto" if events else "sem dados",
+            "target_href": "#events-pane",
+            "target_tab": "events-tab",
+            "pdf_href": url_for("download_module_pdf", module="events"),
+            "xlsx_href": url_for("download_module_xlsx", module="events"),
+        },
+        {
+            "label": "Frota",
+            "detail": f"{len(vehicles)} veículo(s)",
+            "status": "pronto" if vehicles else "sem dados",
+            "target_href": "#fleet-pane",
+            "target_tab": "fleet-tab",
+            "pdf_href": url_for("download_module_pdf", module="vehicles"),
+            "xlsx_href": url_for("download_module_xlsx", module="vehicles"),
+        },
+        {
+            "label": "Equipamentos",
+            "detail": f"{len(equipment)} equipamento(s)",
+            "status": "pronto" if equipment else "sem dados",
+            "target_href": "#fleet-pane",
+            "target_tab": "fleet-tab",
+            "pdf_href": url_for("download_module_pdf", module="equipment"),
+            "xlsx_href": url_for("download_module_xlsx", module="equipment"),
+        },
+        {
+            "label": "Almoxarifado",
+            "detail": f"{warehouse_dashboard.get('counts', {}).get('total', 0)} material(is)",
+            "status": "atenção" if warehouse_dashboard.get("counts", {}).get("low") or warehouse_dashboard.get("counts", {}).get("zero") else "pronto",
+            "target_href": "#warehouse-pane",
+            "target_tab": "warehouse-tab",
+            "pdf_href": url_for("download_warehouse_pdf"),
+            "xlsx_href": url_for("download_module_xlsx", module="warehouse"),
+            "extra_href": url_for("download_warehouse_low_stock_pdf"),
+            "extra_label": "Estoque baixo",
+        },
+    ]
+    if can_view_finance:
+        reports.extend(
+            [
+                {
+                    "label": "Financeiro",
+                    "detail": f"{len(financial_management.get('receivables', []))} lançamento(s) recentes",
+                    "status": "atenção" if financial_management.get("overdue") else "pronto",
+                    "target_href": "#receivables-panel",
+                    "target_tab": "summary-tab",
+                    "pdf_href": url_for("download_module_pdf", module="financial"),
+                    "xlsx_href": url_for("download_module_xlsx", module="financial"),
+                },
+                {
+                    "label": "Inadimplência",
+                    "detail": f"{len(financial_management.get('overdue', []))} vencido(s)",
+                    "status": "atenção" if financial_management.get("overdue") else "pronto",
+                    "target_href": "#receivables-panel",
+                    "target_tab": "summary-tab",
+                    "pdf_href": url_for("download_module_pdf", module="financial"),
+                    "xlsx_href": url_for("download_module_xlsx", module="financial"),
+                },
+            ]
+        )
+    return reports
+
+
+def build_daily_management_checklist(
+    *,
+    attention_center: dict,
+    guided_operation_flow: dict,
+    system_status: dict,
+    security_posture: dict,
+    can_view_finance: bool,
+    can_manage_access: bool,
+) -> list[dict]:
+    items = [
+        {
+            "label": "Resolver pendências críticas",
+            "done": attention_center.get("danger_total", 0) == 0,
+            "detail": f"{attention_center.get('danger_total', 0)} crítico(s) aberto(s).",
+            "target_tab": "summary-tab",
+            "target_href": "#attention-now-panel",
+        },
+        {
+            "label": "Conferir roteiro operacional",
+            "done": guided_operation_flow.get("pending", 0) == 0,
+            "detail": f"{guided_operation_flow.get('ready', 0)}/{guided_operation_flow.get('total', 0)} etapa(s) prontas.",
+            "target_tab": "summary-tab",
+            "target_href": "#guided-operation-flow",
+        },
+        {
+            "label": "Gerar ou revisar backup",
+            "done": bool(system_status.get("health", {}).get("has_recent_backup")),
+            "detail": "Backup registrado." if system_status.get("health", {}).get("has_recent_backup") else "Backup ainda pendente.",
+            "target_tab": "summary-tab",
+            "target_href": "#system-readiness-panel",
+        },
+    ]
+    if can_manage_access:
+        items.append({
+            "label": "Revisar senhas pendentes",
+            "done": security_posture.get("password_rotation_pending", 0) == 0,
+            "detail": f"{security_posture.get('password_rotation_pending', 0)} troca(s) pendente(s).",
+            "target_tab": "access-tab",
+            "target_href": "#access-pane",
+        })
+    if can_view_finance:
+        items.append(
+            {
+                "label": "Conferir financeiro do dia",
+                "done": attention_center.get("danger_total", 0) == 0,
+                "detail": "Verificar vencidos e recebimentos antes do fechamento.",
+                "target_tab": "summary-tab",
+                "target_href": "#receivables-panel",
+            }
+        )
+    return items
+
+
 def build_operational_kanban(quotes: list[dict], financial_management: dict, events: list[dict], inventory: list[dict]) -> list[dict]:
     columns = [
         {"key": "orcamento", "title": "Orçamento", "items": []},
@@ -6071,6 +6243,31 @@ def build_dashboard_context() -> dict:
         can_backup=has_permission(user, "settings.manage"),
     )
     role_focus_cards = build_role_focus_cards(user, can_view_finance)
+    global_search_items = build_global_search_items(
+        clients,
+        events,
+        vehicles,
+        inventory,
+        warehouse_dashboard,
+        financial_receivables if can_view_finance else [],
+    )
+    reports_hub = build_reports_hub(
+        can_view_finance=can_view_finance,
+        clients=clients,
+        events=events,
+        vehicles=vehicles,
+        equipment=inventory,
+        warehouse_dashboard=warehouse_dashboard,
+        financial_management=financial_management,
+    )
+    daily_management_checklist = build_daily_management_checklist(
+        attention_center=attention_center,
+        guided_operation_flow=guided_operation_flow,
+        system_status=system_status,
+        security_posture=security_posture,
+        can_view_finance=can_view_finance,
+        can_manage_access=has_permission(user, "settings.manage"),
+    )
     clients_by_id = {client.get("client_id"): client for client in clients}
     vehicles_by_id = {vehicle.get("vehicle_id"): vehicle for vehicle in vehicles}
     latest_financial_by_event: dict[str, dict] = {}
@@ -6154,7 +6351,10 @@ def build_dashboard_context() -> dict:
         "homologation_checklist": homologation_checklist,
         "team_weekly_review": team_weekly_review,
         "system_status": system_status,
-        "global_search_items": build_global_search_items(clients, events, vehicles, inventory, warehouse_dashboard, financial_receivables),
+        "global_search_items": global_search_items,
+        "search_module_counts": build_search_module_counts(global_search_items, can_view_finance=can_view_finance),
+        "reports_hub": reports_hub,
+        "daily_management_checklist": daily_management_checklist,
         "maintenance_items": [item for item in inventory if item.get("status") in {"manutencao", "indisponivel"} or item.get("maintenance_reason")],
         "can_view_finance": can_view_finance,
         "role_home_label": role_home_labels.get(clean_text(user.get("role")), role_home_labels["guest"]),
