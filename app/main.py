@@ -18,6 +18,7 @@ from uuid import uuid4
 from xml.etree import ElementTree as ET
 
 from flask import Flask, flash, jsonify, redirect, render_template, request, send_file, send_from_directory, session, url_for
+from itsdangerous import BadSignature, URLSafeSerializer
 from werkzeug.datastructures import MultiDict
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
@@ -58,6 +59,10 @@ ROUTE_PDF_PATH = PREVIEW_DIR / "route-plan.pdf"
 USER_MANUAL_PDF_PATH = BASE_DIR / "output" / "pdf" / "sannygold-manual-rapido-equipe.pdf"
 APP_VERSION = os.environ.get("SANNYGOLD_APP_VERSION", "v1.0.0")
 DEPLOY_TARGET = "vercel" if os.environ.get("VERCEL") else ("render" if os.environ.get("RENDER") else "local")
+INVITATION_EXPIRATION_HOURS = 48
+PASSWORD_RESET_EXPIRATION_HOURS = 2
+MAX_LOGIN_ATTEMPTS = 5
+LOGIN_LOCKOUT_MINUTES = 15
 HQ_ADDRESS = "Estrada Bento Pestana, 932 - Baldeador, Niterói - RJ"
 HQ_LAT = -22.8753396
 HQ_LNG = -43.068074
@@ -176,6 +181,7 @@ ROLE_PERMISSIONS = {
     },
     "admin": {"*"},
 }
+LOGIN_ATTEMPTS: dict[str, dict] = {}
 
 
 def ensure_storage_dirs() -> None:
@@ -1238,24 +1244,150 @@ def save_users(users: list[dict]) -> None:
     save_json_list(USERS_PATH, sort_by_label(users, "nome", "email"))
 
 
+def access_token_serializer() -> URLSafeSerializer:
+    return URLSafeSerializer(app.config["SECRET_KEY"], salt="sannygold-access")
+
+
+def iso_expired(value: str | None) -> bool:
+    text = clean_text(value)
+    if not text:
+        return True
+    try:
+        return datetime.now() > datetime.fromisoformat(text)
+    except ValueError:
+        return True
+
+
+def issue_user_invitation(user: dict) -> None:
+    now = now_iso()
+    user["status"] = "convite_pendente"
+    user["senha_hash"] = ""
+    user["must_change_password"] = False
+    user["invitation_token"] = secrets.token_urlsafe(32)
+    user["invitation_created_at"] = now
+    user["invitation_expires_at"] = (datetime.now() + timedelta(hours=INVITATION_EXPIRATION_HOURS)).isoformat(timespec="seconds")
+    user["invitation_accepted_at"] = ""
+    user["updated_at"] = now
+
+
+def clear_user_invitation(user: dict) -> None:
+    for key in ("invitation_token", "invitation_created_at", "invitation_expires_at"):
+        user[key] = ""
+
+
+def issue_password_reset(user: dict) -> None:
+    now = now_iso()
+    user["reset_token"] = secrets.token_urlsafe(32)
+    user["reset_requested_at"] = now
+    user["reset_expires_at"] = (datetime.now() + timedelta(hours=PASSWORD_RESET_EXPIRATION_HOURS)).isoformat(timespec="seconds")
+    user["updated_at"] = now
+
+
+def clear_password_reset(user: dict) -> None:
+    for key in ("reset_token", "reset_requested_at", "reset_expires_at"):
+        user[key] = ""
+
+
+def build_access_token(user: dict, purpose: str, nonce_field: str) -> str:
+    nonce = clean_text(user.get(nonce_field))
+    if not nonce:
+        return ""
+    return access_token_serializer().dumps(
+        {
+            "purpose": purpose,
+            "user_id": clean_text(user.get("id")),
+            "nonce": nonce,
+        }
+    )
+
+
+def invitation_url(user: dict) -> str:
+    token = build_access_token(user, "invite", "invitation_token")
+    return url_for("accept_invitation", token=token, _external=True) if token else ""
+
+
+def password_reset_url(user: dict) -> str:
+    token = build_access_token(user, "password_reset", "reset_token")
+    return url_for("reset_password", token=token, _external=True) if token else ""
+
+
+def mailto_url(email: str, subject: str, body: str) -> str:
+    return f"mailto:{urllib.parse.quote(clean_text(email))}?subject={urllib.parse.quote(subject)}&body={urllib.parse.quote(body)}"
+
+
+def resolve_access_token(token: str, purpose: str, nonce_field: str, expiry_field: str) -> tuple[list[dict], dict | None, str]:
+    try:
+        payload = access_token_serializer().loads(token)
+    except BadSignature:
+        return [], None, "Link inválido. Peça um novo link ao administrador."
+    if clean_text(payload.get("purpose")) != purpose:
+        return [], None, "Link inválido para esta ação."
+    users = load_users()
+    user = next((item for item in users if clean_text(item.get("id")) == clean_text(payload.get("user_id"))), None)
+    if not user or clean_text(user.get(nonce_field)) != clean_text(payload.get("nonce")):
+        return users, None, "Link já usado, cancelado ou substituído por outro."
+    if iso_expired(user.get(expiry_field)):
+        return users, None, "Link expirado. Peça um novo link ao administrador."
+    return users, user, ""
+
+
+def serialize_access_user(user: dict) -> dict:
+    payload = sanitize_user(user)
+    invitation_active = (
+        clean_text(user.get("status")) == "convite_pendente"
+        and clean_text(user.get("invitation_token"))
+        and not iso_expired(user.get("invitation_expires_at"))
+    )
+    reset_active = clean_text(user.get("reset_token")) and not iso_expired(user.get("reset_expires_at"))
+    invite_link = invitation_url(user) if invitation_active else ""
+    reset_link = password_reset_url(user) if reset_active else ""
+    payload.update(
+        {
+            "invitation_created_at": clean_text(user.get("invitation_created_at")),
+            "invitation_expires_at": clean_text(user.get("invitation_expires_at")),
+            "invitation_expires_label": format_datetime_br(user.get("invitation_expires_at")),
+            "invitation_active": invitation_active,
+            "invitation_url": invite_link,
+            "invitation_mailto": mailto_url(
+                payload["email"],
+                "Convite para acessar o sistema SannyGold",
+                f"Olá {payload['nome'] or payload['email']},\n\nUse este link para criar sua senha e acessar o sistema SannyGold:\n{invite_link}\n\nO link expira em {format_datetime_br(user.get('invitation_expires_at'))}.",
+            )
+            if invite_link
+            else "",
+            "reset_requested_at": clean_text(user.get("reset_requested_at")),
+            "reset_expires_at": clean_text(user.get("reset_expires_at")),
+            "reset_expires_label": format_datetime_br(user.get("reset_expires_at")),
+            "reset_active": reset_active,
+            "reset_url": reset_link,
+            "reset_mailto": mailto_url(
+                payload["email"],
+                "Redefinição de senha - SannyGold",
+                f"Olá {payload['nome'] or payload['email']},\n\nUse este link para criar uma nova senha no sistema SannyGold:\n{reset_link}\n\nO link expira em {format_datetime_br(user.get('reset_expires_at'))}.",
+            )
+            if reset_link
+            else "",
+        }
+    )
+    return payload
+
+
 def create_user_record(form, existing_users: list[dict]) -> dict:
     user_id = clean_text(form.get("user_id")) or next_numeric_id(existing_users, "USR", "id")
     current = next((user for user in existing_users if clean_text(user.get("id")) == user_id), {})
     nome = clean_text(form.get("nome"))
     email = clean_text(form.get("email")).lower()
     role = clean_text(form.get("role"), "leitura") or "leitura"
-    status = clean_text(form.get("status"), "ativo") or "ativo"
     password = form.get("password", "")
+    status = clean_text(form.get("status"), "ativo" if password else "convite_pendente") or "convite_pendente"
     if not nome:
         raise ValueError("Informe o nome do usuário.")
     if not email:
         raise ValueError("Informe o email do usuário.")
     if role not in ROLES or role == "guest":
         raise ValueError("Role inválida para usuário interno.")
-    if status not in {"ativo", "inativo"}:
+    if status not in {"ativo", "inativo", "convite_pendente"}:
         raise ValueError("Status inválido.")
-    if not current and not password:
-        raise ValueError("Informe uma senha inicial para o usuário.")
     issues = password_policy_issues(password, [nome, email]) if password else []
     if issues:
         raise ValueError(issues[0])
@@ -1263,7 +1395,7 @@ def create_user_record(form, existing_users: list[dict]) -> dict:
     if duplicate:
         raise ValueError("Já existe usuário com este email.")
     now = now_iso()
-    return {
+    record = {
         "id": user_id,
         "nome": nome,
         "email": email,
@@ -1274,6 +1406,30 @@ def create_user_record(form, existing_users: list[dict]) -> dict:
         "created_at": clean_text(current.get("created_at")) or now,
         "updated_at": now,
     }
+    for key in (
+        "invitation_token",
+        "invitation_created_at",
+        "invitation_expires_at",
+        "invitation_accepted_at",
+        "reset_token",
+        "reset_requested_at",
+        "reset_expires_at",
+    ):
+        record[key] = clean_text(current.get(key))
+    if password:
+        clear_user_invitation(record)
+        clear_password_reset(record)
+    elif status == "convite_pendente":
+        if not clean_text(record.get("invitation_token")) or iso_expired(record.get("invitation_expires_at")):
+            issue_user_invitation(record)
+        record["senha_hash"] = ""
+        record["must_change_password"] = False
+    elif status == "ativo" and not record["senha_hash"]:
+        issue_user_invitation(record)
+    elif status == "inativo":
+        clear_user_invitation(record)
+        clear_password_reset(record)
+    return record
 
 
 def public_user() -> dict:
@@ -1368,6 +1524,7 @@ def build_system_status_snapshot() -> dict:
     settings = load_settings()
     users = load_users()
     active_users = [user for user in users if clean_text(user.get("status")) == "ativo"]
+    pending_invitations = [user for user in users if clean_text(user.get("status")) == "convite_pendente"]
     storage_ready = all(path.exists() for path in (DATA_DIR, PREVIEW_DIR, UPLOADS_DIR))
     health = {
         "ok": True,
@@ -1388,6 +1545,7 @@ def build_system_status_snapshot() -> dict:
         "events": len(load_events()),
         "equipment": len(load_equipment_registry()),
         "active_users": len(active_users),
+        "pending_invitations": len(pending_invitations),
     }
     operations = {
         "last_backup_at": clean_text(settings.get("last_backup_at")),
@@ -1725,6 +1883,36 @@ def format_currency_br(value) -> str:
         amount = 0.0
     formatted = f"{amount:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     return f"R$ {formatted}"
+
+
+def login_attempt_key(email: str) -> str:
+    return f"{clean_text(email).lower()}|{request.remote_addr or 'local'}"
+
+
+def login_is_locked(email: str) -> bool:
+    key = login_attempt_key(email)
+    attempt = LOGIN_ATTEMPTS.get(key) or {}
+    locked_until = attempt.get("locked_until")
+    if not locked_until:
+        return False
+    if datetime.now() < locked_until:
+        return True
+    LOGIN_ATTEMPTS.pop(key, None)
+    return False
+
+
+def record_failed_login(email: str) -> None:
+    key = login_attempt_key(email)
+    attempt = LOGIN_ATTEMPTS.get(key) or {"count": 0}
+    attempt["count"] = int(attempt.get("count") or 0) + 1
+    attempt["last_attempt_at"] = datetime.now()
+    if attempt["count"] >= MAX_LOGIN_ATTEMPTS:
+        attempt["locked_until"] = datetime.now() + timedelta(minutes=LOGIN_LOCKOUT_MINUTES)
+    LOGIN_ATTEMPTS[key] = attempt
+
+
+def clear_failed_login(email: str) -> None:
+    LOGIN_ATTEMPTS.pop(login_attempt_key(email), None)
 
 
 def criticality_key(level: str | None = "") -> str:
@@ -5107,7 +5295,22 @@ def build_global_search_items(
             "detail": f"{client.get('client_id')} • {client.get('address')} • {client.get('phone') or 'sem telefone'}",
             "target_tab": "clients-tab",
             "target_href": f"#client-{clean_text(client.get('client_id'))}",
-            "text": " ".join(str(client.get(field) or "") for field in ("client_id", "customer_name", "address", "phone", "equipment_number")),
+            "text": " ".join(
+                str(client.get(field) or "")
+                for field in (
+                    "client_id",
+                    "customer_name",
+                    "contact_name",
+                    "address",
+                    "phone",
+                    "cpf_cnpj",
+                    "email",
+                    "equipment_number",
+                    "equipment_type",
+                    "invoice_number",
+                    "notes",
+                )
+            ),
         })
     for event in events:
         items.append({
@@ -5117,7 +5320,7 @@ def build_global_search_items(
             "detail": f"{event.get('event_id')} • {event.get('event_date')} • {event.get('status')}",
             "target_tab": "events-tab",
             "target_href": f"#event-{clean_text(event.get('event_id'))}",
-            "text": " ".join(str(event.get(field) or "") for field in ("event_id", "title", "status", "event_date")),
+            "text": " ".join(str(event.get(field) or "") for field in ("event_id", "title", "status", "event_date", "event_end_date", "event_category", "notes")),
         })
     for vehicle in vehicles:
         items.append({
@@ -5127,7 +5330,7 @@ def build_global_search_items(
             "detail": f"{vehicle.get('vehicle_type')} • placa {vehicle.get('plate') or 'n/d'}",
             "target_tab": "fleet-tab",
             "target_href": f"#vehicle-{clean_text(vehicle.get('vehicle_id'))}",
-            "text": " ".join(str(vehicle.get(field) or "") for field in ("vehicle_id", "vehicle_type", "plate", "model")),
+            "text": " ".join(str(vehicle.get(field) or "") for field in ("vehicle_id", "vehicle_type", "plate", "model", "notes")),
         })
     for item in equipment:
         items.append({
@@ -5524,6 +5727,767 @@ def build_guided_operation_flow(
         "ready": sum(1 for step in steps if step["status"] == "ready"),
         "total": len(steps),
         "pending": sum(1 for step in steps if step["status"] != "ready"),
+    }
+
+
+def build_team_enablement_guide(*, can_view_finance: bool, can_manage_access: bool) -> dict:
+    role_paths = [
+        {
+            "role": "Operação",
+            "start": "Central do Dia",
+            "focus": "Eventos, banheiros, frota, equipamentos, rota, PDF e links de endereço.",
+            "target_tab": "summary-tab",
+            "target_href": "#central-day-panel",
+        },
+        {
+            "role": "Administrativo",
+            "start": "Clientes e Eventos",
+            "focus": "Cadastro completo, documentos, observações úteis e fechamento administrativo.",
+            "target_tab": "clients-tab",
+            "target_href": "#clients-pane",
+        },
+        {
+            "role": "Almoxarifado",
+            "start": "Estoque",
+            "focus": "Entrada, baixa, estoque baixo, itens zerados e materiais para limpeza.",
+            "target_tab": "warehouse-tab",
+            "target_href": "#warehouse-pane",
+        },
+    ]
+    if can_view_finance:
+        role_paths.append(
+            {
+                "role": "Financeiro",
+                "start": "Financeiro",
+                "focus": "Recebimentos, vencidos, notas, comprovantes, fluxo de caixa e fechamento mensal.",
+                "target_tab": "summary-tab",
+                "target_href": "#finance-overview",
+            }
+        )
+    if can_manage_access:
+        role_paths.append(
+            {
+                "role": "Administrador",
+                "start": "Acessos",
+                "focus": "Usuários, permissões, senhas pendentes, backup, segurança e homologação.",
+                "target_tab": "access-tab",
+                "target_href": "#access-pane",
+            }
+        )
+
+    return {
+        "role_paths": role_paths,
+        "daily_order": [
+            "Abrir Central do Dia e resolver pendências vermelhas primeiro.",
+            "Criar ou revisar cliente, evento, banheiro/equipamento e veículo.",
+            "Validar operação antes de gerar rota.",
+            "Gerar PDF, ordem de serviço e links de endereço quando houver despacho.",
+            "Registrar pagamentos, manutenção, ajustes internos, fechamento e backup.",
+        ],
+        "language_rules": [
+            {"term": "Banheiros", "use": "Produto principal da operação."},
+            {"term": "Equipamentos", "use": "Apoio ou ativo operacional, como climatizador e hidratação."},
+            {"term": "Retirada", "use": "Use para recolhimento do banheiro/equipamento no cliente."},
+            {"term": "Recebimento", "use": "Use no financeiro para pagamento do cliente."},
+            {"term": "Pendência", "use": "Algo que precisa de ação antes de liberar ou fechar."},
+        ],
+        "minimum_records": [
+            {"record": "Cliente", "fields": "Nome, telefone, endereço, contato, tipo de serviço e cobrança."},
+            {"record": "Evento", "fields": "Data, período, clientes, status, checklist e observações úteis."},
+            {"record": "Banheiro/equipamento", "fields": "ID, tipo, status, placa quando houver, foto e manutenção."},
+            {"record": "Financeiro", "fields": "Cliente, valor, vencimento, status, NF e comprovante quando existir."},
+        ],
+        "print_package": [
+            "PDF da rota ou ordem de serviço.",
+            "Endereço completo e link do Google Maps quando ajudar.",
+            "Contato do cliente e horário combinado.",
+            "Banheiros/equipamentos, quantidade, ID interno e placa quando houver.",
+            "Observações que realmente precisam chegar a quem executa.",
+        ],
+        "guardrails": [
+            "Pesquisar antes de cadastrar para evitar duplicidade.",
+            "Não liberar rota com bloqueio vermelho.",
+            "Não usar equipamento indisponível ou em manutenção.",
+            "Registrar recebimento no financeiro no mesmo dia em que confirmar pagamento.",
+            "Usar um acesso por pessoa para manter histórico e responsabilidade claros.",
+        ],
+    }
+
+
+def client_completion_warnings(record: dict) -> list[str]:
+    warnings = []
+    if not clean_text(record.get("phone")):
+        warnings.append("falta telefone para contato rápido")
+    if not clean_text(record.get("contact_name")):
+        warnings.append("falta nome do contato")
+    if not clean_text(record.get("cpf_cnpj")):
+        warnings.append("CPF/CNPJ ainda não foi informado")
+    if not clean_text(record.get("equipment_type")):
+        warnings.append("tipo de banheiro/equipamento não foi preenchido")
+    if parse_decimal(record.get("service_value")) <= 0:
+        warnings.append("valor do serviço ainda está zerado")
+    if not clean_text(record.get("invoice_number")) and clean_text(record.get("invoice_status"), "sem_nota") == "com_nota":
+        warnings.append("nota marcada como emitida sem número de NF")
+    return warnings[:4]
+
+
+def event_completion_warnings(record: dict) -> list[str]:
+    warnings = []
+    if not record.get("client_ids"):
+        warnings.append("nenhum cliente vinculado")
+    if not record.get("vehicle_ids"):
+        warnings.append("nenhum veículo vinculado")
+    if any(not item.get("done") for item in record.get("checklist", [])):
+        warnings.append("checklist ainda possui itens pendentes")
+    if parse_decimal(record.get("valor_servico")) <= 0 and parse_decimal(record.get("recurring_value")) <= 0:
+        warnings.append("financeiro do evento ainda está zerado")
+    if not clean_text(record.get("notes")):
+        warnings.append("observações do evento estão vazias")
+    return warnings[:4]
+
+
+def build_event_risk_scores(
+    events: list[dict],
+    clients: list[dict],
+    financial_management: dict,
+    route_data: dict | None,
+    has_pdf: bool,
+) -> list[dict]:
+    today = datetime.now().date()
+    route_event_id = clean_text((route_data or {}).get("event_id"))
+    clients_by_id = {clean_text(client.get("client_id")): client for client in clients}
+    receivables_by_event: dict[str, list[dict]] = {}
+    for item in financial_management.get("receivables", []):
+        event_id = clean_text(item.get("event_id"))
+        if event_id:
+            receivables_by_event.setdefault(event_id, []).append(item)
+
+    rows = []
+    for event in events:
+        normalized_status = normalize_event_status(event.get("status"))
+        if normalized_status in {"pago", "cancelado"}:
+            continue
+        event_id = clean_text(event.get("event_id"))
+        score = 0
+        reasons = []
+        event_date = parse_date(event.get("event_date"))
+        days_until = (event_date - today).days if event_date else None
+
+        if not event.get("client_ids"):
+            score += 25
+            reasons.append("sem cliente")
+        if not event.get("vehicle_ids"):
+            score += 15
+            reasons.append("sem veículo")
+        linked_clients = [clients_by_id.get(clean_text(client_id), {}) for client_id in event.get("client_ids", [])]
+        missing_contact = [client for client in linked_clients if not clean_text(client.get("phone")) or not clean_text(client.get("address"))]
+        if missing_contact:
+            score += 10
+            reasons.append(f"{len(missing_contact)} cliente(s) com contato/endereço incompleto")
+        checklist = event.get("checklist") or []
+        if checklist and any(not item.get("done") for item in checklist):
+            score += 15
+            reasons.append("checklist pendente")
+        if days_until is not None and 0 <= days_until <= 3 and not (has_pdf and route_event_id == event_id):
+            score += 20
+            reasons.append("evento próximo sem PDF da rota")
+        open_receivables = [
+            item for item in receivables_by_event.get(event_id, [])
+            if clean_text(item.get("status")) != "pago"
+        ]
+        if open_receivables and normalized_status in {"finalizado", "em_andamento"}:
+            score += 20
+            reasons.append("financeiro aberto")
+        if normalized_status == "finalizado" and open_receivables:
+            score += 15
+            reasons.append("finalizado sem recebimento total")
+
+        label = "Baixo"
+        level = "ready"
+        if score >= 60:
+            label = "Alto"
+            level = "danger"
+        elif score >= 30:
+            label = "Médio"
+            level = "warning"
+        rows.append({
+            "event_id": event_id,
+            "title": clean_text(event.get("title")) or event_id,
+            "score": score,
+            "label": label,
+            "level": level,
+            "date": clean_text(event.get("event_date")),
+            "days_until": days_until,
+            "reasons": reasons or ["sem risco relevante"],
+            "target_tab": "events-tab",
+            "target_href": f"#event-{event_id}",
+        })
+    rows.sort(key=lambda item: item["score"], reverse=True)
+    return rows[:8]
+
+
+def build_stock_usage_forecast(warehouse_dashboard: dict) -> list[dict]:
+    today = datetime.now().date()
+    cutoff = today - timedelta(days=30)
+    movements_by_item: dict[str, float] = {}
+    for movement in warehouse_dashboard.get("movements") or []:
+        movement_type = clean_text(movement.get("movement_type"))
+        created_at = clean_text(movement.get("created_at"))
+        try:
+            movement_date = datetime.fromisoformat(created_at).date() if created_at else today
+        except ValueError:
+            movement_date = today
+        if movement_date < cutoff:
+            continue
+        if movement_type in {"saida", "baixa limpeza"}:
+            item_id = clean_text(movement.get("item_id"))
+            movements_by_item[item_id] = movements_by_item.get(item_id, 0.0) + parse_decimal(movement.get("quantity_changed"))
+
+    rows = []
+    for item in warehouse_dashboard.get("items") or []:
+        item_id = clean_text(item.get("id"))
+        quantity = parse_decimal(item.get("quantity_current"))
+        consumed = movements_by_item.get(item_id, 0.0)
+        daily_use = consumed / 30 if consumed > 0 else 0
+        days_left = int(quantity / daily_use) if daily_use > 0 else None
+        level = "ready"
+        label = "Sem consumo recente"
+        if item.get("stock_status") == "zerado" or days_left == 0:
+            level = "danger"
+            label = "Acabou"
+        elif days_left is not None and days_left <= 7:
+            level = "danger"
+            label = f"Pode acabar em {days_left} dia(s)"
+        elif item.get("stock_status") == "baixo" or (days_left is not None and days_left <= 15):
+            level = "warning"
+            label = f"Repor em breve ({days_left} dia(s))" if days_left is not None else "Estoque baixo"
+        elif days_left is not None:
+            label = f"{days_left} dia(s) estimado(s)"
+        rows.append({
+            "id": item_id,
+            "name": clean_text(item.get("name")) or item_id,
+            "quantity": quantity,
+            "unit": clean_text(item.get("unit")),
+            "daily_use": round2(daily_use),
+            "days_left": days_left,
+            "label": label,
+            "level": level,
+        })
+    rows.sort(key=lambda item: ({"danger": 0, "warning": 1, "ready": 2}.get(item["level"], 3), item["days_left"] if item["days_left"] is not None else 9999))
+    return rows[:8]
+
+
+def build_smart_system_dashboard(
+    *,
+    attention_center: dict,
+    preventive_warnings: list[dict],
+    financial_management: dict,
+    general_improvements: dict,
+    future_dashboard: dict,
+    warehouse_dashboard: dict,
+    reports_hub: list[dict],
+    dispatch_today: dict,
+    global_search_items: list[dict],
+    customer_history: list[dict],
+    recent_audit_log: list[dict],
+    clients: list[dict],
+    events: list[dict],
+    contracts: list[dict],
+    cleaning_agenda: list[dict],
+    maintenance_preventive_dashboard: dict,
+    route_data: dict | None,
+    has_pdf: bool,
+    can_view_finance: bool,
+    user_role: str,
+) -> dict:
+    def badge_level(level: str) -> str:
+        normalized = criticality_key(level)
+        if normalized == "block":
+            return "danger"
+        if normalized == "attention":
+            return "warning"
+        if normalized == "ready":
+            return "ready"
+        return "info"
+
+    next_steps = []
+    for item in attention_center.get("items", [])[:6]:
+        next_steps.append({
+            "level": badge_level(item.get("level")),
+            "title": clean_text(item.get("title")),
+            "detail": clean_text(item.get("detail")),
+            "target_tab": clean_text(item.get("target_tab")),
+            "target_href": clean_text(item.get("target_href"), "#summary-pane"),
+            "action": clean_text(item.get("action"), "Abrir"),
+        })
+    if not next_steps:
+        next_steps.append({
+            "level": "ready",
+            "title": "Operação sem bloqueio crítico",
+            "detail": "Use o roteiro rápido para preparar o próximo despacho ou fechamento.",
+            "target_tab": "summary-tab",
+            "target_href": "#guided-operation-flow",
+            "action": "Ver roteiro",
+        })
+
+    preventive_items = []
+    for item in preventive_warnings[:5]:
+        preventive_items.append({
+            "level": badge_level(item.get("level")),
+            "title": clean_text(item.get("title")),
+            "detail": clean_text(item.get("detail")),
+            "target_tab": clean_text(item.get("target_tab"), "summary-tab"),
+            "target_href": clean_text(item.get("target_href"), "#summary-pane"),
+        })
+    for item in maintenance_preventive_dashboard.get("alerts", [])[:3]:
+        preventive_items.append({
+            "level": "warning" if clean_text(item.get("level")) != "danger" else "danger",
+            "title": f"Manutenção preventiva: {clean_text(item.get('equipment_id'))}",
+            "detail": clean_text(item.get("message")),
+            "target_tab": "fleet-tab",
+            "target_href": "#maintenance-panel",
+        })
+    if can_view_finance:
+        for item in financial_management.get("alerts", [])[:3]:
+            preventive_items.append({
+                "level": "danger" if clean_text(item.get("level")) == "danger" else "warning",
+                "title": f"Financeiro: {clean_text(item.get('scope'), 'alerta')}",
+                "detail": clean_text(item.get("message")),
+                "target_tab": "summary-tab",
+                "target_href": "#receivables-panel",
+            })
+    preventive_items = preventive_items[:8]
+    if not preventive_items:
+        preventive_items.append({
+            "level": "ready",
+            "title": "Sem alerta preventivo aberto",
+            "detail": "Estoque, operação, financeiro e manutenção não têm alerta prioritário agora.",
+            "target_tab": "summary-tab",
+            "target_href": "#attention-now-panel",
+        })
+
+    validation_items = [
+        {
+            "level": badge_level(item.get("level")),
+            "label": clean_text(item.get("label")),
+            "detail": clean_text(item.get("detail")),
+            "target_tab": clean_text(item.get("target_tab")),
+            "target_href": clean_text(item.get("target_href")),
+            "action": clean_text(item.get("action")),
+        }
+        for item in dispatch_today.get("checklist", [])
+    ]
+
+    clients_by_id = {clean_text(client.get("client_id")): client for client in clients}
+    financial_by_client = {
+        clean_text(item.get("client_id")) or clean_text(item.get("client_name")): item
+        for item in financial_management.get("client_finance", [])
+    }
+    client_insights = []
+    for item in sorted(customer_history, key=lambda row: (row.get("routes_count", 0), row.get("revenue_total", 0)), reverse=True)[:6]:
+        client_id = clean_text(item.get("client_id"))
+        client = clients_by_id.get(client_id, {})
+        finance = financial_by_client.get(client_id) or financial_by_client.get(clean_text(item.get("customer_name"))) or {}
+        next_action = "Manter histórico atualizado"
+        if not clean_text(client.get("phone")):
+            next_action = "Completar telefone"
+        elif not clean_text(client.get("address")):
+            next_action = "Completar endereço"
+        elif can_view_finance and float(finance.get("open") or 0) > 0:
+            next_action = "Ver cobrança aberta"
+        elif item.get("routes_count", 0) == 0:
+            next_action = "Criar primeira locação"
+        client_insights.append({
+            "client_id": client_id,
+            "name": clean_text(item.get("customer_name")) or client_id,
+            "detail": f"{item.get('routes_count', 0)} rota(s) • último atendimento {format_datetime_br(item.get('last_route_at'))}",
+            "finance": f"aberto {format_currency_br(finance.get('open'))}" if can_view_finance and finance else "",
+            "next_action": next_action,
+            "target_tab": "clients-tab",
+            "target_href": f"#client-{client_id}",
+        })
+    if not client_insights:
+        client_insights.append({
+            "client_id": "",
+            "name": "Sem histórico suficiente",
+            "detail": "Cadastre clientes e gere rotas para formar recomendações por cliente.",
+            "finance": "",
+            "next_action": "Cadastrar cliente",
+            "target_tab": "clients-tab",
+            "target_href": "#clients-pane",
+        })
+
+    financial_recommendations = []
+    if can_view_finance:
+        overdue = financial_management.get("overdue", [])
+        due_soon = financial_management.get("receivables_due_soon", [])
+        if overdue:
+            financial_recommendations.append({
+                "level": "danger",
+                "title": "Cobrar vencidos",
+                "detail": f"{len(overdue)} cobrança(s) vencida(s), maior atraso: {overdue[0].get('days_overdue', 0)} dia(s).",
+                "target": "#receivables-panel",
+            })
+        if due_soon:
+            financial_recommendations.append({
+                "level": "warning",
+                "title": "Cobranças vencendo",
+                "detail": f"{len(due_soon)} recebimento(s) vencem hoje ou nos próximos 3 dias.",
+                "target": "#receivables-panel",
+            })
+        invoice_pending = financial_management.get("invoice_summary", {}).get("sem_nota", 0)
+        if invoice_pending:
+            financial_recommendations.append({
+                "level": "warning",
+                "title": "Notas fiscais pendentes",
+                "detail": f"{invoice_pending} cobrança(s) sem número de NF informado.",
+                "target": "#taxes-panel",
+            })
+        margin_pct = float(financial_management.get("dre", {}).get("margin_pct") or 0)
+        if margin_pct < 15 and (financial_management.get("dre", {}).get("gross_revenue") or 0) > 0:
+            financial_recommendations.append({
+                "level": "warning",
+                "title": "Margem baixa",
+                "detail": f"Margem do período em {margin_pct:.2f}%. Revise custos, descontos e despesas.",
+                "target": "#financial-reports-panel",
+            })
+        if not financial_recommendations:
+            financial_recommendations.append({
+                "level": "ready",
+                "title": "Financeiro sem alerta imediato",
+                "detail": "Vencidos, notas e margem não exigem ação prioritária agora.",
+                "target": "#finance-overview",
+            })
+    else:
+        financial_recommendations.append({
+            "level": "info",
+            "title": "Financeiro protegido",
+            "detail": "As recomendações financeiras aparecem apenas para quem tem permissão.",
+            "target": "#summary-pane",
+        })
+
+    forecast_cards = []
+    for level_item in future_dashboard.get("alerts", [])[:3]:
+        forecast_cards.append({
+            "level": "danger" if clean_text(level_item.get("level")) == "danger" else "warning",
+            "title": clean_text(level_item.get("scope"), "Previsão"),
+            "detail": clean_text(level_item.get("message")),
+        })
+    top_months = future_dashboard.get("prediction", {}).get("top_months", [])
+    if top_months:
+        month, count = top_months[0]
+        forecast_cards.append({
+            "level": "info",
+            "title": "Mês mais recorrente no histórico",
+            "detail": f"{month}: {count} operação(ões) registradas.",
+        })
+    dates_almost_full = future_dashboard.get("commercial", {}).get("dates_almost_full", [])
+    if dates_almost_full:
+        forecast_cards.append({
+            "level": "warning",
+            "title": "Capacidade futura apertada",
+            "detail": f"{dates_almost_full[0].get('period_key')} com {dates_almost_full[0].get('utilization_pct')}% de ocupação projetada.",
+        })
+    if not forecast_cards:
+        forecast_cards.append({
+            "level": "info",
+            "title": "Previsão em aprendizado",
+            "detail": "O sistema usará histórico de eventos, rotas e recorrências para destacar demanda futura.",
+        })
+
+    dynamic_checklists = [
+        {
+            "label": "Evento avulso",
+            "status": "ready" if dispatch_today.get("ready_count", 0) >= 3 else "warning",
+            "items": ["cliente confirmado", "banheiros separados", "rota validada", "PDF ou OS conferido", "financeiro registrado"],
+            "target_tab": "events-tab",
+            "target_href": "#events-pane",
+        },
+        {
+            "label": "Contrato mensal",
+            "status": "ready" if contracts else "warning",
+            "items": ["mensalidade definida", "limpeza recorrente", "próxima cobrança", "histórico do cliente", "insumos previstos"],
+            "target_tab": "clients-tab",
+            "target_href": "#contracts-quotes-panel",
+        },
+        {
+            "label": "Limpeza recorrente",
+            "status": "ready" if cleaning_agenda else "info",
+            "items": ["cliente fixo", "data da limpeza", "materiais baixados", "observação registrada", "próxima execução"],
+            "target_tab": "clients-tab",
+            "target_href": "#contracts-quotes-panel",
+        },
+        {
+            "label": "Despacho com PDF",
+            "status": "ready" if has_pdf and route_data else "warning",
+            "items": ["rota validada", "PDF gerado", "links de endereço revisados", "contato visível", "placas conferidas"],
+            "target_tab": "operations-tab",
+            "target_href": "#operations-pane",
+        },
+    ]
+    if can_view_finance:
+        dynamic_checklists.append({
+            "label": "Fechamento financeiro",
+            "status": "warning" if financial_management.get("overdue") else "ready",
+            "items": ["recebimentos", "notas fiscais", "comprovantes", "despesas", "PDF do fechamento"],
+            "target_tab": "summary-tab",
+            "target_href": "#closeout-panel",
+        })
+
+    module_counts: dict[str, int] = {}
+    for item in global_search_items:
+        module = clean_text(item.get("module"), "Geral")
+        module_counts[module] = module_counts.get(module, 0) + 1
+
+    today = datetime.now().date()
+    today_text = today.isoformat()
+    event_risk_scores = build_event_risk_scores(events, clients, financial_management, route_data, has_pdf)
+    stock_forecast = build_stock_usage_forecast(warehouse_dashboard)
+    today_events = [
+        event for event in events
+        if clean_text(event.get("event_date")) <= today_text <= (clean_text(event.get("event_end_date")) or clean_text(event.get("event_date")))
+    ]
+    daily_summary = []
+    if attention_center.get("danger_total"):
+        daily_summary.append({"level": "danger", "title": "Resolver críticos", "detail": f"{attention_center.get('danger_total')} item(ns) críticos precisam de ação."})
+    if today_events:
+        daily_summary.append({"level": "warning", "title": "Eventos de hoje", "detail": f"{len(today_events)} evento(s) aparecem na agenda de hoje."})
+    if financial_management.get("overdue"):
+        daily_summary.append({"level": "danger", "title": "Cobranças vencidas", "detail": f"{len(financial_management.get('overdue', []))} recebimento(s) em atraso."})
+    if route_data and not has_pdf:
+        daily_summary.append({"level": "warning", "title": "Rota sem PDF", "detail": "Há rota gerada, mas o PDF precisa ser conferido."})
+    stock_danger = [item for item in stock_forecast if item["level"] == "danger"]
+    if stock_danger:
+        daily_summary.append({"level": "danger", "title": "Estoque crítico", "detail": f"{len(stock_danger)} material(is) podem faltar."})
+    if not daily_summary:
+        daily_summary.append({"level": "ready", "title": "Dia sem bloqueio central", "detail": "Comece pela agenda, revise próximas cobranças e mantenha backup em dia."})
+
+    clients_by_id = {clean_text(client.get("client_id")): client for client in clients}
+    finance_by_client = {
+        clean_text(item.get("client_id")) or clean_text(item.get("client_name")): item
+        for item in financial_management.get("client_finance", [])
+    }
+    contract_client_ids = {clean_text(item.get("client_id")) for item in contracts}
+    cleaning_client_ids = {clean_text(item.get("client_id")) for item in cleaning_agenda}
+    client_attention = []
+    for client in clients:
+        client_id = clean_text(client.get("client_id"))
+        score = 0
+        reasons = []
+        finance = finance_by_client.get(client_id) or finance_by_client.get(clean_text(client.get("customer_name"))) or {}
+        if not clean_text(client.get("phone")):
+            score += 20
+            reasons.append("sem telefone")
+        if not clean_text(client.get("address")):
+            score += 20
+            reasons.append("sem endereço")
+        if not clean_text(client.get("equipment_type")):
+            score += 10
+            reasons.append("sem tipo de banheiro/equipamento")
+        if parse_decimal(finance.get("open")) > 0:
+            score += 25
+            reasons.append("financeiro aberto")
+        if client_id in contract_client_ids and client_id not in cleaning_client_ids:
+            score += 15
+            reasons.append("contrato sem limpeza futura")
+        if score:
+            client_attention.append({
+                "client_id": client_id,
+                "name": clean_text(client.get("customer_name")) or client_id,
+                "score": score,
+                "reasons": reasons,
+                "target_tab": "clients-tab",
+                "target_href": f"#client-{client_id}",
+            })
+    client_attention.sort(key=lambda item: item["score"], reverse=True)
+
+    deadline_alerts = []
+    receivables_by_event: dict[str, list[dict]] = {}
+    for receivable in financial_management.get("receivables", []):
+        event_id = clean_text(receivable.get("event_id"))
+        if event_id:
+            receivables_by_event.setdefault(event_id, []).append(receivable)
+    for event in events:
+        event_date = parse_date(event.get("event_date"))
+        if not event_date or not event_is_active(event):
+            continue
+        days_until = (event_date - today).days
+        if 0 <= days_until <= 7:
+            missing = []
+            if not event.get("client_ids"):
+                missing.append("cliente")
+            if not event.get("vehicle_ids"):
+                missing.append("veículo")
+            if any(not item.get("done") for item in event.get("checklist", [])):
+                missing.append("checklist")
+            if not (has_pdf and clean_text((route_data or {}).get("event_id")) == clean_text(event.get("event_id"))):
+                missing.append("PDF/rota")
+            if any(clean_text(item.get("status")) != "pago" for item in receivables_by_event.get(clean_text(event.get("event_id")), [])):
+                missing.append("financeiro")
+            if missing:
+                deadline_alerts.append({
+                    "level": "danger" if days_until <= 1 else "warning",
+                    "title": clean_text(event.get("title")) or clean_text(event.get("event_id")),
+                    "detail": f"faltam {days_until} dia(s): revisar {', '.join(missing)}",
+                    "target_tab": "events-tab",
+                    "target_href": f"#event-{clean_text(event.get('event_id'))}",
+                })
+
+    blocked_equipment_ids = {
+        clean_text(item.get("equipment_id"))
+        for item in maintenance_preventive_dashboard.get("alerts", [])
+        if clean_text(item.get("level")) == "danger"
+    }
+    inconsistencies = []
+    for event in events:
+        event_id = clean_text(event.get("event_id"))
+        if normalize_event_status(event.get("status")) == "finalizado" and any(clean_text(item.get("status")) != "pago" for item in receivables_by_event.get(event_id, [])):
+            inconsistencies.append({"level": "danger", "title": "Evento finalizado sem pagamento", "detail": clean_text(event.get("title")) or event_id, "target_tab": "events-tab", "target_href": f"#event-{event_id}"})
+    for contract in contracts:
+        client_id = clean_text(contract.get("client_id"))
+        if clean_text(contract.get("status"), "ativo") == "ativo" and client_id and client_id not in cleaning_client_ids:
+            inconsistencies.append({"level": "warning", "title": "Cliente mensal sem próxima limpeza", "detail": clean_text(contract.get("client_name")) or client_id, "target_tab": "clients-tab", "target_href": "#contracts-quotes-panel"})
+    for client in clients:
+        equipment_id = clean_text(client.get("equipment_number"))
+        if equipment_id in blocked_equipment_ids:
+            inconsistencies.append({"level": "danger", "title": "Equipamento em manutenção vinculado", "detail": f"{equipment_id} • {client.get('customer_name')}", "target_tab": "fleet-tab", "target_href": "#maintenance-panel"})
+    if not inconsistencies:
+        inconsistencies.append({"level": "ready", "title": "Sem inconsistência crítica", "detail": "Eventos, contratos e vínculos não têm conflito principal agora.", "target_tab": "summary-tab", "target_href": "#smart-system-panel"})
+
+    def bucket_item(level: str, title: str, detail: str, target_tab: str = "summary-tab", target_href: str = "#smart-system-panel") -> dict:
+        return {"level": level, "title": title, "detail": detail, "target_tab": target_tab, "target_href": target_href}
+
+    resolver_agora = [
+        bucket_item(item.get("level"), item.get("title"), item.get("detail"), item.get("target_tab", "summary-tab"), item.get("target_href", "#smart-system-panel"))
+        for item in next_steps + preventive_items + deadline_alerts + inconsistencies
+        if item.get("level") == "danger"
+    ][:5]
+    revisar_hoje = [
+        bucket_item(item.get("level"), item.get("title"), item.get("detail"), item.get("target_tab", "summary-tab"), item.get("target_href", "#smart-system-panel"))
+        for item in next_steps + preventive_items + deadline_alerts + inconsistencies
+        if item.get("level") == "warning"
+    ][:5]
+    acompanhar = [
+        bucket_item(item.get("level"), item.get("title"), item.get("detail"), item.get("target_tab", "summary-tab"), item.get("target_href", "#smart-system-panel"))
+        for item in next_steps + preventive_items
+        if item.get("level") in {"ready", "info"}
+    ][:5]
+    priority_buckets = [
+        {"label": "Resolver agora", "level": "danger", "items": resolver_agora or [bucket_item("ready", "Sem bloqueio crítico", "Continue pela agenda e validação.", "summary-tab", "#central-day-panel")]},
+        {"label": "Revisar hoje", "level": "warning", "items": revisar_hoje or [bucket_item("ready", "Nada urgente para revisar", "Mantenha cadastros e financeiro atualizados.", "summary-tab", "#smart-system-panel")]},
+        {"label": "Acompanhar depois", "level": "info", "items": acompanhar or [bucket_item("info", "Sem acompanhamento pendente", "Use relatórios para conferência semanal.", "summary-tab", "#reports-panel")]},
+    ]
+
+    weekly_report = {
+        "events": sum(1 for event in events if parse_date(event.get("event_date")) and 0 <= (parse_date(event.get("event_date")) - today).days <= 7),
+        "receivables": len(financial_management.get("receivables_due_soon", [])),
+        "overdue": len(financial_management.get("overdue", [])),
+        "maintenance": len(maintenance_preventive_dashboard.get("alerts", [])),
+        "stock_critical": len([item for item in stock_forecast if item["level"] == "danger"]),
+    }
+
+    role = clean_text(user_role, "guest")
+    favorite_map = {
+        "admin": [("Acessos", "#access-pane", "access-tab"), ("Backup", "#system-readiness-panel", "summary-tab"), ("Homologação", "#homologation-pane", "homologation-tab")],
+        "financeiro": [("Recebimentos", "#receivables-panel", "summary-tab"), ("Fechamento", "#closeout-panel", "summary-tab"), ("Relatórios", "#reports-panel", "summary-tab")],
+        "operacional": [("Começar o dia", "#smart-start-day", "summary-tab"), ("Validar/Gerar", "#operations-pane", "operations-tab"), ("Frota", "#fleet-pane", "fleet-tab")],
+        "leitura": [("Resumo", "#summary-pane", "summary-tab"), ("Agenda", "#agenda-pane", "agenda-tab"), ("Histórico", "#history-pane", "history-tab")],
+        "guest": [("Resumo público", "#public-dashboard", ""), ("Entrar", "#settings-menu-button", "")],
+    }
+    favorites = [
+        {"label": label, "target_href": href, "target_tab": tab}
+        for label, href, tab in favorite_map.get(role, favorite_map["guest"])
+    ]
+
+    route_stops = [stop for route in (route_data or {}).get("routes", []) for stop in route.get("stops", [])]
+    pdf_review = {
+        "has_route": bool(route_stops),
+        "stops_count": len(route_stops),
+        "missing_contact": sum(1 for stop in route_stops if not clean_text(stop.get("contact_name")) or not clean_text(stop.get("phone"))),
+        "missing_equipment": sum(1 for stop in route_stops if not clean_text(stop.get("equipment_number"))),
+        "items": [
+            {
+                "client": clean_text(stop.get("customer_name")) or clean_text(stop.get("delivery_id")),
+                "address": clean_text(stop.get("address")),
+                "contact": clean_text(stop.get("contact_name")) or "sem contato",
+                "equipment": f"{stop.get('equipment_quantity') or 1}x {stop.get('equipment_type') or 'banheiro/equipamento'} • {stop.get('equipment_number') or 'sem ID'}",
+                "notes": clean_text(stop.get("operation_notes") or stop.get("notes")),
+            }
+            for stop in route_stops[:5]
+        ],
+    }
+
+    quick_templates = [
+        {"label": "Evento avulso", "status": "confirmado", "category": "evento", "billing": "avulso", "notes": "Evento avulso com entrega, permanência e retirada combinadas."},
+        {"label": "Contrato mensal", "status": "confirmado", "category": "contrato", "billing": "mensal", "notes": "Contrato mensal com banheiro instalado e limpeza recorrente."},
+        {"label": "Limpeza recorrente", "status": "em_preparacao", "category": "contrato", "billing": "mensal", "notes": "Atendimento de limpeza recorrente com baixa de insumos."},
+        {"label": "Orçamento", "status": "orcamento", "category": "orcamento", "billing": "orcamento", "notes": "Pedido em orçamento aguardando aprovação do cliente."},
+    ]
+
+    change_history = [
+        {
+            "module": clean_text(item.get("module")),
+            "action": clean_text(item.get("action")),
+            "target": clean_text(item.get("target_id")) or "geral",
+            "user": clean_text(item.get("user_name") or item.get("user_email")),
+            "created_at": format_datetime_br(item.get("created_at")),
+        }
+        for item in recent_audit_log[:6]
+    ]
+
+    start_day_actions = [
+        {"label": "Abrir pendências", "detail": "Ver só o que precisa de ação.", "target_href": "#attention-now-panel", "target_tab": "summary-tab"},
+        {"label": "Eventos de hoje", "detail": f"{len(today_events)} evento(s) na data.", "target_href": "#daily-command-center", "target_tab": "summary-tab"},
+        {"label": "Validar rota", "detail": f"{dispatch_today.get('ready_count', 0)}/{len(dispatch_today.get('checklist') or [])} item(ns) prontos.", "target_href": "#operations-pane", "target_tab": "operations-tab"},
+        {"label": "Financeiro", "detail": f"{len(financial_management.get('overdue', []))} vencido(s).", "target_href": "#receivables-panel", "target_tab": "summary-tab"},
+        {"label": "Estoque crítico", "detail": f"{len(stock_danger)} item(ns) em risco.", "target_href": "#warehouse-pane", "target_tab": "warehouse-tab"},
+    ]
+    close_day_steps = [
+        {"label": "Pagamentos", "done": not financial_management.get("overdue"), "detail": "Baixar recebimentos e revisar vencidos.", "target_href": "#receivables-panel", "target_tab": "summary-tab"},
+        {"label": "Eventos", "done": not today_events, "detail": "Conferir status dos eventos do dia.", "target_href": "#events-pane", "target_tab": "events-tab"},
+        {"label": "Manutenção", "done": not maintenance_preventive_dashboard.get("alerts"), "detail": "Registrar itens com revisão necessária.", "target_href": "#maintenance-panel", "target_tab": "fleet-tab"},
+        {"label": "Estoque", "done": not stock_danger, "detail": "Repor materiais críticos ou zerados.", "target_href": "#warehouse-pane", "target_tab": "warehouse-tab"},
+        {"label": "Backup e relatório", "done": False, "detail": "Baixar fechamento do dia e backup quando necessário.", "target_href": url_for("download_daily_closeout"), "target_tab": ""},
+    ]
+
+    return {
+        "next_steps": next_steps[:6],
+        "preventive_alerts": preventive_items[:8],
+        "validation_items": validation_items,
+        "validation_ready": dispatch_today.get("ready_count", 0),
+        "validation_total": len(dispatch_today.get("checklist") or []),
+        "client_insights": client_insights[:6],
+        "search_total": len(global_search_items),
+        "search_modules": [{"module": key, "count": value} for key, value in sorted(module_counts.items())],
+        "search_fields": ["nome", "telefone", "CPF/CNPJ", "placa", "NF", "evento", "endereço", "banheiro/equipamento", "observações"],
+        "duplicate_alerts": general_improvements.get("duplicate_alerts", [])[:5],
+        "duplicate_count": general_improvements.get("duplicate_count", 0),
+        "financial_recommendations": financial_recommendations[:5],
+        "forecast_cards": forecast_cards[:5],
+        "reports": reports_hub[:6],
+        "dynamic_checklists": dynamic_checklists,
+        "event_risk_scores": event_risk_scores,
+        "daily_summary": daily_summary[:5],
+        "client_attention": client_attention[:6],
+        "stock_forecast": stock_forecast,
+        "deadline_alerts": deadline_alerts[:6],
+        "weekly_report": weekly_report,
+        "inconsistencies": inconsistencies[:6],
+        "priority_buckets": priority_buckets,
+        "favorites": favorites,
+        "pdf_review": pdf_review,
+        "quick_templates": quick_templates,
+        "change_history": change_history,
+        "start_day_actions": start_day_actions,
+        "close_day_steps": close_day_steps,
+        "action_filter_counts": {
+            "resolver_agora": len(resolver_agora),
+            "revisar_hoje": len(revisar_hoje),
+            "acompanhar": len(acompanhar),
+        },
+        "attention_total": attention_center.get("open_total", 0),
+        "attention_critical": attention_center.get("danger_total", 0),
+        "scope_note": "Sugestão automática de equipamento ideal não incluída por escolha de escopo.",
     }
 
 
@@ -6038,12 +7002,13 @@ def build_team_weekly_review(
         if clean_text(item.get("status")) in {"manutencao", "indisponivel"}
         or clean_text(item.get("maintenance_reason"))
     ]
-    inactive_users = [user for user in users if clean_text(user.get("status")) != "ativo"]
+    inactive_users = [user for user in users if clean_text(user.get("status")) == "inativo"]
+    pending_invitations = [user for user in users if clean_text(user.get("status")) == "convite_pendente"]
     items = [
         {
             "title": "Acessos e senhas",
-            "detail": f"{security_posture.get('password_rotation_pending', 0)} troca(s) de senha pendente(s) e {len(inactive_users)} acesso(s) inativo(s).",
-            "level": "warning" if security_posture.get("password_rotation_pending") else "ready",
+            "detail": f"{len(pending_invitations)} convite(s), {security_posture.get('password_rotation_pending', 0)} troca(s) pendente(s) e {len(inactive_users)} acesso(s) inativo(s).",
+            "level": "warning" if security_posture.get("password_rotation_pending") or pending_invitations else "ready",
         },
         {
             "title": "Cadastros de clientes",
@@ -6144,6 +7109,7 @@ def build_dashboard_context() -> dict:
         financial_receivables,
     )
     equipment_history = build_equipment_history(inventory, clients, route_history, service_log)
+    maintenance_preventive_dashboard = build_maintenance_preventive_dashboard(inventory, service_log)
     preventive_warnings = build_preventive_warnings(
         clients,
         vehicles,
@@ -6243,6 +7209,10 @@ def build_dashboard_context() -> dict:
         can_backup=has_permission(user, "settings.manage"),
     )
     role_focus_cards = build_role_focus_cards(user, can_view_finance)
+    team_enablement_guide = build_team_enablement_guide(
+        can_view_finance=can_view_finance,
+        can_manage_access=has_permission(user, "settings.manage"),
+    )
     global_search_items = build_global_search_items(
         clients,
         events,
@@ -6259,6 +7229,29 @@ def build_dashboard_context() -> dict:
         equipment=inventory,
         warehouse_dashboard=warehouse_dashboard,
         financial_management=financial_management,
+    )
+    customer_history = build_customer_history(clients, events, route_history, field_confirmations)
+    smart_system_dashboard = build_smart_system_dashboard(
+        attention_center=attention_center,
+        preventive_warnings=preventive_warnings,
+        financial_management=financial_management,
+        general_improvements=general_improvements,
+        future_dashboard=future_dashboard,
+        warehouse_dashboard=warehouse_dashboard,
+        reports_hub=reports_hub,
+        dispatch_today=dispatch_today,
+        global_search_items=global_search_items,
+        customer_history=customer_history,
+        recent_audit_log=recent_audit_log,
+        clients=clients,
+        events=events,
+        contracts=contracts,
+        cleaning_agenda=cleaning_agenda,
+        maintenance_preventive_dashboard=maintenance_preventive_dashboard,
+        route_data=route_data,
+        has_pdf=ROUTE_PDF_PATH.exists(),
+        can_view_finance=can_view_finance,
+        user_role=clean_text(user.get("role")),
     )
     daily_management_checklist = build_daily_management_checklist(
         attention_center=attention_center,
@@ -6313,12 +7306,13 @@ def build_dashboard_context() -> dict:
         "guided_operation_flow": guided_operation_flow,
         "attention_center": attention_center,
         "role_focus_cards": role_focus_cards,
+        "team_enablement_guide": team_enablement_guide,
         "operational_validations": validations,
         "pending_reasons": pending_reasons,
         "operation_validation": validation_payload,
         "financial_dashboard": financial_dashboard,
         "financial_management": financial_management,
-        "customer_history": build_customer_history(clients, events, route_history, field_confirmations),
+        "customer_history": customer_history,
         "calendar_weeks": build_calendar_weeks(events),
         "preventive_warnings": preventive_warnings,
         "real_map_routes": build_real_map_routes(route_data),
@@ -6342,9 +7336,10 @@ def build_dashboard_context() -> dict:
         "daily_command_center": daily_command_center,
         "operational_kanban": operational_kanban,
         "general_improvements": general_improvements,
+        "smart_system_dashboard": smart_system_dashboard,
         "equipment_history": equipment_history,
         "contract_financial_dashboard": build_contract_financial_dashboard(contracts, service_log),
-        "maintenance_preventive_dashboard": build_maintenance_preventive_dashboard(inventory, service_log),
+        "maintenance_preventive_dashboard": maintenance_preventive_dashboard,
         "mobile_sync_dashboard": mobile_sync_dashboard,
         "security_posture": security_posture,
         "security_technical_checklist": build_security_technical_checklist(security_posture, system_status),
@@ -6376,7 +7371,7 @@ def build_dashboard_context() -> dict:
         "settings": settings,
         "current_user": user,
         "is_authenticated": user["role"] != "guest",
-        "users": [sanitize_user(item) for item in users],
+        "users": [serialize_access_user(item) for item in users],
         "roles": sorted(ROLES),
         "role_labels": role_labels,
         "permission_catalog": sorted(
@@ -6437,18 +7432,31 @@ def login():
     if not email or not password:
         flash("Informe email e senha para entrar.", "danger")
         return redirect(url_for("index"))
+    if login_is_locked(email):
+        flash(f"Muitas tentativas de login. Tente novamente em {LOGIN_LOCKOUT_MINUTES} minutos ou peça redefinição de senha.", "danger")
+        return redirect(url_for("index"))
 
     user = find_user_by_email(email)
     if not user:
+        record_failed_login(email)
         flash("Usuário não encontrado.", "danger")
         return redirect(url_for("index"))
-    if clean_text(user.get("status"), "inativo") != "ativo":
+    status = clean_text(user.get("status"), "inativo")
+    if status == "convite_pendente":
+        flash("Convite pendente. Abra o link de convite para criar sua senha antes do primeiro acesso.", "warning")
+        return redirect(url_for("index"))
+    if status != "ativo":
         flash("Usuário inativo. Peça a um administrador para reativar o acesso.", "danger")
         return redirect(url_for("index"))
+    if not clean_text(user.get("senha_hash")):
+        flash("Acesso sem senha criada. Peça ao administrador um novo link de convite ou redefinição.", "warning")
+        return redirect(url_for("index"))
     if not check_password_hash(clean_text(user.get("senha_hash")), password):
+        record_failed_login(email)
         flash("Senha incorreta.", "danger")
         return redirect(url_for("index"))
 
+    clear_failed_login(email)
     session.clear()
     session.permanent = True
     session["user_id"] = clean_text(user.get("id"))
@@ -6493,6 +7501,110 @@ def change_password():
     return redirect(url_for("index"))
 
 
+@app.route("/auth/forgot-password", methods=["POST"])
+def request_password_reset():
+    email = clean_text(request.form.get("email")).lower()
+    users = load_users()
+    user = next((item for item in users if clean_text(item.get("email")).lower() == email), None)
+    if user and clean_text(user.get("status")) == "ativo":
+        issue_password_reset(user)
+        save_users(users)
+        record_audit("request_password_reset", "auth", clean_text(user.get("id")), "Redefinição de senha solicitada.")
+    flash("Se o e-mail estiver cadastrado e ativo, um link de redefinição ficará disponível para envio pelo painel de acessos.", "success")
+    return redirect(url_for("index"))
+
+
+@app.route("/convite/<token>", methods=["GET", "POST"])
+def accept_invitation(token: str):
+    users, user, error = resolve_access_token(token, "invite", "invitation_token", "invitation_expires_at")
+    if error or not user:
+        flash(error or "Convite inválido.", "danger")
+        return redirect(url_for("index"))
+    if clean_text(user.get("status")) != "convite_pendente":
+        flash("Este convite já foi concluído ou cancelado.", "warning")
+        return redirect(url_for("index"))
+    if request.method == "GET":
+        return render_template(
+            "password_setup.html",
+            mode="invite",
+            title="Criar senha de acesso",
+            action_url=url_for("accept_invitation", token=token),
+            user=sanitize_user(user),
+            expires_label=format_datetime_br(user.get("invitation_expires_at")),
+        )
+
+    new_password = request.form.get("new_password", "")
+    confirm_password = request.form.get("confirm_password", "")
+    if new_password != confirm_password:
+        flash("A confirmação da senha não confere.", "danger")
+        return redirect(url_for("accept_invitation", token=token))
+    issues = password_policy_issues(new_password, [clean_text(user.get("nome")), clean_text(user.get("email"))])
+    if issues:
+        flash(issues[0], "danger")
+        return redirect(url_for("accept_invitation", token=token))
+
+    user["senha_hash"] = generate_password_hash(new_password, method="pbkdf2:sha256")
+    user["status"] = "ativo"
+    user["must_change_password"] = False
+    user["invitation_accepted_at"] = now_iso()
+    clear_user_invitation(user)
+    clear_password_reset(user)
+    user["updated_at"] = now_iso()
+    save_users(users)
+    clear_failed_login(user.get("email"))
+    session.clear()
+    session.permanent = True
+    session["user_id"] = clean_text(user.get("id"))
+    session["login_at"] = now_iso()
+    record_audit("accept_invitation", "auth", clean_text(user.get("id")), "Convite aceito e senha criada pelo usuário.")
+    flash("Senha criada com sucesso. Seu acesso já está ativo.", "success")
+    return redirect(url_for("index"))
+
+
+@app.route("/redefinir-senha/<token>", methods=["GET", "POST"])
+def reset_password(token: str):
+    users, user, error = resolve_access_token(token, "password_reset", "reset_token", "reset_expires_at")
+    if error or not user:
+        flash(error or "Link de redefinição inválido.", "danger")
+        return redirect(url_for("index"))
+    if clean_text(user.get("status")) != "ativo":
+        flash("Acesso inativo ou ainda não ativado. Peça suporte ao administrador.", "warning")
+        return redirect(url_for("index"))
+    if request.method == "GET":
+        return render_template(
+            "password_setup.html",
+            mode="reset",
+            title="Redefinir senha",
+            action_url=url_for("reset_password", token=token),
+            user=sanitize_user(user),
+            expires_label=format_datetime_br(user.get("reset_expires_at")),
+        )
+
+    new_password = request.form.get("new_password", "")
+    confirm_password = request.form.get("confirm_password", "")
+    if new_password != confirm_password:
+        flash("A confirmação da senha não confere.", "danger")
+        return redirect(url_for("reset_password", token=token))
+    issues = password_policy_issues(new_password, [clean_text(user.get("nome")), clean_text(user.get("email"))])
+    if issues:
+        flash(issues[0], "danger")
+        return redirect(url_for("reset_password", token=token))
+
+    user["senha_hash"] = generate_password_hash(new_password, method="pbkdf2:sha256")
+    user["must_change_password"] = False
+    clear_password_reset(user)
+    user["updated_at"] = now_iso()
+    save_users(users)
+    clear_failed_login(user.get("email"))
+    session.clear()
+    session.permanent = True
+    session["user_id"] = clean_text(user.get("id"))
+    session["login_at"] = now_iso()
+    record_audit("reset_password", "auth", clean_text(user.get("id")), "Senha redefinida pelo usuário.")
+    flash("Senha redefinida com sucesso.", "success")
+    return redirect(url_for("index"))
+
+
 @app.route("/users", methods=["POST"])
 @require_permission("settings.manage")
 def save_user():
@@ -6502,10 +7614,72 @@ def save_user():
         before = next((item for item in users if clean_text(item.get("id")) == clean_text(record.get("id"))), None)
         save_users(upsert_item(users, record, "id"))
         record_audit("save", "users", record["id"], f"Usuário {record['email']} salvo.", before=sanitize_user(before or {}), after=sanitize_user(record))
-        flash(f"Usuário {record['email']} salvo com sucesso.", "success")
+        if clean_text(record.get("status")) == "convite_pendente":
+            flash(f"Convite criado para {record['email']}. Link: {invitation_url(record)}", "success")
+        else:
+            flash(f"Usuário {record['email']} salvo com sucesso.", "success")
     except Exception as exc:  # noqa: BLE001
         flash(str(exc), "danger")
     return redirect(url_for("index"))
+
+
+@app.route("/users/<user_id>/invite/reissue", methods=["POST"])
+@require_permission("settings.manage")
+def reissue_user_invitation(user_id: str):
+    try:
+        users = load_users()
+        user = next((item for item in users if clean_text(item.get("id")) == clean_text(user_id)), None)
+        if not user:
+            raise ValueError("Usuário não encontrado.")
+        if clean_text(user.get("status")) == "ativo":
+            raise ValueError("Usuário ativo não precisa de convite. Use redefinição de senha se necessário.")
+        issue_user_invitation(user)
+        save_users(users)
+        record_audit("reissue_invitation", "users", user_id, f"Convite reenviado para {user.get('email')}.")
+        flash(f"Novo convite gerado para {user.get('email')}. Link: {invitation_url(user)}", "success")
+    except Exception as exc:  # noqa: BLE001
+        flash(str(exc), "danger")
+    return redirect(url_for("index", _anchor="access-management-panel"))
+
+
+@app.route("/users/<user_id>/invite/cancel", methods=["POST"])
+@require_permission("settings.manage")
+def cancel_user_invitation(user_id: str):
+    try:
+        users = load_users()
+        user = next((item for item in users if clean_text(item.get("id")) == clean_text(user_id)), None)
+        if not user:
+            raise ValueError("Usuário não encontrado.")
+        if clean_text(user.get("status")) != "convite_pendente":
+            raise ValueError("Apenas convites pendentes podem ser cancelados.")
+        user["status"] = "inativo"
+        clear_user_invitation(user)
+        user["updated_at"] = now_iso()
+        save_users(users)
+        record_audit("cancel_invitation", "users", user_id, f"Convite cancelado para {user.get('email')}.")
+        flash(f"Convite de {user.get('email')} cancelado.", "success")
+    except Exception as exc:  # noqa: BLE001
+        flash(str(exc), "danger")
+    return redirect(url_for("index", _anchor="access-management-panel"))
+
+
+@app.route("/users/<user_id>/password-reset", methods=["POST"])
+@require_permission("settings.manage")
+def create_user_password_reset(user_id: str):
+    try:
+        users = load_users()
+        user = next((item for item in users if clean_text(item.get("id")) == clean_text(user_id)), None)
+        if not user:
+            raise ValueError("Usuário não encontrado.")
+        if clean_text(user.get("status")) != "ativo":
+            raise ValueError("Redefinição só pode ser gerada para usuário ativo.")
+        issue_password_reset(user)
+        save_users(users)
+        record_audit("create_password_reset", "users", user_id, f"Link de redefinição gerado para {user.get('email')}.")
+        flash(f"Link de redefinição gerado para {user.get('email')}: {password_reset_url(user)}", "success")
+    except Exception as exc:  # noqa: BLE001
+        flash(str(exc), "danger")
+    return redirect(url_for("index", _anchor="access-management-panel"))
 
 
 @app.route("/warehouse/items", methods=["POST"])
@@ -6830,6 +8004,9 @@ def save_client():
         upsert_contract_from_client(record)
         record_audit("save", "clients", record["client_id"], f"Cliente {record['customer_name']} salvo.", before=before, after=record)
         flash(f"Endereco de {record['customer_name']} salvo com sucesso.", "success")
+        warnings = client_completion_warnings(record)
+        if warnings:
+            flash(f"Cadastro salvo, mas revise: {', '.join(warnings)}.", "warning")
     except Exception as exc:  # noqa: BLE001
         flash(str(exc), "danger")
     return redirect(url_for("index"))
@@ -7368,6 +8545,9 @@ def save_event():
         save_events(upsert_item(load_events(), record, "event_id"))
         record_audit("save", "events", record["event_id"], f"Evento {record['title']} salvo.", before=before, after=record)
         flash(f"Evento {record['title']} salvo com sucesso.", "success")
+        warnings = event_completion_warnings(record)
+        if warnings:
+            flash(f"Evento salvo, mas revise: {', '.join(warnings)}.", "warning")
     except Exception as exc:  # noqa: BLE001
         flash(str(exc), "danger")
     return redirect(url_for("index"))

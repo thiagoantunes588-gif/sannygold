@@ -1,80 +1,58 @@
 ---
-name: gestor-de-rota-empresa
-description: Gerenciar planejamento de rotas corporativas com foco mobile para operação de motorista em campo, incluindo entregas e coletas com restrições de frota, capacidade, janelas de atendimento e prioridade. Use quando houver necessidade de organizar paradas para celular, gerar plano diário de rota, produzir payload JSON enxuto para app, calcular KPIs logísticos, ou validar dados de operação em CSV/JSON.
+name: sannygold-operacao
+description: Gerenciar o sistema interno da SannyGold para operacao, clientes, eventos, banheiros, equipamentos, frota, rotas, PDF operacional, almoxarifado, financeiro e acessos. Use quando houver necessidade de melhorar fluxo de trabalho, telas, regras operacionais, relatorios, permissoes, dados em JSON, deploy Flask ou documentacao deste projeto.
 ---
 
-# Gestor de Rota Empresa
+# SannyGold Operacao
 
-Planejar rotas de operação logística com foco mobile-first, priorizando execução em celular, dados compactos e continuidade operacional em campo.
+Sistema Flask usado para centralizar o dia a dia da SannyGold. O foco do produto e banheiros, com apoio de equipamentos, frota, rotas, financeiro, almoxarifado e materiais impressos/PDF para execucao.
 
-## Fluxo rápido
+## Fluxo rapido
 
-1. Validar o tipo de demanda: entrega, coleta ou mista.
-2. Solicitar ou montar os arquivos `deliveries.csv` e `vehicles.csv` conforme `references/data-contract.md`.
-3. Executar `scripts/plan_routes.py` para gerar distribuição inicial de rotas.
-4. Revisar pendências e gargalos usando `references/operational-rules.md`.
-5. Entregar ao usuário um plano acionável com KPIs e riscos operacionais para uso em mobile.
+1. Entender se a demanda e operacional, financeira, cadastro, acesso, estoque, PDF ou deploy.
+2. Reusar os modulos existentes antes de criar uma tela nova.
+3. Preservar o fluxo administrativo: a equipe recebe PDF, impresso ou links de endereco quando necessario.
+4. Validar mudancas com testes direcionados e, em alteracoes de tela, uma checagem do app renderizado.
+5. Manter linguagem de negocio centrada em SannyGold, banheiros, eventos e operacao.
 
-## Comando padrão
+## Comandos uteis
 
-```bash
-python3 scripts/plan_routes.py \
-  --deliveries assets/templates/deliveries.csv \
-  --vehicles assets/templates/vehicles.csv \
-  --output /tmp/route-plan-mobile.json \
-  --mobile-output
-```
-
-## Exportacao em PDF
+Abrir localmente:
 
 ```bash
-python3 scripts/plan_routes.py \
-  --deliveries assets/templates/deliveries.csv \
-  --vehicles assets/templates/vehicles.csv \
-  --output /tmp/route-plan-mobile.json \
-  --mobile \
-  --pdf-output /tmp/route-plan.pdf
+bash scripts/start_local.sh
 ```
 
-- Usar `--pdf-output` para gerar um resumo imprimivel da rota.
-- O PDF inclui resumo geral, veiculo, ordem das paradas e pendencias.
+Rodar testes com `unittest`:
 
-## Pacote mobile interno
+```bash
+python3 -m unittest discover tests
+```
+
+Se houver erro de permissao de cache Python no macOS:
+
+```bash
+PYTHONPYCACHEPREFIX=/private/tmp/rotaflow-pycache python3 -m unittest discover tests
+```
+
+Gerar pacote operacional de conferencia:
 
 ```bash
 bash scripts/generate_mobile_package.sh
 ```
 
-- Gera `preview/index.html` para abertura direta no celular.
-- Atualiza `preview/route-plan.pdf` e `preview/route-plan-mobile.json`.
-- Mantem o uso interno, sem necessidade de publicacao publica.
+## Arquivos principais
 
-## Diretrizes mobile
+- Aplicacao Flask: `app/main.py`
+- Tela principal: `app/templates/index.html`
+- Dados locais: `data/*.json`
+- Documentacao: `README.md`, `app/README.md`, `docs/`, `references/`
+- Testes: `tests/`
 
-- Priorizar saída com `--mobile-output` para reduzir payload e tempo de sincronização.
-- Exibir sempre a próxima parada (`next_stop`) por veículo no app do motorista.
-- Garantir coordenadas (`lat`, `lng`) em cada parada para navegação imediata.
-- Permitir preenchimento de `customer_name`, `equipment_number` e `address` em cada parada.
-- Tratar `unassigned` como fila de exceção para despacho central.
-- Evitar campos não utilizados pela tela de operação em campo.
+## Diretrizes do projeto
 
-## Interpretação de resultados
-
-- Priorizar `unassigned_deliveries` como principal alerta operacional.
-- Verificar `utilization_capacity_pct` para equilíbrio da frota.
-- Usar `distance_km` e `total_minutes` para comparar cenários antes de confirmar despacho.
-
-## Ajustes recomendados
-
-- Replanejar quando houver mais de 10% de paradas não atribuídas.
-- Inserir veículo adicional quando houver excesso de capacidade recorrente.
-- Reduzir raio de rota quando tempo de deslocamento superar tempo de serviço.
-- Repriorizar entregas críticas para início de rota.
-
-## Recursos
-
-- Script de planejamento: `scripts/plan_routes.py`
-- Contrato de dados: `references/data-contract.md`
-- Regras operacionais e KPIs: `references/operational-rules.md`
-- Playbook mobile: `references/mobile-operation.md`
-- Templates de entrada: `assets/templates/`
+- Preferir melhorias praticas para o uso diario, com menos cliques e pendencias mais visiveis.
+- Nao criar fluxo separado de equipe em campo sem pedido explicito.
+- Usar PDF, impresso e links de endereco como entrega operacional externa.
+- Tratar placas de equipamentos como opcionais, porque alguns itens nao possuem placa.
+- Evitar linguagem generica de inventario quando o contexto correto for banheiros e operacao SannyGold.

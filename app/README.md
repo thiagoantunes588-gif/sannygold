@@ -1,11 +1,13 @@
-# Sistema SannyGold
+# SannyGold Operacao
+
+Aplicacao principal do sistema interno da SannyGold. Ela concentra operacao, banheiros, equipamentos, frota, eventos, rotas, PDFs, almoxarifado, financeiro e acessos da equipe.
 
 ## Subir localmente
 
 Modo recomendado:
 
 ```bash
-cd "/Users/thiagoantunes/Documents/New project/gestor-de-rota-empresa"
+cd "/Users/thiagoantunes/Documents/Projetos/SannyGold/operacao-interna"
 bash scripts/start_local.sh
 ```
 
@@ -18,7 +20,7 @@ http://127.0.0.1:5007
 Modo manual:
 
 ```bash
-cd "/Users/thiagoantunes/Documents/New project/gestor-de-rota-empresa"
+cd "/Users/thiagoantunes/Documents/Projetos/SannyGold/operacao-interna"
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -31,34 +33,34 @@ Abra:
 http://127.0.0.1:5000
 ```
 
-## O que a versão atual já faz
+## O que a versao atual ja faz
 
-- cadastro de clientes, veículos, equipamentos e eventos
-- autenticação com modo visitante, roles e permissões por módulo
+- cadastro de clientes, banheiros, equipamentos, veiculos e eventos
+- autenticacao com modo visitante, roles e permissoes por modulo
 - data inicial e data final no evento
-- cálculo automático de diárias pelo período do evento
-- geração de rotas com validação prévia
-- dashboard operacional, financeiro, agenda futura e pendências
-- almoxarifado interno com reposição, baixa, ajuste e histórico
-- financeiro com contas a receber, fluxo de caixa, inadimplência e fechamento mensal
-- busca global fixa, modo operação rápida e filtros persistentes
-- importação de clientes por texto em lote
-- importação de clientes por Excel `.xlsx`
-- PDF operacional para repassar ao motorista ou equipe
-- relatórios PDF/Excel por módulo
-- backup rápido dos dados do sistema
+- calculo automatico de diarias pelo periodo do evento
+- geracao de rotas com validacao previa
+- dashboard operacional, financeiro, agenda futura e pendencias
+- almoxarifado interno com reposicao, baixa, ajuste e historico
+- financeiro com contas a receber, fluxo de caixa, inadimplencia e fechamento mensal
+- busca global fixa, modo operacao rapida e filtros persistentes
+- importacao de clientes por texto em lote
+- importacao de clientes por Excel `.xlsx`
+- PDF operacional para repassar impresso, em arquivo ou com links de endereco
+- relatorios PDF/Excel por modulo
+- backup rapido dos dados do sistema
 
 ## Fluxo recomendado de uso
 
 1. Cadastre ou importe os clientes.
-2. Cadastre veículos e equipamentos.
+2. Cadastre banheiros, equipamentos e veiculos.
 3. Crie o evento com data inicial e data final.
 4. Vincule clientes e veículos ao evento.
 5. Valide a operação antes de gerar a rota.
 6. Gere a rota.
-7. Abra o PDF e repasse para o motorista ou equipe.
-8. Registre confirmações de campo.
-9. Acompanhe margem, lucro e capacidade no painel.
+7. Abra o PDF e repasse para a equipe no formato combinado.
+8. Registre internamente ajustes, observacoes e finalizacao.
+9. Acompanhe pendencias, margem, lucro e capacidade no painel.
 
 ## Importação por Excel
 

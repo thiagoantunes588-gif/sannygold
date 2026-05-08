@@ -48,6 +48,7 @@ def build_security_posture(
     session_lifetime_hours: int = 12,
 ) -> dict:
     active_users = [user for user in users if str(user.get("status") or "") == "ativo"]
+    pending_invitations = [user for user in users if str(user.get("status") or "") == "convite_pendente"]
     admins = [user for user in active_users if str(user.get("role") or "") == "admin"]
     password_rotation_pending = [user for user in active_users if password_change_required(user)]
     items: list[dict] = []
@@ -91,6 +92,23 @@ def build_security_posture(
                 "level": "ready",
                 "title": "Senhas iniciais tratadas",
                 "detail": "Nenhum usuário ativo está marcado com troca de senha pendente.",
+            }
+        )
+
+    if pending_invitations:
+        items.append(
+            {
+                "level": "warning",
+                "title": "Convites pendentes",
+                "detail": f"{len(pending_invitations)} convite(s) aguardam criação de senha pela equipe.",
+            }
+        )
+    else:
+        items.append(
+            {
+                "level": "ready",
+                "title": "Convites em dia",
+                "detail": "Não há convite pendente para criação de senha.",
             }
         )
 
@@ -155,6 +173,7 @@ def build_security_posture(
         "current_user_requires_password_change": password_change_required(current_user),
         "items": items,
         "active_users": len(active_users),
+        "pending_invitations": len(pending_invitations),
         "admins": len(admins),
         "password_rotation_pending": len(password_rotation_pending),
         "critical_count": sum(1 for item in items if item["level"] == "danger"),

@@ -1,6 +1,6 @@
 %PDF-1.4
 1 0 obj
-<< /Length 2473 >>
+<< /Length 2452 >>
 stream
 BT
 /F1 16 Tf
@@ -8,7 +8,7 @@ BT
 (SannyGold - Manual rapido da equipe) Tj
 0 -24 Td
 /F1 9 Tf
-(Página 1 de 8) Tj
+(Página 1 de 10) Tj
 0 -20 Td
 /F1 10 Tf
 (SannyGold - Manual rapido da equipe) Tj
@@ -109,20 +109,20 @@ ENTRAR NO SISTEMA) Tj
 () Tj
 0 -14 Td
 (
-TELA INICIAL) Tj
+CONVITE DE ACESSO) Tj
 0 -14 Td
 () Tj
 0 -14 Td
-(Use a tela inicial como ponto de partida. Depois do login, comece pela area Hoje.) Tj
+(O administrador nao precisa criar senha para a equipe.) Tj
 0 -14 Td
 ET
 endstream
 endobj
 2 0 obj
-<< /Type /Page /Parent 17 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> /Contents 1 0 R >>
+<< /Type /Page /Parent 21 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> /Contents 1 0 R >>
 endobj
 3 0 obj
-<< /Length 1820 >>
+<< /Length 2406 >>
 stream
 BT
 /F1 16 Tf
@@ -130,9 +130,58 @@ BT
 (SannyGold - Manual rapido da equipe) Tj
 0 -24 Td
 /F1 9 Tf
-(Página 2 de 8) Tj
+(Página 2 de 10) Tj
 0 -20 Td
 /F1 10 Tf
+() Tj
+0 -14 Td
+(Fluxo correto:) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(1. Abrir Acessos.) Tj
+0 -14 Td
+(2. Informar nome, email e funcao.) Tj
+0 -14 Td
+(3. Gerar convite.) Tj
+0 -14 Td
+(4. Copiar o link ou abrir o email sugerido.) Tj
+0 -14 Td
+(5. A pessoa abre o link e cria a propria senha.) Tj
+0 -14 Td
+(6. Depois de usado, o convite deixa de servir.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(Regras do convite:) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(  - O link e unico por usuario.) Tj
+0 -14 Td
+(  - O convite expira em 48 horas.) Tj
+0 -14 Td
+(  - Se expirar, use Reenviar convite.) Tj
+0 -14 Td
+(  - Se a pessoa sair da equipe, desative o acesso.) Tj
+0 -14 Td
+(  - Para usuario ativo que esqueceu a senha, gere um link de redefinicao.) Tj
+0 -14 Td
+(  - O administrador nunca precisa saber a senha da pessoa.) Tj
+0 -14 Td
+(  - Depois de muitas tentativas erradas de login, o sistema bloqueia novas tentativas por alguns) Tj
+0 -14 Td
+(minutos.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(
+TELA INICIAL) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(Use a tela inicial como ponto de partida. Depois do login, comece pela area Hoje.) Tj
+0 -14 Td
 () Tj
 0 -14 Td
 (Ela mostra:) Tj
@@ -162,6 +211,235 @@ BT
 () Tj
 0 -14 Td
 (Se aparecer alerta vermelho, resolva antes de liberar a operacao.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(
+GUIA POR FUNCAO) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(Cada pessoa deve comecar pelo ponto que combina com a propria rotina.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(  - Operacao: Central do Dia, Eventos, Frota e equipamentos, Rotas e PDF.) Tj
+0 -14 Td
+(  - Administrativo: Clientes, Eventos, documentos, observacoes e fechamento administrativo.) Tj
+0 -14 Td
+(  - Almoxarifado: Estoque, entradas, baixas, itens baixos e materiais para limpeza.) Tj
+0 -14 Td
+(  - Financeiro: recebimentos, vencidos, notas, comprovantes, fluxo de caixa e fechamento mensal.) Tj
+0 -14 Td
+(  - Administrador: acessos, permissoes, senhas pendentes, backup, seguranca e homologacao.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+ET
+endstream
+endobj
+4 0 obj
+<< /Type /Page /Parent 21 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> /Contents 3 0 R >>
+endobj
+5 0 obj
+<< /Length 2811 >>
+stream
+BT
+/F1 16 Tf
+42 790 Td
+(SannyGold - Manual rapido da equipe) Tj
+0 -24 Td
+/F1 9 Tf
+(Página 3 de 10) Tj
+0 -20 Td
+/F1 10 Tf
+(
+PADRAO DE NOMES) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(Use sempre os mesmos nomes para reduzir duvida entre telas e conversas.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(  - Banheiros: produto principal da operacao.) Tj
+0 -14 Td
+(  - Equipamentos: apoio ou ativo operacional, como climatizador e ponto de hidratacao.) Tj
+0 -14 Td
+(  - Retirada: recolhimento do banheiro ou equipamento no cliente.) Tj
+0 -14 Td
+(  - Recebimento: pagamento do cliente no financeiro.) Tj
+0 -14 Td
+(  - Pendencia: algo que precisa de acao antes de liberar ou fechar.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(
+CADASTRO MINIMO) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(Antes de salvar ou liberar uma operacao, confira se o essencial esta preenchido.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(  - Cliente: nome, telefone, endereco, contato, tipo de servico e cobranca.) Tj
+0 -14 Td
+(  - Evento: data, periodo, clientes, status, checklist e observacoes uteis.) Tj
+0 -14 Td
+(  - Banheiro/equipamento: ID, tipo, status, placa quando houver, foto e manutencao.) Tj
+0 -14 Td
+(  - Financeiro: cliente, valor, vencimento, status, NF e comprovante quando existir.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(
+PACOTE PARA PDF, IMPRESSO E LINKS) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(Quando houver despacho, separe o material que ajuda a equipe sem criar uma rotina paralela.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(  - PDF da rota ou ordem de servico.) Tj
+0 -14 Td
+(  - Endereco completo e link do Google Maps quando ajudar.) Tj
+0 -14 Td
+(  - Contato do cliente e horario combinado.) Tj
+0 -14 Td
+(  - Banheiros/equipamentos, quantidade, ID interno e placa quando houver.) Tj
+0 -14 Td
+(  - Observacoes que realmente precisam chegar a quem executa.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(
+REGRAS PARA EVITAR CONFUSAO) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(  - Pesquise antes de cadastrar para evitar duplicidade.) Tj
+0 -14 Td
+(  - Nao libere rota com bloqueio vermelho.) Tj
+0 -14 Td
+(  - Nao use equipamento indisponivel ou em manutencao.) Tj
+0 -14 Td
+(  - Registre recebimento no financeiro no mesmo dia em que confirmar pagamento.) Tj
+0 -14 Td
+(  - Use um acesso por pessoa para manter historico e responsabilidade claros.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(
+SISTEMA INTELIGENTE) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(O painel Inteligencia operacional da SannyGold ajuda a equipe a decidir o que fazer primeiro.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(Ele reune:) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(  - proximos passos automaticos;) Tj
+0 -14 Td
+(  - resumo automatico do dia;) Tj
+0 -14 Td
+(  - pontuacao de risco por evento;) Tj
+0 -14 Td
+(  - prioridade automatica das pendencias;) Tj
+0 -14 Td
+(  - alertas preventivos de operacao, estoque, manutencao e financeiro;) Tj
+0 -14 Td
+(  - alertas por prazo;) Tj
+0 -14 Td
+(  - validacao inteligente antes da rota;) Tj
+0 -14 Td
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 21 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> /Contents 5 0 R >>
+endobj
+7 0 obj
+<< /Length 2729 >>
+stream
+BT
+/F1 16 Tf
+42 790 Td
+(SannyGold - Manual rapido da equipe) Tj
+0 -24 Td
+/F1 9 Tf
+(Página 4 de 10) Tj
+0 -20 Td
+/F1 10 Tf
+(  - historico inteligente do cliente;) Tj
+0 -14 Td
+(  - ranking de clientes que exigem atencao;) Tj
+0 -14 Td
+(  - busca esperta por nome, telefone, CPF/CNPJ, placa, NF, endereco, evento e observacoes;) Tj
+0 -14 Td
+(  - deteccao de duplicidade;) Tj
+0 -14 Td
+(  - deteccao de inconsistencias;) Tj
+0 -14 Td
+(  - recomendacoes financeiras para quem tem permissao;) Tj
+0 -14 Td
+(  - previsao de demanda;) Tj
+0 -14 Td
+(  - previsao de estoque por uso;) Tj
+0 -14 Td
+(  - relatorios automaticos recomendados;) Tj
+0 -14 Td
+(  - relatorio semanal automatico;) Tj
+0 -14 Td
+(  - checklists dinamicos por tipo de operacao;) Tj
+0 -14 Td
+(  - favoritos por funcao do usuario;) Tj
+0 -14 Td
+(  - historico de alteracoes visivel;) Tj
+0 -14 Td
+(  - area O que precisa de atencao agora com prioridades.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(Use essa area antes de abrir varios modulos. Se houver item vermelho, resolva primeiro. Se houver item) Tj
+0 -14 Td
+(amarelo, revise antes de gerar rota, PDF, fechamento ou cobranca.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(
+ROTINA INTELIGENTE DE USO DIARIO) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(Use a Central inteligente de uso diario quando quiser trabalhar com menos procura.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(  - Comecar o dia: abre resumo, agenda, pendencias, rota, financeiro e estoque critico.) Tj
+0 -14 Td
+(  - Mostrar so o que precisa de acao: esconde itens informativos e deixa vermelhos e amarelos em) Tj
+0 -14 Td
+(destaque.) Tj
+0 -14 Td
+(  - Fechar o dia guiado: mostra pagamentos, eventos, manutencao, estoque, fechamento e backup.) Tj
+0 -14 Td
+(  - Revisar antes do PDF: confere paradas, contato, endereco, banheiro/equipamento, placa e observacoes.) Tj
+0 -14 Td
+(  - Templates rapidos: criam evento avulso, contrato mensal, limpeza recorrente ou orcamento com campos) Tj
+0 -14 Td
+(iniciais sugeridos.) Tj
+0 -14 Td
+(  - Mensagens humanas ao salvar: quando faltar dado importante, o sistema salva e avisa o que revisar.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(O objetivo e ajudar a equipe a decidir o proximo passo sem precisar decorar onde cada informacao fica.) Tj
 0 -14 Td
 () Tj
 0 -14 Td
@@ -201,6 +479,24 @@ BOTOES MAIS USADOS) Tj
 0 -14 Td
 () Tj
 0 -14 Td
+ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 21 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> /Contents 7 0 R >>
+endobj
+9 0 obj
+<< /Length 2005 >>
+stream
+BT
+/F1 16 Tf
+42 790 Td
+(SannyGold - Manual rapido da equipe) Tj
+0 -24 Td
+/F1 9 Tf
+(Página 5 de 10) Tj
+0 -20 Td
+/F1 10 Tf
 (Use os atalhos fixos para evitar procurar nas abas.) Tj
 0 -14 Td
 () Tj
@@ -236,24 +532,6 @@ ORDEM DE TRABALHO RECOMENDADA) Tj
 0 -14 Td
 (3. Validar: resolva bloqueios antes de gerar rota.) Tj
 0 -14 Td
-ET
-endstream
-endobj
-4 0 obj
-<< /Type /Page /Parent 17 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> /Contents 3 0 R >>
-endobj
-5 0 obj
-<< /Length 2091 >>
-stream
-BT
-/F1 16 Tf
-42 790 Td
-(SannyGold - Manual rapido da equipe) Tj
-0 -24 Td
-/F1 9 Tf
-(Página 3 de 8) Tj
-0 -20 Td
-/F1 10 Tf
 (4. Operar: gere rota, PDF, OS e links quando necessario.) Tj
 0 -14 Td
 (5. Fechar: registre pagamento, retorno, manutencao e backup.) Tj
@@ -322,6 +600,24 @@ EVENTOS) Tj
 0 -14 Td
 (1. Preencha Dados basicos.) Tj
 0 -14 Td
+ET
+endstream
+endobj
+10 0 obj
+<< /Type /Page /Parent 21 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> /Contents 9 0 R >>
+endobj
+11 0 obj
+<< /Length 2091 >>
+stream
+BT
+/F1 16 Tf
+42 790 Td
+(SannyGold - Manual rapido da equipe) Tj
+0 -24 Td
+/F1 9 Tf
+(Página 6 de 10) Tj
+0 -20 Td
+/F1 10 Tf
 (2. Vincule clientes e veiculos.) Tj
 0 -14 Td
 (3. Revise o checklist.) Tj
@@ -356,24 +652,6 @@ EVENTOS) Tj
 0 -14 Td
 () Tj
 0 -14 Td
-ET
-endstream
-endobj
-6 0 obj
-<< /Type /Page /Parent 17 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> /Contents 5 0 R >>
-endobj
-7 0 obj
-<< /Length 2020 >>
-stream
-BT
-/F1 16 Tf
-42 790 Td
-(SannyGold - Manual rapido da equipe) Tj
-0 -24 Td
-/F1 9 Tf
-(Página 4 de 8) Tj
-0 -20 Td
-/F1 10 Tf
 (  - Cliente confirmado.) Tj
 0 -14 Td
 (  - Equipamentos separados.) Tj
@@ -442,6 +720,24 @@ GERAR ROTA E PDF) Tj
 0 -14 Td
 () Tj
 0 -14 Td
+ET
+endstream
+endobj
+12 0 obj
+<< /Type /Page /Parent 21 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> /Contents 11 0 R >>
+endobj
+13 0 obj
+<< /Length 1959 >>
+stream
+BT
+/F1 16 Tf
+42 790 Td
+(SannyGold - Manual rapido da equipe) Tj
+0 -24 Td
+/F1 9 Tf
+(Página 7 de 10) Tj
+0 -20 Td
+/F1 10 Tf
 (Use o PDF para entrega impressa ou envio interno.) Tj
 0 -14 Td
 () Tj
@@ -478,24 +774,6 @@ LINKS DE ENDERECO) Tj
 0 -14 Td
 (  - houver mais de uma parada;) Tj
 0 -14 Td
-ET
-endstream
-endobj
-8 0 obj
-<< /Type /Page /Parent 17 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> /Contents 7 0 R >>
-endobj
-9 0 obj
-<< /Length 1839 >>
-stream
-BT
-/F1 16 Tf
-42 790 Td
-(SannyGold - Manual rapido da equipe) Tj
-0 -24 Td
-/F1 9 Tf
-(Página 5 de 8) Tj
-0 -20 Td
-/F1 10 Tf
 (  - a equipe precisar abrir direto no mapa;) Tj
 0 -14 Td
 (  - for necessario conferir sequencia da rota.) Tj
@@ -564,6 +842,24 @@ MANUTENCAO PREVENTIVA) Tj
 0 -14 Td
 () Tj
 0 -14 Td
+ET
+endstream
+endobj
+14 0 obj
+<< /Type /Page /Parent 21 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> /Contents 13 0 R >>
+endobj
+15 0 obj
+<< /Length 1756 >>
+stream
+BT
+/F1 16 Tf
+42 790 Td
+(SannyGold - Manual rapido da equipe) Tj
+0 -24 Td
+/F1 9 Tf
+(Página 8 de 10) Tj
+0 -20 Td
+/F1 10 Tf
 (Use os alertas de manutencao para evitar problema no dia do evento.) Tj
 0 -14 Td
 () Tj
@@ -599,24 +895,6 @@ ALMOXARIFADO) Tj
 0 -14 Td
 () Tj
 0 -14 Td
-ET
-endstream
-endobj
-10 0 obj
-<< /Type /Page /Parent 17 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> /Contents 9 0 R >>
-endobj
-11 0 obj
-<< /Length 1692 >>
-stream
-BT
-/F1 16 Tf
-42 790 Td
-(SannyGold - Manual rapido da equipe) Tj
-0 -24 Td
-/F1 9 Tf
-(Página 6 de 8) Tj
-0 -20 Td
-/F1 10 Tf
 (  - adicionar item;) Tj
 0 -14 Td
 (  - repor estoque;) Tj
@@ -684,6 +962,24 @@ FINANCEIRO) Tj
 0 -14 Td
 (5. Fechar o mes e baixar PDF.) Tj
 0 -14 Td
+ET
+endstream
+endobj
+16 0 obj
+<< /Type /Page /Parent 21 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> /Contents 15 0 R >>
+endobj
+17 0 obj
+<< /Length 1989 >>
+stream
+BT
+/F1 16 Tf
+42 790 Td
+(SannyGold - Manual rapido da equipe) Tj
+0 -24 Td
+/F1 9 Tf
+(Página 9 de 10) Tj
+0 -20 Td
+/F1 10 Tf
 () Tj
 0 -14 Td
 (
@@ -720,24 +1016,6 @@ FECHAMENTO FINANCEIRO MENSAL) Tj
 0 -14 Td
 () Tj
 0 -14 Td
-ET
-endstream
-endobj
-12 0 obj
-<< /Type /Page /Parent 17 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> /Contents 11 0 R >>
-endobj
-13 0 obj
-<< /Length 2023 >>
-stream
-BT
-/F1 16 Tf
-42 790 Td
-(SannyGold - Manual rapido da equipe) Tj
-0 -24 Td
-/F1 9 Tf
-(Página 7 de 8) Tj
-0 -20 Td
-/F1 10 Tf
 (1. Revise contas a receber.) Tj
 0 -14 Td
 (2. Revise fluxo de caixa.) Tj
@@ -794,15 +1072,39 @@ FACILIDADE DE USO) Tj
 0 -14 Td
 (  - pesquise antes de cadastrar;) Tj
 0 -14 Td
+(  - use Comecar o dia para ver prioridades antes de abrir varios modulos;) Tj
+0 -14 Td
 (  - use a acao rapida Criar locacao para casos simples;) Tj
+0 -14 Td
+(  - use templates rapidos quando o evento seguir um padrao comum;) Tj
 0 -14 Td
 (  - deixe campos avancados para depois quando nao forem obrigatorios;) Tj
 0 -14 Td
 (  - confira alertas vermelhos antes de despachar;) Tj
 0 -14 Td
+(  - use Mostrar so o que precisa de acao quando houver muita informacao na tela;) Tj
+0 -14 Td
+ET
+endstream
+endobj
+18 0 obj
+<< /Type /Page /Parent 21 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> /Contents 17 0 R >>
+endobj
+19 0 obj
+<< /Length 1938 >>
+stream
+BT
+/F1 16 Tf
+42 790 Td
+(SannyGold - Manual rapido da equipe) Tj
+0 -24 Td
+/F1 9 Tf
+(Página 10 de 10) Tj
+0 -20 Td
+/F1 10 Tf
 (  - use filtros por status;) Tj
 0 -14 Td
-(  - baixe PDF antes de imprimir ou enviar;) Tj
+(  - revise o modo antes de imprimir/PDF;) Tj
 0 -14 Td
 (  - confirme exclusoes e finalizacoes com cuidado.) Tj
 0 -14 Td
@@ -842,24 +1144,6 @@ ATUALIZACOES PELO CODEX) Tj
 0 -14 Td
 () Tj
 0 -14 Td
-ET
-endstream
-endobj
-14 0 obj
-<< /Type /Page /Parent 17 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> /Contents 13 0 R >>
-endobj
-15 0 obj
-<< /Length 1173 >>
-stream
-BT
-/F1 16 Tf
-42 790 Td
-(SannyGold - Manual rapido da equipe) Tj
-0 -24 Td
-/F1 9 Tf
-(Página 8 de 8) Tj
-0 -20 Td
-/F1 10 Tf
 (Exemplos:) Tj
 0 -14 Td
 () Tj
@@ -918,38 +1202,42 @@ REGRAS RAPIDAS) Tj
 ET
 endstream
 endobj
-16 0 obj
-<< /Type /Page /Parent 17 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> /Contents 15 0 R >>
+20 0 obj
+<< /Type /Page /Parent 21 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> /Contents 19 0 R >>
 endobj
-17 0 obj
-<< /Type /Pages /Kids [2 0 R 4 0 R 6 0 R 8 0 R 10 0 R 12 0 R 14 0 R 16 0 R] /Count 8 >>
+21 0 obj
+<< /Type /Pages /Kids [2 0 R 4 0 R 6 0 R 8 0 R 10 0 R 12 0 R 14 0 R 16 0 R 18 0 R 20 0 R] /Count 10 >>
 endobj
-18 0 obj
-<< /Type /Catalog /Pages 17 0 R >>
+22 0 obj
+<< /Type /Catalog /Pages 21 0 R >>
 endobj
 xref
-0 19
+0 23
 0000000000 65535 f 
 0000000009 00000 n 
-0000002534 00000 n 
-0000002710 00000 n 
-0000004582 00000 n 
-0000004758 00000 n 
-0000006901 00000 n 
-0000007077 00000 n 
-0000009149 00000 n 
-0000009325 00000 n 
-0000011216 00000 n 
-0000011393 00000 n 
-0000013138 00000 n 
-0000013316 00000 n 
-0000015392 00000 n 
-0000015570 00000 n 
-0000016796 00000 n 
-0000016974 00000 n 
-0000017078 00000 n 
+0000002513 00000 n 
+0000002689 00000 n 
+0000005147 00000 n 
+0000005323 00000 n 
+0000008186 00000 n 
+0000008362 00000 n 
+0000011143 00000 n 
+0000011319 00000 n 
+0000013376 00000 n 
+0000013553 00000 n 
+0000015697 00000 n 
+0000015875 00000 n 
+0000017887 00000 n 
+0000018065 00000 n 
+0000019874 00000 n 
+0000020052 00000 n 
+0000022094 00000 n 
+0000022272 00000 n 
+0000024263 00000 n 
+0000024441 00000 n 
+0000024560 00000 n 
 trailer
-<< /Size 19 /Root 18 0 R >>
+<< /Size 23 /Root 22 0 R >>
 startxref
-17129
+24611
 %%EOF

@@ -10,7 +10,7 @@ Este documento organiza os passos finais para transformar a versão local em uma
 - Frota e equipamentos: cadastrar, editar, enviar para manutenção e liberar.
 - Almoxarifado: cadastrar material, repor, dar baixa, ajustar quantidade e exportar PDF.
 - Financeiro: contas a receber, fluxo de caixa, inadimplência, fechamento mensal e PDF.
-- Operação: validar rota, gerar PDF, abrir mapa e registrar confirmações de campo.
+- Operação: validar rota, gerar PDF, abrir mapa, repassar material e registrar finalização interna.
 - Backup: baixar backup completo e fechamento diário.
 
 ## 2. Segurança antes de publicar
@@ -38,12 +38,13 @@ Este documento organiza os passos finais para transformar a versão local em uma
 3. Criar ou selecionar evento.
 4. Validar operação.
 5. Gerar rota.
-6. Usar modo operação rápida no celular.
-7. Confirmar chegada, execução e retorno.
-8. Movimentar almoxarifado quando necessário.
-9. Registrar financeiro.
-10. Baixar fechamento diário.
-11. Baixar backup.
+6. Conferir PDF, mapa e links de endereço.
+7. Repassar o material para a equipe no formato combinado.
+8. Registrar ajustes e finalização interna.
+9. Movimentar almoxarifado quando necessário.
+10. Registrar financeiro.
+11. Baixar fechamento diário.
+12. Baixar backup.
 
 ## 5. Deploy recomendado
 

@@ -1170,6 +1170,14 @@
             <input class="form-control form-control-sm" name="password" type="password" autocomplete="current-password" placeholder="Senha" required>
             <button class="btn btn-dark btn-sm" type="submit">Entrar na conta</button>
           </form>
+          <details class="mb-3">
+            <summary class="fw-semibold small">Esqueci minha senha</summary>
+            <form method="post" action="{{ url_for('request_password_reset') }}" class="d-grid gap-2 mt-2">
+              <input class="form-control form-control-sm" name="email" type="email" autocomplete="username" placeholder="email cadastrado" required>
+              <button class="btn btn-outline-secondary btn-sm" type="submit">Solicitar redefinição</button>
+              <div class="small text-secondary">O link fica disponível para envio no painel de acessos.</div>
+            </form>
+          </details>
           <div class="fw-semibold mb-1">Permissões</div>
           <div class="small text-secondary mb-3">Preparado para roles admin, operacional, financeiro, leitura e visitante.</div>
           <div class="fw-semibold mb-1">Preferências</div>
@@ -1500,6 +1508,486 @@
       </div>
     </section>
 
+    <section class="glass p-4 mb-4" id="team-enable-guide">
+      <div class="module-toolbar mb-3">
+        <div>
+          <div class="eyebrow mb-2">Entendimento da equipe</div>
+          <h2 class="h5 mb-1">Guia prático de uso por função</h2>
+          <p class="text-secondary small mb-0">Um mapa curto para cada pessoa saber onde começar, quais campos não podem faltar e qual material entregar em PDF, impresso ou link.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+          <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('download_user_manual') }}">Manual PDF</a>
+          <a class="btn btn-sm btn-outline-secondary js-tab-link" href="#attention-now-panel" data-tab-target="summary-tab">Pendências</a>
+          {% if '*' in current_user.permissions or 'settings.manage' in current_user.permissions %}
+          <a class="btn btn-sm btn-outline-secondary js-tab-link" href="#access-management-panel" data-tab-target="access-tab">Acessos</a>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="row g-3 mb-3">
+        {% for path in team_enablement_guide.role_paths %}
+        <div class="col-md-6 col-xl">
+          <a class="entity-card p-3 h-100 d-block text-reset text-decoration-none js-tab-link" href="{{ path.target_href }}" data-tab-target="{{ path.target_tab }}">
+            <div class="fw-semibold">{{ path.role }}</div>
+            <div class="small text-secondary mb-2">Começar em: {{ path.start }}</div>
+            <div class="small">{{ path.focus }}</div>
+          </a>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="row g-3">
+        <div class="col-lg-4">
+          <div class="entity-card p-3 h-100">
+            <div class="fw-semibold mb-2">Ordem diária recomendada</div>
+            <div class="d-grid gap-2 small">
+              {% for item in team_enablement_guide.daily_order %}
+              <div class="assist-step"><span class="assist-step-number">{{ loop.index }}</span><span>{{ item }}</span></div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="entity-card p-3 h-100">
+            <div class="fw-semibold mb-2">Padrão de nomes no sistema</div>
+            <div class="d-grid gap-2 small">
+              {% for rule in team_enablement_guide.language_rules %}
+              <div><span class="route-badge badge-fixed">{{ rule.term }}</span> <span class="text-secondary">{{ rule.use }}</span></div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="entity-card p-3 h-100">
+            <div class="fw-semibold mb-2">Cadastro mínimo sem retrabalho</div>
+            <div class="d-grid gap-2 small">
+              {% for item in team_enablement_guide.minimum_records %}
+              <div><span class="fw-semibold">{{ item.record }}</span><br><span class="text-secondary">{{ item.fields }}</span></div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="entity-card p-3 h-100">
+            <div class="fw-semibold mb-2">Pacote para PDF, impresso e links</div>
+            <ul class="usability-checklist mb-0">
+              {% for item in team_enablement_guide.print_package %}
+              <li><input class="form-check-input" type="checkbox"> {{ item }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="entity-card p-3 h-100">
+            <div class="fw-semibold mb-2">Regras para evitar confusão</div>
+            <ul class="usability-checklist mb-0">
+              {% for item in team_enablement_guide.guardrails %}
+              <li><input class="form-check-input" type="checkbox"> {{ item }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="glass p-4 mb-4" id="smart-system-panel">
+      <div class="module-toolbar mb-3">
+        <div>
+          <div class="eyebrow mb-2">Sistema inteligente</div>
+          <h2 class="h5 mb-1">Inteligência operacional da SannyGold</h2>
+          <p class="text-secondary small mb-0">Recomendações práticas geradas a partir de pendências, validação da rota, histórico, busca, financeiro, previsão e relatórios.</p>
+        </div>
+        <div class="route-badges">
+          <span class="route-badge {{ 'badge-danger' if smart_system_dashboard.attention_critical else 'badge-success' }}">{{ smart_system_dashboard.attention_critical }} crítico(s)</span>
+          <span class="route-badge badge-fixed">{{ smart_system_dashboard.attention_total }} atenção</span>
+          <span class="route-badge badge-success">{{ smart_system_dashboard.search_total }} item(ns) pesquisáveis</span>
+        </div>
+      </div>
+
+      <div class="row g-3 mb-3">
+        <div class="col-lg-4">
+          <div class="entity-card p-3 h-100">
+            <div class="fw-semibold mb-2">Próximos passos automáticos</div>
+            <div class="d-grid gap-2 small">
+              {% for item in smart_system_dashboard.next_steps %}
+              <a class="text-reset text-decoration-none {% if item.target_href.startswith('#') and item.target_tab %}js-tab-link{% endif %} {{ 'crit-block' if item.level == 'danger' else 'crit-attention' if item.level == 'warning' else 'crit-ready' if item.level == 'ready' else 'crit-info' }} p-2" href="{{ item.target_href }}" {% if item.target_href.startswith('#') and item.target_tab %}data-tab-target="{{ item.target_tab }}"{% endif %}>
+                <span class="{{ 'severity-block' if item.level == 'danger' else 'severity-attention' if item.level == 'warning' else 'severity-ready' if item.level == 'ready' else 'severity-info' }}">{{ 'Bloqueio' if item.level == 'danger' else 'Atenção' if item.level == 'warning' else 'Pronto' if item.level == 'ready' else 'Informativo' }}</span>
+                <span class="fw-semibold">{{ item.title }}</span><br>
+                <span class="text-secondary">{{ item.detail }}</span>
+              </a>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="entity-card p-3 h-100">
+            <div class="fw-semibold mb-2">Alertas preventivos</div>
+            <div class="d-grid gap-2 small">
+              {% for item in smart_system_dashboard.preventive_alerts %}
+              <a class="text-reset text-decoration-none {% if item.target_href.startswith('#') and item.target_tab %}js-tab-link{% endif %} {{ 'crit-block' if item.level == 'danger' else 'crit-attention' if item.level == 'warning' else 'crit-ready' if item.level == 'ready' else 'crit-info' }} p-2" href="{{ item.target_href }}" {% if item.target_href.startswith('#') and item.target_tab %}data-tab-target="{{ item.target_tab }}"{% endif %}>
+                <span class="{{ 'severity-block' if item.level == 'danger' else 'severity-attention' if item.level == 'warning' else 'severity-ready' if item.level == 'ready' else 'severity-info' }}">{{ 'Bloqueio' if item.level == 'danger' else 'Atenção' if item.level == 'warning' else 'Pronto' if item.level == 'ready' else 'Informativo' }}</span>
+                <span class="fw-semibold">{{ item.title }}</span><br>
+                <span class="text-secondary">{{ item.detail }}</span>
+              </a>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="entity-card p-3 h-100">
+            <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+              <div class="fw-semibold">Validação inteligente antes da rota</div>
+              <span class="route-badge {{ 'badge-success' if smart_system_dashboard.validation_ready == smart_system_dashboard.validation_total else 'badge-avulso' }}">{{ smart_system_dashboard.validation_ready }}/{{ smart_system_dashboard.validation_total }}</span>
+            </div>
+            <div class="d-grid gap-2 small">
+              {% for item in smart_system_dashboard.validation_items %}
+              {% if item.target_href.startswith('#') %}
+              <a class="d-flex justify-content-between gap-2 text-reset text-decoration-none js-tab-link" href="{{ item.target_href }}" data-tab-target="{{ item.target_tab }}">
+                <span>{{ item.label }}<br><span class="text-secondary">{{ item.detail }}</span></span>
+                <span class="route-badge {{ 'badge-danger' if item.level == 'danger' else 'badge-avulso' if item.level == 'warning' else 'badge-success' if item.level == 'ready' else 'badge-fixed' }}">{{ item.action }}</span>
+              </a>
+              {% else %}
+              <a class="d-flex justify-content-between gap-2 text-reset text-decoration-none" href="{{ item.target_href }}" target="_blank" rel="noreferrer">
+                <span>{{ item.label }}<br><span class="text-secondary">{{ item.detail }}</span></span>
+                <span class="route-badge {{ 'badge-danger' if item.level == 'danger' else 'badge-avulso' if item.level == 'warning' else 'badge-success' if item.level == 'ready' else 'badge-fixed' }}">{{ item.action }}</span>
+              </a>
+              {% endif %}
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-3 mb-3">
+        <div class="col-lg-6">
+          <div class="entity-card p-3 h-100">
+            <div class="fw-semibold mb-2">Histórico inteligente do cliente</div>
+            <div class="d-grid gap-2 small">
+              {% for item in smart_system_dashboard.client_insights %}
+              <a class="d-flex justify-content-between gap-2 text-reset text-decoration-none js-tab-link" href="{{ item.target_href }}" data-tab-target="{{ item.target_tab }}">
+                <span>
+                  <span class="fw-semibold">{{ item.name }}</span><br>
+                  <span class="text-secondary">{{ item.detail }}{% if item.finance %} • {{ item.finance }}{% endif %}</span>
+                </span>
+                <span class="route-badge badge-fixed">{{ item.next_action }}</span>
+              </a>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="entity-card p-3 h-100">
+            <div class="fw-semibold mb-2">Busca esperta e duplicidades</div>
+            <div class="route-badges mb-3">
+              {% for field in smart_system_dashboard.search_fields %}
+              <span class="route-badge badge-fixed">{{ field }}</span>
+              {% endfor %}
+            </div>
+            <div class="d-grid gap-2 small mb-3">
+              {% for module in smart_system_dashboard.search_modules %}
+              <div class="d-flex justify-content-between gap-2"><span>{{ module.module }}</span><span class="route-badge badge-success">{{ module.count }}</span></div>
+              {% endfor %}
+            </div>
+            <div class="fw-semibold mb-2">Duplicidades detectadas</div>
+            <div class="d-grid gap-2 small">
+              {% for item in smart_system_dashboard.duplicate_alerts %}
+              <div><span class="route-badge badge-danger">{{ item.label }}</span> <span class="text-secondary">{{ item["count"] }} registro(s): {{ item["items"]|join(", ") }}</span></div>
+              {% else %}
+              <div class="text-secondary">Nenhuma duplicidade relevante encontrada.</div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-3 mb-3">
+        <div class="col-lg-4">
+          <div class="entity-card p-3 h-100">
+            <div class="fw-semibold mb-2">Recomendações financeiras</div>
+            <div class="d-grid gap-2 small">
+              {% for item in smart_system_dashboard.financial_recommendations %}
+              <a class="text-reset text-decoration-none {% if item.target.startswith('#') %}js-tab-link{% endif %}" href="{{ item.target }}" {% if item.target.startswith('#') %}data-tab-target="summary-tab"{% endif %}>
+                <span class="route-badge {{ 'badge-danger' if item.level == 'danger' else 'badge-avulso' if item.level == 'warning' else 'badge-success' if item.level == 'ready' else 'badge-fixed' }}">{{ item.title }}</span>
+                <span class="text-secondary">{{ item.detail }}</span>
+              </a>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="entity-card p-3 h-100">
+            <div class="fw-semibold mb-2">Previsão de demanda</div>
+            <div class="d-grid gap-2 small">
+              {% for item in smart_system_dashboard.forecast_cards %}
+              <div>
+                <span class="route-badge {{ 'badge-danger' if item.level == 'danger' else 'badge-avulso' if item.level == 'warning' else 'badge-fixed' }}">{{ item.title }}</span>
+                <span class="text-secondary">{{ item.detail }}</span>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="entity-card p-3 h-100">
+            <div class="fw-semibold mb-2">Relatórios automáticos recomendados</div>
+            <div class="d-grid gap-2 small">
+              {% for report in smart_system_dashboard.reports %}
+              <div class="d-flex justify-content-between gap-2">
+                <span><span class="fw-semibold">{{ report.label }}</span><br><span class="text-secondary">{{ report.detail }}</span></span>
+                <span class="text-end">
+                  <a class="route-badge badge-fixed text-decoration-none" href="{{ report.pdf_href }}">PDF</a>
+                  <a class="route-badge badge-success text-decoration-none" href="{{ report.xlsx_href }}">Excel</a>
+                </span>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="entity-card p-3">
+        <div class="fw-semibold mb-2">Checklists dinâmicos por tipo de operação</div>
+        <div class="row g-3 small">
+          {% for checklist in smart_system_dashboard.dynamic_checklists %}
+          <div class="col-md">
+            <a class="text-reset text-decoration-none d-block h-100 js-tab-link" href="{{ checklist.target_href }}" data-tab-target="{{ checklist.target_tab }}">
+              <span class="route-badge {{ 'badge-success' if checklist.status == 'ready' else 'badge-avulso' if checklist.status == 'warning' else 'badge-fixed' }}">{{ checklist.label }}</span>
+              <div class="text-secondary mt-2">{{ checklist["items"]|join(" • ") }}</div>
+            </a>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+
+    <section class="glass p-4 mb-4" id="smart-usage-panel">
+      <div class="module-toolbar mb-3">
+        <div>
+          <div class="eyebrow mb-2">Mais facilidade</div>
+          <h2 class="h5 mb-1">Central inteligente de uso diário</h2>
+          <p class="text-secondary small mb-0">Comece o dia, filtre somente o que exige ação, revise riscos e feche a rotina sem abrir vários módulos sem necessidade.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+          <a class="btn btn-dark btn-sm js-tab-link" href="#smart-start-day" data-tab-target="summary-tab">Começar o dia</a>
+          <a class="btn btn-outline-secondary btn-sm js-tab-link" href="#smart-close-day" data-tab-target="summary-tab">Fechar o dia guiado</a>
+          <a class="btn btn-outline-secondary btn-sm js-tab-link" href="#pdf-review-panel" data-tab-target="summary-tab">Revisar antes do PDF</a>
+        </div>
+      </div>
+
+      <div class="entity-card p-3 mb-3" id="smart-start-day">
+        <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+          <div>
+            <div class="fw-semibold">Resumo automático do dia</div>
+            <div class="small text-secondary">As prioridades abaixo são recalculadas com base em operação, financeiro, estoque, risco e prazos.</div>
+          </div>
+          <label class="form-check form-switch small">
+            <input class="form-check-input" type="checkbox" id="action-only-filter">
+            <span class="form-check-label">Mostrar só o que precisa de ação</span>
+          </label>
+        </div>
+        <div class="row g-3">
+          {% for item in smart_system_dashboard.daily_summary %}
+          <div class="col-md">
+            <div class="task-tile smart-action-item" data-smart-action-level="{{ item.level }}">
+              <span class="small text-secondary">{{ item.title }}</span>
+              <strong>{{ '!' if item.level in ['danger', 'warning'] else 'OK' }}</strong>
+              <span class="route-badge {{ 'badge-danger' if item.level == 'danger' else 'badge-avulso' if item.level == 'warning' else 'badge-success' }}">{{ item.detail }}</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="row g-3 mb-3">
+        <div class="col-lg-5">
+          <div class="entity-card p-3 h-100">
+            <div class="fw-semibold mb-2">Pontuação de risco por evento</div>
+            <div class="d-grid gap-2 small">
+              {% for event in smart_system_dashboard.event_risk_scores %}
+              <a class="d-flex justify-content-between gap-2 text-reset text-decoration-none js-tab-link smart-action-item" data-smart-action-level="{{ event.level }}" href="{{ event.target_href }}" data-tab-target="{{ event.target_tab }}">
+                <span><span class="fw-semibold">{{ event.title }}</span><br><span class="text-secondary">{{ event.date|date_br }} • {{ event.reasons|join(", ") }}</span></span>
+                <span class="route-badge {{ 'badge-danger' if event.level == 'danger' else 'badge-avulso' if event.level == 'warning' else 'badge-success' }}">{{ event.label }} • {{ event.score }}</span>
+              </a>
+              {% else %}
+              <div class="text-secondary">Sem eventos ativos para pontuar agora.</div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="entity-card p-3 h-100">
+            <div class="fw-semibold mb-2">Prioridade automática das pendências</div>
+            <div class="d-grid gap-3 small">
+              {% for bucket in smart_system_dashboard.priority_buckets %}
+              <div>
+                <span class="route-badge {{ 'badge-danger' if bucket.level == 'danger' else 'badge-avulso' if bucket.level == 'warning' else 'badge-fixed' }}">{{ bucket.label }}</span>
+                <div class="d-grid gap-1 mt-2">
+                  {% for item in bucket["items"] %}
+                  <a class="text-reset text-decoration-none {% if item.target_href.startswith('#') %}js-tab-link{% endif %} smart-action-item" data-smart-action-level="{{ item.level }}" href="{{ item.target_href }}" {% if item.target_href.startswith('#') %}data-tab-target="{{ item.target_tab }}" {% endif %}>
+                    <span class="fw-semibold">{{ item.title }}</span> <span class="text-secondary">{{ item.detail }}</span>
+                  </a>
+                  {% endfor %}
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3">
+          <div class="entity-card p-3 h-100">
+            <div class="fw-semibold mb-2">Favoritos por usuário</div>
+            <div class="d-grid gap-2 small">
+              {% for item in smart_system_dashboard.favorites %}
+              <a class="btn btn-sm btn-outline-secondary {% if item.target_tab %}js-tab-link{% endif %}" href="{{ item.target_href }}" {% if item.target_tab %}data-tab-target="{{ item.target_tab }}"{% endif %}>{{ item.label }}</a>
+              {% endfor %}
+            </div>
+            <div class="form-helper mt-3">Ajuda curta: os favoritos mudam conforme a função de quem está logado.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-3 mb-3">
+        <div class="col-lg-4">
+          <div class="entity-card p-3 h-100">
+            <div class="fw-semibold mb-2">Ranking de clientes que exigem atenção</div>
+            <div class="d-grid gap-2 small">
+              {% for item in smart_system_dashboard.client_attention %}
+              <a class="d-flex justify-content-between gap-2 text-reset text-decoration-none js-tab-link smart-action-item" data-smart-action-level="{{ 'danger' if item.score >= 40 else 'warning' }}" href="{{ item.target_href }}" data-tab-target="{{ item.target_tab }}">
+                <span><span class="fw-semibold">{{ item.name }}</span><br><span class="text-secondary">{{ item.reasons|join(", ") }}</span></span>
+                <span class="route-badge {{ 'badge-danger' if item.score >= 40 else 'badge-avulso' }}">{{ item.score }}</span>
+              </a>
+              {% else %}
+              <div class="text-secondary">Nenhum cliente exige atenção especial agora.</div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="entity-card p-3 h-100">
+            <div class="fw-semibold mb-2">Previsão de estoque por uso</div>
+            <div class="d-grid gap-2 small">
+              {% for item in smart_system_dashboard.stock_forecast %}
+              <a class="d-flex justify-content-between gap-2 text-reset text-decoration-none js-tab-link smart-action-item" data-smart-action-level="{{ item.level }}" href="#warehouse-pane" data-tab-target="warehouse-tab">
+                <span><span class="fw-semibold">{{ item.name }}</span><br><span class="text-secondary">saldo {{ item.quantity }} {{ item.unit }} • uso médio {{ item.daily_use }} {{ item.unit }}/dia</span></span>
+                <span class="route-badge {{ 'badge-danger' if item.level == 'danger' else 'badge-avulso' if item.level == 'warning' else 'badge-success' }}">{{ item.label }}</span>
+              </a>
+              {% else %}
+              <div class="text-secondary">Cadastre materiais e baixas para calcular previsão.</div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="entity-card p-3 h-100">
+            <div class="fw-semibold mb-2">Alertas por prazo</div>
+            <div class="d-grid gap-2 small">
+              {% for item in smart_system_dashboard.deadline_alerts %}
+              <a class="text-reset text-decoration-none js-tab-link smart-action-item" data-smart-action-level="{{ item.level }}" href="{{ item.target_href }}" data-tab-target="{{ item.target_tab }}">
+                <span class="route-badge {{ 'badge-danger' if item.level == 'danger' else 'badge-avulso' }}">{{ item.title }}</span>
+                <span class="text-secondary">{{ item.detail }}</span>
+              </a>
+              {% else %}
+              <div class="text-secondary">Nenhum prazo crítico nos próximos 7 dias.</div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-3 mb-3">
+        <div class="col-lg-4">
+          <div class="entity-card p-3 h-100">
+            <div class="fw-semibold mb-2">Relatório semanal automático</div>
+            <div class="row g-2 small">
+              <div class="col-6"><div class="stat-card p-2"><div class="fw-bold">{{ smart_system_dashboard.weekly_report.events }}</div><div class="text-secondary">eventos 7 dias</div></div></div>
+              <div class="col-6"><div class="stat-card p-2"><div class="fw-bold">{{ smart_system_dashboard.weekly_report.receivables }}</div><div class="text-secondary">recebimentos</div></div></div>
+              <div class="col-6"><div class="stat-card p-2 {{ 'crit-block' if smart_system_dashboard.weekly_report.overdue else '' }}"><div class="fw-bold">{{ smart_system_dashboard.weekly_report.overdue }}</div><div class="text-secondary">vencidos</div></div></div>
+              <div class="col-6"><div class="stat-card p-2 {{ 'crit-attention' if smart_system_dashboard.weekly_report.stock_critical else '' }}"><div class="fw-bold">{{ smart_system_dashboard.weekly_report.stock_critical }}</div><div class="text-secondary">estoque crítico</div></div></div>
+            </div>
+            <a class="btn btn-sm btn-outline-secondary mt-3 js-tab-link" href="#reports-panel" data-tab-target="summary-tab">Abrir relatórios</a>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="entity-card p-3 h-100">
+            <div class="fw-semibold mb-2">Detecção de inconsistência</div>
+            <div class="d-grid gap-2 small">
+              {% for item in smart_system_dashboard.inconsistencies %}
+              <a class="text-reset text-decoration-none {% if item.target_href.startswith('#') %}js-tab-link{% endif %} smart-action-item" data-smart-action-level="{{ item.level }}" href="{{ item.target_href }}" {% if item.target_href.startswith('#') %}data-tab-target="{{ item.target_tab }}"{% endif %}>
+                <span class="route-badge {{ 'badge-danger' if item.level == 'danger' else 'badge-avulso' if item.level == 'warning' else 'badge-success' }}">{{ item.title }}</span>
+                <span class="text-secondary">{{ item.detail }}</span>
+              </a>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="entity-card p-3 h-100">
+            <div class="fw-semibold mb-2">Histórico de alterações visível</div>
+            <div class="d-grid gap-2 small">
+              {% for item in smart_system_dashboard.change_history %}
+              <div><span class="route-badge badge-fixed">{{ item.module }}</span> <span class="fw-semibold">{{ item.action }}</span><br><span class="text-secondary">{{ item.target }} • {{ item.user or "usuário" }} • {{ item.created_at }}</span></div>
+              {% else %}
+              <div class="text-secondary">As últimas alterações aparecerão aqui.</div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-3">
+        <div class="col-lg-4">
+          <div class="entity-card p-3 h-100" id="smart-close-day">
+            <div class="fw-semibold mb-2">Fechar o dia guiado</div>
+            <div class="d-grid gap-2 small">
+              {% for item in smart_system_dashboard.close_day_steps %}
+              <a class="d-flex justify-content-between gap-2 text-reset text-decoration-none {% if item.target_href.startswith('#') %}js-tab-link{% endif %}" href="{{ item.target_href }}" {% if item.target_href.startswith('#') %}data-tab-target="{{ item.target_tab }}"{% endif %}>
+                <span><span class="fw-semibold">{{ item.label }}</span><br><span class="text-secondary">{{ item.detail }}</span></span>
+                <span class="route-badge {{ 'badge-success' if item.done else 'badge-avulso' }}">{{ 'OK' if item.done else 'Revisar' }}</span>
+              </a>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="entity-card p-3 h-100" id="pdf-review-panel">
+            <div class="fw-semibold mb-2">Modo revisão antes de imprimir/PDF</div>
+            {% if smart_system_dashboard.pdf_review.has_route %}
+            <div class="route-badges mb-2">
+              <span class="route-badge badge-fixed">{{ smart_system_dashboard.pdf_review.stops_count }} parada(s)</span>
+              <span class="route-badge {{ 'badge-danger' if smart_system_dashboard.pdf_review.missing_contact else 'badge-success' }}">{{ smart_system_dashboard.pdf_review.missing_contact }} sem contato</span>
+              <span class="route-badge {{ 'badge-danger' if smart_system_dashboard.pdf_review.missing_equipment else 'badge-success' }}">{{ smart_system_dashboard.pdf_review.missing_equipment }} sem equipamento</span>
+            </div>
+            <div class="d-grid gap-2 small">
+              {% for item in smart_system_dashboard.pdf_review["items"] %}
+              <div><span class="fw-semibold">{{ item.client }}</span><br><span class="text-secondary">{{ item.address }} • {{ item.contact }} • {{ item.equipment }}{% if item.notes %} • {{ item.notes }}{% endif %}</span></div>
+              {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-secondary small">Gere uma rota para revisar cliente, endereço, contato, banheiros, placas e observações antes do PDF.</div>
+            {% endif %}
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="entity-card p-3 h-100">
+            <div class="fw-semibold mb-2">Templates rápidos e campos guiados por etapa</div>
+            <div class="d-grid gap-2 small mb-3">
+              {% for template in smart_system_dashboard.quick_templates %}
+              <button class="btn btn-sm btn-outline-secondary smart-template-button" type="button" data-status="{{ template.status }}" data-category="{{ template.category }}" data-billing="{{ template.billing }}" data-notes="{{ template.notes }}">{{ template.label }}</button>
+              {% endfor %}
+            </div>
+            <div class="route-badges">
+              <span class="route-badge badge-fixed">1. Cliente</span>
+              <span class="route-badge badge-fixed">2. Datas</span>
+              <span class="route-badge badge-fixed">3. Banheiros</span>
+              <span class="route-badge badge-fixed">4. Rota</span>
+              <span class="route-badge badge-fixed">5. Financeiro</span>
+              <span class="route-badge badge-fixed">6. Observações</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="glass p-4 mb-4" id="general-usability-panel">
       <div class="module-toolbar mb-3">
         <div>
@@ -1763,7 +2251,7 @@
         <a class="btn btn-outline-secondary btn-sm js-tab-link" href="#operations-pane" data-tab-target="operations-tab">Validar/Gerar rota</a>
         {% if '*' in current_user.permissions %}
         <a class="btn btn-outline-secondary btn-sm js-tab-link" href="#homologation-pane" data-tab-target="homologation-tab">Homologação</a>
-        <a class="btn btn-outline-secondary btn-sm js-tab-link" href="#access-management-panel" data-tab-target="access-tab">Novo acesso</a>
+        <a class="btn btn-outline-secondary btn-sm js-tab-link" href="#access-management-panel" data-tab-target="access-tab">Convidar acesso</a>
         {% endif %}
         {% if has_pdf %}
         <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('preview_file', filename='route-plan.pdf') }}" target="_blank" rel="noreferrer">PDF atual</a>
@@ -5232,10 +5720,11 @@
                 <div>
                   <div class="eyebrow mb-2">Administração</div>
                   <h2 class="h4 mb-1">Painel de acessos da equipe</h2>
-                  <p class="text-secondary mb-0 small">Crie contas internas com função definida e senha inicial obrigatória para troca no primeiro acesso.</p>
+                  <p class="text-secondary mb-0 small">Cadastre nome, e-mail e função. A pessoa recebe um link único e cria a própria senha, sem o administrador saber.</p>
                 </div>
                 <div class="route-badges">
                   <span class="route-badge badge-success">{{ security_posture.active_users }} ativo(s)</span>
+                  <span class="route-badge {{ 'badge-avulso' if security_posture.pending_invitations else 'badge-success' }}">{{ security_posture.pending_invitations }} convite(s)</span>
                   <span class="route-badge badge-fixed">{{ security_posture.admins }} admin(s)</span>
                   <span class="route-badge {{ 'badge-danger' if security_posture.password_rotation_pending else 'badge-success' }}">{{ security_posture.password_rotation_pending }} troca(s) pendente(s)</span>
                 </div>
@@ -5299,8 +5788,8 @@
                   <div class="entity-card p-3 h-100">
                     <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
                       <div>
-                        <div class="fw-semibold" id="access-form-title">Novo acesso</div>
-                        <div class="small text-secondary">Use um acesso por pessoa para manter o histórico confiável.</div>
+                        <div class="fw-semibold" id="access-form-title">Convidar por e-mail</div>
+                        <div class="small text-secondary">Use um acesso por pessoa. O usuário cria a senha no link do convite.</div>
                       </div>
                       <button class="btn btn-sm btn-outline-secondary rounded-pill" type="button" id="clear-access-form">Limpar</button>
                     </div>
@@ -5314,11 +5803,7 @@
                         <label class="form-label fw-semibold" for="access_email">Email</label>
                         <input class="form-control" id="access_email" name="email" type="email" placeholder="email@sannygold.com" autocomplete="username" required>
                       </div>
-                      <div>
-                        <label class="form-label fw-semibold" for="access_password">Senha inicial</label>
-                        <input class="form-control" id="access_password" name="password" type="password" autocomplete="new-password" placeholder="Mínimo 10 caracteres">
-                        <div class="form-text">Obrigatória para novo acesso. Em edição, preencha apenas se quiser redefinir a senha.</div>
-                      </div>
+                      <div class="alert alert-secondary small mb-0">O sistema vai gerar um convite com validade de 48 horas. A senha será criada pela própria pessoa e salva apenas de forma criptografada.</div>
                       <div class="row g-2">
                         <div class="col-sm-7">
                           <label class="form-label fw-semibold" for="access_role">Função</label>
@@ -5333,12 +5818,13 @@
                         <div class="col-sm-5">
                           <label class="form-label fw-semibold" for="access_status">Status</label>
                           <select class="form-select" id="access_status" name="status">
+                            <option value="convite_pendente" selected>Convite pendente</option>
                             <option value="ativo">Ativo</option>
                             <option value="inativo">Inativo</option>
                           </select>
                         </div>
                       </div>
-                      <button class="btn btn-dark rounded-pill" type="submit" id="save-access-button">Criar acesso</button>
+                      <button class="btn btn-dark rounded-pill" type="submit" id="save-access-button">Gerar convite</button>
                     </form>
                   </div>
                 </div>
@@ -5359,7 +5845,7 @@
                             <th>Usuário</th>
                             <th>Função</th>
                             <th>Status</th>
-                            <th>Senha</th>
+                            <th>Convite/senha</th>
                             <th>Ações</th>
                           </tr>
                         </thead>
@@ -5371,15 +5857,48 @@
                               <div class="small text-secondary">{{ user.email }}</div>
                             </td>
                             <td>{{ role_labels.get(user.role, user.role) }}</td>
-                            <td><span class="route-badge {{ 'badge-success' if user.status == 'ativo' else 'badge-danger' }}">{{ user.status }}</span></td>
+                            <td><span class="route-badge {{ 'badge-success' if user.status == 'ativo' else 'badge-avulso' if user.status == 'convite_pendente' else 'badge-danger' }}">{{ 'convite pendente' if user.status == 'convite_pendente' else user.status }}</span></td>
                             <td>
+                              {% if user.invitation_active %}
+                              <span class="route-badge badge-avulso">link único ativo</span>
+                              <div class="small text-secondary">expira {{ user.invitation_expires_label }}</div>
+                              {% elif user.status == "convite_pendente" %}
+                              <span class="route-badge badge-danger">convite expirado</span>
+                              {% elif user.reset_active %}
+                              <span class="route-badge badge-avulso">redefinição ativa</span>
+                              <div class="small text-secondary">expira {{ user.reset_expires_label }}</div>
+                              {% else %}
                               <span class="route-badge {{ 'badge-avulso' if user.must_change_password else 'badge-success' }}">
-                                {{ 'troca pendente' if user.must_change_password else 'atualizada' }}
+                                {{ 'troca pendente' if user.must_change_password else 'senha criada' }}
                               </span>
+                              {% endif %}
                             </td>
                             <td>
                               <div class="d-flex flex-wrap gap-1">
                                 <button class="btn btn-sm btn-outline-secondary rounded-pill edit-access-button" type="button" data-user='{{ user|tojson }}'>Editar</button>
+                                {% if user.invitation_active %}
+                                <button class="btn btn-sm btn-outline-secondary rounded-pill js-copy-link" type="button" data-copy-value="{{ user.invitation_url }}">Copiar convite</button>
+                                <a class="btn btn-sm btn-outline-secondary rounded-pill" href="{{ user.invitation_mailto }}">Abrir e-mail</a>
+                                {% endif %}
+                                {% if user.status == "convite_pendente" or user.status == "inativo" %}
+                                <form method="post" action="{{ url_for('reissue_user_invitation', user_id=user.id) }}">
+                                  <button class="btn btn-sm btn-outline-secondary rounded-pill" type="submit">{{ 'Reenviar convite' if user.status == 'convite_pendente' else 'Novo convite' }}</button>
+                                </form>
+                                {% endif %}
+                                {% if user.status == "convite_pendente" %}
+                                <form method="post" action="{{ url_for('cancel_user_invitation', user_id=user.id) }}">
+                                  <button class="btn btn-sm btn-outline-danger rounded-pill" type="submit">Cancelar convite</button>
+                                </form>
+                                {% endif %}
+                                {% if user.status == "ativo" %}
+                                <form method="post" action="{{ url_for('create_user_password_reset', user_id=user.id) }}">
+                                  <button class="btn btn-sm btn-outline-secondary rounded-pill" type="submit">Gerar redefinição</button>
+                                </form>
+                                {% if user.reset_active %}
+                                <button class="btn btn-sm btn-outline-secondary rounded-pill js-copy-link" type="button" data-copy-value="{{ user.reset_url }}">Copiar redefinição</button>
+                                <a class="btn btn-sm btn-outline-secondary rounded-pill" href="{{ user.reset_mailto }}">Enviar senha</a>
+                                {% endif %}
+                                {% endif %}
                                 {% if user.status == "ativo" %}
                                 <form method="post" action="{{ url_for('save_user') }}">
                                   <input name="user_id" type="hidden" value="{{ user.id }}">
@@ -5908,9 +6427,9 @@
       if (accessFields.user_id) accessFields.user_id.value = "";
       if (accessFields.password) accessFields.password.value = "";
       if (accessFields.role) accessFields.role.value = "operacional";
-      if (accessFields.status) accessFields.status.value = "ativo";
-      if (accessFormTitle) accessFormTitle.textContent = "Novo acesso";
-      if (saveAccessButton) saveAccessButton.textContent = "Criar acesso";
+      if (accessFields.status) accessFields.status.value = "convite_pendente";
+      if (accessFormTitle) accessFormTitle.textContent = "Convidar por e-mail";
+      if (saveAccessButton) saveAccessButton.textContent = "Gerar convite";
     }
 
     function syncInvoiceNumberField() {
@@ -6105,10 +6624,36 @@
       button.addEventListener("click", () => clearFiltersForTarget(button.dataset.filterTarget));
     });
 
+    const actionOnlyFilter = document.getElementById("action-only-filter");
+    function applyActionOnlyFilter() {
+      const actionOnly = Boolean(actionOnlyFilter?.checked);
+      document.querySelectorAll(".smart-action-item").forEach((item) => {
+        const level = item.dataset.smartActionLevel || "info";
+        item.classList.toggle("d-none", actionOnly && !["danger", "warning"].includes(level));
+      });
+    }
+    actionOnlyFilter?.addEventListener("change", applyActionOnlyFilter);
+    applyActionOnlyFilter();
+
     document.querySelector(".alert-success")?.classList.add("highlight-after-save");
 
     document.querySelectorAll("[data-money]").forEach((element) => {
       element.textContent = formatCurrencyBRL(element.dataset.money);
+    });
+
+    document.querySelectorAll(".js-copy-link").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const value = button.dataset.copyValue || "";
+        if (!value) return;
+        try {
+          await navigator.clipboard.writeText(value);
+          button.textContent = "Copiado";
+          setTimeout(() => { button.textContent = button.dataset.originalLabel || "Copiar link"; }, 1800);
+        } catch (error) {
+          window.prompt("Copie o link:", value);
+        }
+      });
+      button.dataset.originalLabel = button.textContent;
     });
 
     clearClientFormButton?.addEventListener("click", resetClientForm);
@@ -6233,6 +6778,23 @@
         });
         document.getElementById("save-event-button").textContent = "Salvar alterações do evento";
         eventForm.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+
+    document.querySelectorAll(".smart-template-button").forEach((button) => {
+      button.addEventListener("click", () => {
+        activateTab("events-tab");
+        showCreatePanel("event-create-panel");
+        if (eventFields.event_id) eventFields.event_id.value = "";
+        if (eventFields.title && !eventFields.title.value) eventFields.title.value = button.textContent.trim();
+        if (eventFields.status) eventFields.status.value = button.dataset.status || "orcamento";
+        if (eventFields.event_category) eventFields.event_category.value = button.dataset.category || "evento";
+        if (eventFields.notes) {
+          const billingText = button.dataset.billing ? `Modelo de cobrança sugerido: ${button.dataset.billing}.` : "";
+          eventFields.notes.value = [button.dataset.notes || "", billingText].filter(Boolean).join("\n");
+        }
+        document.getElementById("save-event-button").textContent = "Salvar evento";
+        eventForm?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
     });
 

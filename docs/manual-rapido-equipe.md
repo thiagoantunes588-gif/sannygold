@@ -40,6 +40,29 @@ Regras importantes:
 - Nao use usuario administrador para rotina diaria se houver usuario proprio.
 - Ao terminar em computador compartilhado, saia da conta.
 
+## Convite de acesso
+
+O administrador nao precisa criar senha para a equipe.
+
+Fluxo correto:
+
+1. Abrir Acessos.
+2. Informar nome, email e funcao.
+3. Gerar convite.
+4. Copiar o link ou abrir o email sugerido.
+5. A pessoa abre o link e cria a propria senha.
+6. Depois de usado, o convite deixa de servir.
+
+Regras do convite:
+
+- O link e unico por usuario.
+- O convite expira em 48 horas.
+- Se expirar, use Reenviar convite.
+- Se a pessoa sair da equipe, desative o acesso.
+- Para usuario ativo que esqueceu a senha, gere um link de redefinicao.
+- O administrador nunca precisa saber a senha da pessoa.
+- Depois de muitas tentativas erradas de login, o sistema bloqueia novas tentativas por alguns minutos.
+
 ## Tela inicial
 
 Use a tela inicial como ponto de partida. Depois do login, comece pela area Hoje.
@@ -58,6 +81,96 @@ Ela mostra:
 - Atalhos de relatorios.
 
 Se aparecer alerta vermelho, resolva antes de liberar a operacao.
+
+## Guia por funcao
+
+Cada pessoa deve comecar pelo ponto que combina com a propria rotina.
+
+- Operacao: Central do Dia, Eventos, Frota e equipamentos, Rotas e PDF.
+- Administrativo: Clientes, Eventos, documentos, observacoes e fechamento administrativo.
+- Almoxarifado: Estoque, entradas, baixas, itens baixos e materiais para limpeza.
+- Financeiro: recebimentos, vencidos, notas, comprovantes, fluxo de caixa e fechamento mensal.
+- Administrador: acessos, permissoes, senhas pendentes, backup, seguranca e homologacao.
+
+## Padrao de nomes
+
+Use sempre os mesmos nomes para reduzir duvida entre telas e conversas.
+
+- Banheiros: produto principal da operacao.
+- Equipamentos: apoio ou ativo operacional, como climatizador e ponto de hidratacao.
+- Retirada: recolhimento do banheiro ou equipamento no cliente.
+- Recebimento: pagamento do cliente no financeiro.
+- Pendencia: algo que precisa de acao antes de liberar ou fechar.
+
+## Cadastro minimo
+
+Antes de salvar ou liberar uma operacao, confira se o essencial esta preenchido.
+
+- Cliente: nome, telefone, endereco, contato, tipo de servico e cobranca.
+- Evento: data, periodo, clientes, status, checklist e observacoes uteis.
+- Banheiro/equipamento: ID, tipo, status, placa quando houver, foto e manutencao.
+- Financeiro: cliente, valor, vencimento, status, NF e comprovante quando existir.
+
+## Pacote para PDF, impresso e links
+
+Quando houver despacho, separe o material que ajuda a equipe sem criar uma rotina paralela.
+
+- PDF da rota ou ordem de servico.
+- Endereco completo e link do Google Maps quando ajudar.
+- Contato do cliente e horario combinado.
+- Banheiros/equipamentos, quantidade, ID interno e placa quando houver.
+- Observacoes que realmente precisam chegar a quem executa.
+
+## Regras para evitar confusao
+
+- Pesquise antes de cadastrar para evitar duplicidade.
+- Nao libere rota com bloqueio vermelho.
+- Nao use equipamento indisponivel ou em manutencao.
+- Registre recebimento no financeiro no mesmo dia em que confirmar pagamento.
+- Use um acesso por pessoa para manter historico e responsabilidade claros.
+
+## Sistema inteligente
+
+O painel Inteligencia operacional da SannyGold ajuda a equipe a decidir o que fazer primeiro.
+
+Ele reune:
+
+- proximos passos automaticos;
+- resumo automatico do dia;
+- pontuacao de risco por evento;
+- prioridade automatica das pendencias;
+- alertas preventivos de operacao, estoque, manutencao e financeiro;
+- alertas por prazo;
+- validacao inteligente antes da rota;
+- historico inteligente do cliente;
+- ranking de clientes que exigem atencao;
+- busca esperta por nome, telefone, CPF/CNPJ, placa, NF, endereco, evento e observacoes;
+- deteccao de duplicidade;
+- deteccao de inconsistencias;
+- recomendacoes financeiras para quem tem permissao;
+- previsao de demanda;
+- previsao de estoque por uso;
+- relatorios automaticos recomendados;
+- relatorio semanal automatico;
+- checklists dinamicos por tipo de operacao;
+- favoritos por funcao do usuario;
+- historico de alteracoes visivel;
+- area O que precisa de atencao agora com prioridades.
+
+Use essa area antes de abrir varios modulos. Se houver item vermelho, resolva primeiro. Se houver item amarelo, revise antes de gerar rota, PDF, fechamento ou cobranca.
+
+## Rotina inteligente de uso diario
+
+Use a Central inteligente de uso diario quando quiser trabalhar com menos procura.
+
+- Comecar o dia: abre resumo, agenda, pendencias, rota, financeiro e estoque critico.
+- Mostrar so o que precisa de acao: esconde itens informativos e deixa vermelhos e amarelos em destaque.
+- Fechar o dia guiado: mostra pagamentos, eventos, manutencao, estoque, fechamento e backup.
+- Revisar antes do PDF: confere paradas, contato, endereco, banheiro/equipamento, placa e observacoes.
+- Templates rapidos: criam evento avulso, contrato mensal, limpeza recorrente ou orcamento com campos iniciais sugeridos.
+- Mensagens humanas ao salvar: quando faltar dado importante, o sistema salva e avisa o que revisar.
+
+O objetivo e ajudar a equipe a decidir o proximo passo sem precisar decorar onde cada informacao fica.
 
 ## Busca global
 
@@ -318,11 +431,14 @@ Use PDF para conferencia e Excel quando precisar tratar dados.
 Para reduzir erro:
 
 - pesquise antes de cadastrar;
+- use Comecar o dia para ver prioridades antes de abrir varios modulos;
 - use a acao rapida Criar locacao para casos simples;
+- use templates rapidos quando o evento seguir um padrao comum;
 - deixe campos avancados para depois quando nao forem obrigatorios;
 - confira alertas vermelhos antes de despachar;
+- use Mostrar so o que precisa de acao quando houver muita informacao na tela;
 - use filtros por status;
-- baixe PDF antes de imprimir ou enviar;
+- revise o modo antes de imprimir/PDF;
 - confirme exclusoes e finalizacoes com cuidado.
 
 ## Fechamento diario e backup

@@ -2,6 +2,7 @@ import os
 import tempfile
 import unittest
 import json
+from urllib.parse import urlparse
 
 from werkzeug.security import generate_password_hash
 
@@ -9,7 +10,7 @@ os.environ["ROTAFLOW_STORAGE_DIR"] = tempfile.mkdtemp(prefix="sannygold-auth-tes
 os.environ["SANNYGOLD_ADMIN_EMAIL"] = "admin@sannygold.local"
 os.environ["SANNYGOLD_ADMIN_PASSWORD"] = "Sanny123Gold"
 
-from app.main import AUDIT_LOG_PATH, USERS_PATH, app, ensure_storage_dirs, has_permission  # noqa: E402
+from app.main import AUDIT_LOG_PATH, LOGIN_ATTEMPTS, USERS_PATH, app, ensure_storage_dirs, has_permission, invitation_url, password_reset_url  # noqa: E402
 
 
 class AuthAccessControlTest(unittest.TestCase):
@@ -36,6 +37,7 @@ class AuthAccessControlTest(unittest.TestCase):
             encoding="utf-8",
         )
         app.config.update(TESTING=True)
+        LOGIN_ATTEMPTS.clear()
         self.client = app.test_client()
 
     def login(self, email="admin@sannygold.local", password="Sanny123Gold"):
@@ -94,6 +96,22 @@ class AuthAccessControlTest(unittest.TestCase):
         self.assertIn("Usuário não encontrado.", missing.get_data(as_text=True))
         self.assertIn("Senha incorreta.", wrong.get_data(as_text=True))
 
+    def test_login_locks_after_repeated_wrong_passwords(self):
+        for _ in range(5):
+            self.client.post(
+                "/auth/login",
+                data={"email": "admin@sannygold.local", "password": "errada"},
+                follow_redirects=True,
+            )
+
+        response = self.client.post(
+            "/auth/login",
+            data={"email": "admin@sannygold.local", "password": "Sanny123Gold"},
+            follow_redirects=True,
+        )
+
+        self.assertIn("Muitas tentativas de login", response.get_data(as_text=True))
+
     def test_admin_login_unlocks_internal_modules_and_logout_returns_guest(self):
         logged = self.login()
         html = logged.get_data(as_text=True)
@@ -109,7 +127,8 @@ class AuthAccessControlTest(unittest.TestCase):
         self.assertIn("Checklist de Homologação", html)
         self.assertIn("Validar endpoint /health ou /status", html)
         self.assertIn("Validar persistência após reinício/redeploy", html)
-        self.assertIn("Novo acesso", html)
+        self.assertIn("Convidar por e-mail", html)
+        self.assertIn("Gerar convite", html)
         self.assertIn("Revisão semanal", html)
         self.assertIn("Padrão mínimo de cadastro", html)
 
@@ -202,6 +221,89 @@ class AuthAccessControlTest(unittest.TestCase):
         )
 
         self.assertIn("A senha precisa ter pelo menos 10 caracteres.", response.get_data(as_text=True))
+
+    def test_admin_invites_user_and_user_sets_own_password(self):
+        self.login()
+
+        response = self.client.post(
+            "/users",
+            data={
+                "nome": "Operador Convite",
+                "email": "convite@sannygold.local",
+                "role": "operacional",
+                "status": "convite_pendente",
+            },
+            follow_redirects=True,
+        )
+        users = json.loads(USERS_PATH.read_text(encoding="utf-8"))
+        saved = next(user for user in users if user["email"] == "convite@sannygold.local")
+        with app.test_request_context(base_url="http://localhost"):
+            invite_path = urlparse(invitation_url(saved)).path
+
+        self.assertIn("Convite criado para convite@sannygold.local", response.get_data(as_text=True))
+        self.assertEqual(saved["status"], "convite_pendente")
+        self.assertEqual(saved["senha_hash"], "")
+        self.assertIn("invitation_token", saved)
+
+        setup = self.client.get(invite_path)
+        self.assertIn("Criar senha de acesso", setup.get_data(as_text=True))
+
+        accepted = self.client.post(
+            invite_path,
+            data={"new_password": "SenhaEquipe2026", "confirm_password": "SenhaEquipe2026"},
+            follow_redirects=True,
+        )
+        users = json.loads(USERS_PATH.read_text(encoding="utf-8"))
+        activated = next(user for user in users if user["email"] == "convite@sannygold.local")
+
+        self.assertIn("Senha criada com sucesso", accepted.get_data(as_text=True))
+        self.assertEqual(activated["status"], "ativo")
+        self.assertTrue(activated["senha_hash"].startswith("pbkdf2:sha256"))
+        self.assertFalse(activated["must_change_password"])
+        self.assertEqual(activated["invitation_token"], "")
+
+        self.client.post("/auth/logout", follow_redirects=True)
+        logged = self.login("convite@sannygold.local", "SenhaEquipe2026")
+        self.assertIn("Login realizado com sucesso.", logged.get_data(as_text=True))
+
+    def test_admin_can_generate_password_reset_link_without_knowing_password(self):
+        self.login()
+        self.client.post(
+            "/users",
+            data={
+                "nome": "Operador Reset",
+                "email": "reset@sannygold.local",
+                "password": "SenhaForte123",
+                "role": "operacional",
+                "status": "ativo",
+            },
+            follow_redirects=True,
+        )
+        users = json.loads(USERS_PATH.read_text(encoding="utf-8"))
+        created = next(user for user in users if user["email"] == "reset@sannygold.local")
+
+        response = self.client.post(f"/users/{created['id']}/password-reset", follow_redirects=True)
+        users = json.loads(USERS_PATH.read_text(encoding="utf-8"))
+        pending_reset = next(user for user in users if user["email"] == "reset@sannygold.local")
+        with app.test_request_context(base_url="http://localhost"):
+            reset_path = urlparse(password_reset_url(pending_reset)).path
+
+        self.assertIn("Link de redefinição gerado para reset@sannygold.local", response.get_data(as_text=True))
+        self.assertIn("reset_token", pending_reset)
+
+        reset = self.client.post(
+            reset_path,
+            data={"new_password": "SenhaNova2026", "confirm_password": "SenhaNova2026"},
+            follow_redirects=True,
+        )
+        users = json.loads(USERS_PATH.read_text(encoding="utf-8"))
+        updated = next(user for user in users if user["email"] == "reset@sannygold.local")
+
+        self.assertIn("Senha redefinida com sucesso.", reset.get_data(as_text=True))
+        self.assertEqual(updated["reset_token"], "")
+        self.client.post("/auth/logout", follow_redirects=True)
+        logged = self.login("reset@sannygold.local", "SenhaNova2026")
+        self.assertIn("Login realizado com sucesso.", logged.get_data(as_text=True))
 
     def test_password_change_clears_first_access_flag(self):
         self.login()

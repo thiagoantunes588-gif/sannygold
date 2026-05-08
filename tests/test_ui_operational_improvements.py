@@ -157,13 +157,46 @@ class OperationalUiImprovementsTest(unittest.TestCase):
         self.assertIn("today-home", html)
         self.assertIn("Como operar sem se perder", html)
         self.assertIn("usage-guide-panel", html)
+        self.assertIn("team-enable-guide", html)
+        self.assertIn("Guia prático de uso por função", html)
+        self.assertIn("Padrão de nomes no sistema", html)
+        self.assertIn("Cadastro mínimo sem retrabalho", html)
+        self.assertIn("Pacote para PDF, impresso e links", html)
+        self.assertIn("Regras para evitar confusão", html)
+        self.assertIn("smart-system-panel", html)
+        self.assertIn("Inteligência operacional da SannyGold", html)
+        self.assertIn("Próximos passos automáticos", html)
+        self.assertIn("Validação inteligente antes da rota", html)
+        self.assertIn("Histórico inteligente do cliente", html)
+        self.assertIn("Busca esperta e duplicidades", html)
+        self.assertIn("Recomendações financeiras", html)
+        self.assertIn("Previsão de demanda", html)
+        self.assertIn("Relatórios automáticos recomendados", html)
+        self.assertIn("Checklists dinâmicos por tipo de operação", html)
         self.assertIn("Manual PDF", html)
         self.assertIn("Etapas do cadastro de evento", html)
+        self.assertIn("smart-usage-panel", html)
+        self.assertIn("Central inteligente de uso diário", html)
+        self.assertIn("Resumo automático do dia", html)
+        self.assertIn("Mostrar só o que precisa de ação", html)
+        self.assertIn("Pontuação de risco por evento", html)
+        self.assertIn("Prioridade automática das pendências", html)
+        self.assertIn("Favoritos por usuário", html)
+        self.assertIn("Ranking de clientes que exigem atenção", html)
+        self.assertIn("Previsão de estoque por uso", html)
+        self.assertIn("Alertas por prazo", html)
+        self.assertIn("Relatório semanal automático", html)
+        self.assertIn("Detecção de inconsistência", html)
+        self.assertIn("Histórico de alterações visível", html)
+        self.assertIn("Fechar o dia guiado", html)
+        self.assertIn("Modo revisão antes de imprimir/PDF", html)
+        self.assertIn("Templates rápidos e campos guiados por etapa", html)
         self.assertNotIn("driver-pane", html)
         self.assertNotIn("driver-tab", html)
         self.assertNotIn("Modo motorista", html)
         self.assertNotIn("Ações de rua em poucos toques", html)
         self.assertNotIn("folha impressa por evento", html.lower())
+        self.assertNotIn("equipamento ideal", html.lower())
 
     def test_usability_improvements_are_rendered(self):
         response = self.client.get("/")
@@ -200,6 +233,21 @@ class OperationalUiImprovementsTest(unittest.TestCase):
             "Vencidas",
             "Vencem em breve",
             "Pagas",
+            "Produto principal da operação.",
+            "Use um acesso por pessoa",
+            "Não liberar rota com bloqueio vermelho",
+            "CPF/CNPJ",
+            "placa",
+            "NF",
+            "observações",
+            "Evento avulso",
+            "Contrato mensal",
+            "Limpeza recorrente",
+            "Despacho com PDF",
+            "action-only-filter",
+            "applyActionOnlyFilter",
+            "smart-template-button",
+            "Modelo de cobrança sugerido",
         ):
             self.assertIn(expected, html)
         self.assertNotIn("Agrupamento por status dos eventos", html)
