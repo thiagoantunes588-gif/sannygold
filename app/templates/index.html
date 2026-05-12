@@ -405,6 +405,70 @@
       font-size: 1.35rem;
       line-height: 1.1;
     }
+    .daily-action-board {
+      display: grid;
+      grid-template-columns: minmax(260px, 1.15fr) minmax(220px, 0.85fr);
+      gap: 0.75rem;
+      align-items: stretch;
+      scroll-margin-top: 7rem;
+    }
+    .daily-action-focus,
+    .daily-action-rail,
+    .daily-review-card {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255, 253, 248, 0.88);
+      padding: 1rem;
+    }
+    .daily-action-focus {
+      display: grid;
+      gap: 1rem;
+      background:
+        radial-gradient(circle at top right, rgba(76, 197, 215, 0.14), transparent 32%),
+        linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,249,239,0.96));
+    }
+    .daily-action-metrics {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.55rem;
+    }
+    .daily-action-metric {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 0.75rem;
+      background: rgba(255,255,255,0.62);
+    }
+    .daily-action-metric strong {
+      display: block;
+      font-size: 1.45rem;
+      line-height: 1;
+    }
+    .daily-review-list {
+      display: grid;
+      gap: 0.55rem;
+    }
+    .daily-review-row {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 0.6rem;
+      align-items: start;
+      color: inherit;
+      text-decoration: none;
+    }
+    .daily-review-row:hover {
+      color: inherit;
+    }
+    .daily-review-index {
+      width: 1.7rem;
+      height: 1.7rem;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      background: var(--aqua-soft);
+      color: var(--aqua-deep);
+      font-size: 0.76rem;
+      font-weight: 800;
+    }
     .today-command-strip {
       display: grid;
       grid-template-columns: minmax(220px, 1.2fr) repeat(4, minmax(130px, 1fr));
@@ -532,6 +596,255 @@
       55% { box-shadow: 0 0 0 8px rgba(53, 191, 210, 0.08); }
       100% { box-shadow: 0 0 0 0 rgba(53, 191, 210, 0); }
     }
+    .motion-ready .glass,
+    .motion-ready .entity-card,
+    .motion-ready .stat-card,
+    .motion-ready .ops-card,
+    .motion-ready .money-card,
+    .motion-ready .task-tile,
+    .motion-ready .action-card,
+    .motion-ready .event-card,
+    .motion-ready .daily-flow-card,
+    .motion-ready .calendar-day,
+    .motion-ready .finance-status-tile,
+    .motion-ready .route-item {
+      animation: surfaceEnter 0.42s cubic-bezier(.2,.8,.2,1) both;
+      animation-delay: calc(var(--motion-order, 0) * 38ms);
+    }
+    .motion-ready .tab-pane.fade {
+      transition: opacity 0.22s ease, transform 0.22s ease;
+      transform: translateY(10px);
+    }
+    .motion-ready .tab-pane.fade.show {
+      transform: translateY(0);
+    }
+    .motion-ready .nav-link,
+    .motion-ready .btn,
+    .motion-ready .route-badge,
+    .motion-ready .form-control,
+    .motion-ready .form-select,
+    .motion-ready .entity-card,
+    .motion-ready .action-card,
+    .motion-ready .kanban-card {
+      transition:
+        transform 0.18s ease,
+        box-shadow 0.18s ease,
+        border-color 0.18s ease,
+        background-color 0.18s ease,
+        color 0.18s ease;
+    }
+    .motion-ready .btn:hover,
+    .motion-ready .btn:focus-visible,
+    .motion-ready .nav-link:hover,
+    .motion-ready .entity-card:hover,
+    .motion-ready .action-card:hover,
+    .motion-ready .kanban-card:hover {
+      transform: translateY(-1px);
+    }
+    .motion-ready .btn:active,
+    .motion-ready .nav-link:active,
+    .motion-ready .kanban-card:active {
+      transform: translateY(0);
+    }
+    .motion-ready .ops-tabs-nav .nav-link.active {
+      animation: tabFocusRing 0.42s ease both;
+    }
+    .btn.is-submitting {
+      pointer-events: none;
+      opacity: 0.9;
+      position: relative;
+    }
+    .btn.is-submitting::after {
+      content: "";
+      width: 0.85rem;
+      height: 0.85rem;
+      margin-left: 0.55rem;
+      display: inline-block;
+      vertical-align: -0.12rem;
+      border: 2px solid currentColor;
+      border-right-color: transparent;
+      border-radius: 999px;
+      animation: spinAction 0.72s linear infinite;
+    }
+    .feedback-toast {
+      animation: toastSlideIn 0.32s cubic-bezier(.2,.8,.2,1) both;
+    }
+    .motion-toast-region {
+      position: fixed;
+      right: 1rem;
+      bottom: calc(5.8rem + env(safe-area-inset-bottom));
+      z-index: 1080;
+      display: grid;
+      gap: 0.55rem;
+      width: min(360px, calc(100vw - 2rem));
+      pointer-events: none;
+    }
+    .motion-toast {
+      border: 1px solid rgba(53, 191, 210, 0.24);
+      border-radius: 14px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.98), rgba(246,252,253,0.97));
+      color: var(--ink);
+      box-shadow: 0 18px 46px rgba(69, 49, 18, 0.16);
+      padding: 0.85rem 1rem;
+      font-size: 0.88rem;
+      font-weight: 700;
+      animation: toastSlideIn 0.28s cubic-bezier(.2,.8,.2,1) both;
+    }
+    .motion-toast.is-leaving {
+      animation: toastSlideOut 0.2s ease both;
+    }
+    .crit-block,
+    .preventive-warning.crit-block,
+    .smart-action-item[data-smart-action-level="danger"],
+    .warehouse-status-zerado {
+      animation: attentionPulse 2.8s ease-in-out infinite;
+    }
+    .status-dot.warning,
+    .status-dot.danger,
+    .route-badge.badge-danger,
+    .severity-block,
+    .severity-attention {
+      animation: statusBreathe 2.6s ease-in-out infinite;
+    }
+    details > :not(summary) {
+      animation: detailReveal 0.22s ease both;
+      transform-origin: top;
+    }
+    .filter-just-matched {
+      animation: filterMatch 0.24s ease both;
+    }
+    .section-loading {
+      position: relative;
+      overflow: hidden;
+    }
+    .section-loading::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+      border-radius: inherit;
+      background:
+        linear-gradient(90deg, transparent, rgba(255,255,255,0.58), transparent),
+        repeating-linear-gradient(
+          180deg,
+          rgba(255,253,248,0.82) 0 14px,
+          rgba(226,177,74,0.12) 14px 15px,
+          rgba(255,253,248,0.82) 15px 32px
+        );
+      background-size: 220% 100%, 100% 100%;
+      animation: skeletonSweep 1.05s linear infinite;
+      opacity: 0.88;
+      pointer-events: none;
+    }
+    body.page-is-loading::before {
+      content: "";
+      position: fixed;
+      inset: 0 auto auto 0;
+      width: 100%;
+      height: 3px;
+      z-index: 1200;
+      background: linear-gradient(90deg, var(--gold-deep), var(--aqua), var(--gold));
+      animation: loadingBar 1.05s ease-in-out infinite;
+      transform-origin: left;
+    }
+    .kanban-column {
+      transition: border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+    }
+    .kanban-dropzone {
+      min-height: 72px;
+    }
+    .kanban-card {
+      cursor: grab;
+      background: rgba(255,255,255,0.9);
+      border: 1px solid rgba(185, 133, 45, 0.18);
+    }
+    .kanban-card:focus-visible {
+      outline: 3px solid rgba(53, 191, 210, 0.32);
+      outline-offset: 3px;
+    }
+    .kanban-card.is-dragging {
+      cursor: grabbing;
+      opacity: 0.66;
+      transform: scale(0.985);
+    }
+    .kanban-column.is-drop-target {
+      border-color: rgba(53, 191, 210, 0.42);
+      background: rgba(53, 191, 210, 0.08);
+      box-shadow: inset 0 0 0 1px rgba(53, 191, 210, 0.18);
+    }
+    @keyframes surfaceEnter {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes tabFocusRing {
+      0% { box-shadow: 0 0 0 0 rgba(221, 183, 101, 0.34); }
+      100% { box-shadow: 0 12px 30px rgba(185, 129, 33, 0.24); }
+    }
+    @keyframes spinAction {
+      to { transform: rotate(360deg); }
+    }
+    @keyframes toastSlideIn {
+      from { opacity: 0; transform: translateY(10px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes toastSlideOut {
+      to { opacity: 0; transform: translateY(6px) scale(0.98); }
+    }
+    @keyframes attentionPulse {
+      0%, 100% { box-shadow: inset 5px 0 0 rgba(201, 58, 58, 0), 0 0 0 rgba(201, 58, 58, 0); }
+      50% { box-shadow: inset 5px 0 0 rgba(201, 58, 58, 0.18), 0 10px 28px rgba(201, 58, 58, 0.10); }
+    }
+    @keyframes statusBreathe {
+      0%, 100% { transform: scale(1); filter: saturate(1); }
+      50% { transform: scale(1.025); filter: saturate(1.08); }
+    }
+    @keyframes detailReveal {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes filterMatch {
+      from { opacity: 0.45; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes skeletonSweep {
+      from { background-position: 220% 0, 0 0; }
+      to { background-position: -220% 0, 0 0; }
+    }
+    @keyframes loadingBar {
+      0% { transform: scaleX(0); opacity: 0.75; }
+      50% { transform: scaleX(0.68); opacity: 1; }
+      100% { transform: scaleX(1); opacity: 0; }
+    }
+    @keyframes currentStepPulse {
+      0%, 100% { box-shadow: 0 0 0 rgba(185, 129, 33, 0); }
+      50% { box-shadow: 0 10px 24px rgba(185, 129, 33, 0.13); }
+    }
+    @keyframes targetFocusPulse {
+      0% { box-shadow: 0 0 0 0 rgba(53, 191, 210, 0.48); }
+      55% { box-shadow: 0 0 0 10px rgba(53, 191, 210, 0.10); }
+      100% { box-shadow: 0 0 0 0 rgba(53, 191, 210, 0); }
+    }
+    @keyframes checklistPop {
+      0% { transform: scale(0.985); }
+      70% { transform: scale(1.015); }
+      100% { transform: scale(1); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.001ms !important;
+      }
+      .section-loading::after,
+      body.page-is-loading::before {
+        animation: none !important;
+      }
+    }
     .mobile-control-center {
       display: none;
       margin-bottom: 1rem;
@@ -635,6 +948,124 @@
       color: var(--muted);
       font-size: 0.82rem;
       font-weight: 700;
+    }
+    .wizard-progress span,
+    .field-stepper span.is-active {
+      position: relative;
+      overflow: hidden;
+    }
+    .wizard-progress span.is-active,
+    .field-stepper span.is-active {
+      border-color: rgba(53, 191, 210, 0.34);
+      background: linear-gradient(180deg, rgba(246,252,253,0.98), rgba(255,250,241,0.96));
+      color: var(--aqua-deep);
+    }
+    .completion-hub-grid,
+    .event-progress,
+    .client-timeline,
+    .review-grid {
+      display: grid;
+      gap: 0.65rem;
+    }
+    .completion-hub-grid {
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    }
+    .completion-item,
+    .review-panel,
+    .timeline-item {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 253, 248, 0.86);
+      padding: 0.8rem;
+    }
+    .event-progress {
+      grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+      margin: 0.8rem 0 0.4rem;
+    }
+    .event-progress-step {
+      position: relative;
+      min-height: 58px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.78);
+      padding: 0.55rem 0.65rem;
+      font-size: 0.78rem;
+      overflow: hidden;
+    }
+    .event-progress-step::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 4px;
+      height: 100%;
+      background: var(--line);
+    }
+    .event-progress-step.is-done {
+      border-color: rgba(47, 143, 91, 0.24);
+      background: var(--crit-ready-bg);
+    }
+    .event-progress-step.is-done::before {
+      background: var(--crit-ready);
+    }
+    .event-progress-step.is-current {
+      border-color: rgba(185, 129, 33, 0.34);
+      background: var(--crit-attention-bg);
+      animation: currentStepPulse 2.8s ease-in-out infinite;
+    }
+    .event-progress-step.is-current::before {
+      background: var(--crit-attention);
+    }
+    .event-progress-step.is-pending {
+      color: var(--muted);
+    }
+    .event-progress-step strong,
+    .timeline-item strong {
+      display: block;
+      color: var(--ink);
+      line-height: 1.15;
+    }
+    .completion-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      margin-top: 0.75rem;
+    }
+    .timeline-item {
+      display: grid;
+      grid-template-columns: 92px 1fr;
+      gap: 0.65rem;
+      align-items: start;
+    }
+    .timeline-date {
+      color: var(--aqua-deep);
+      font-weight: 800;
+      font-size: 0.78rem;
+    }
+    .field-needs-attention {
+      animation: targetFocusPulse 1.6s ease both;
+      outline: 3px solid rgba(53, 191, 210, 0.26);
+      outline-offset: 3px;
+    }
+    .checklist-motion-label {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      min-height: 34px;
+      border-radius: 10px;
+      padding: 0.25rem 0.35rem;
+    }
+    .checklist-motion-label.checklist-done {
+      background: rgba(47, 143, 91, 0.08);
+      animation: checklistPop 0.28s ease both;
+    }
+    .review-panel {
+      background:
+        radial-gradient(circle at top right, rgba(53, 191, 210, 0.10), transparent 30%),
+        linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,250,241,0.96));
+    }
+    .review-grid {
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
     }
     .top-auth-bar {
       display: flex;
@@ -1002,6 +1433,17 @@
       }
       .today-command-main {
         grid-column: 1 / -1;
+      }
+      .daily-action-board,
+      .daily-action-metrics {
+        grid-template-columns: 1fr;
+      }
+      .daily-review-row {
+        grid-template-columns: auto 1fr;
+      }
+      .daily-review-row .route-badge {
+        grid-column: 2;
+        justify-self: start;
       }
       .ops-tabs-nav {
         position: sticky;
@@ -1774,6 +2216,92 @@
         </div>
       </div>
 
+      <div class="daily-action-board mb-3" id="daily-attention-mode">
+        <div class="daily-action-focus smart-action-item" data-smart-action-level="{{ smart_system_dashboard.attention_mode.primary.level }}">
+          <div>
+            <div class="eyebrow mb-2">Modo atenção do dia</div>
+            <h3 class="h5 mb-1">Comando da próxima ação</h3>
+            <div class="small text-secondary">Use este bloco para decidir o que abrir primeiro sem procurar por módulo.</div>
+          </div>
+          <div>
+            <span class="{{ 'severity-block' if smart_system_dashboard.attention_mode.primary.level == 'danger' else 'severity-attention' if smart_system_dashboard.attention_mode.primary.level == 'warning' else 'severity-ready' if smart_system_dashboard.attention_mode.primary.level == 'ready' else 'severity-info' }}">
+              {{ 'Bloqueio' if smart_system_dashboard.attention_mode.primary.level == 'danger' else 'Atenção' if smart_system_dashboard.attention_mode.primary.level == 'warning' else 'Pronto' if smart_system_dashboard.attention_mode.primary.level == 'ready' else 'Informativo' }}
+            </span>
+            <div class="h4 mt-2 mb-1">{{ smart_system_dashboard.attention_mode.primary.title }}</div>
+            <div class="text-secondary small">{{ smart_system_dashboard.attention_mode.primary.detail }}</div>
+          </div>
+          <div class="d-flex flex-wrap gap-2 align-items-center">
+            <a class="btn btn-dark btn-sm {% if smart_system_dashboard.attention_mode.primary.target_href.startswith('#') and smart_system_dashboard.attention_mode.primary.target_tab %}js-tab-link{% endif %}" href="{{ smart_system_dashboard.attention_mode.primary.target_href }}" {% if smart_system_dashboard.attention_mode.primary.target_href.startswith('#') and smart_system_dashboard.attention_mode.primary.target_tab %}data-tab-target="{{ smart_system_dashboard.attention_mode.primary.target_tab }}"{% endif %}>{{ smart_system_dashboard.attention_mode.primary.action }}</a>
+            <a class="btn btn-outline-secondary btn-sm js-tab-link" href="#smart-start-day" data-tab-target="summary-tab">Mostrar só ações</a>
+          </div>
+        </div>
+
+        <div class="daily-action-rail">
+          <div class="fw-semibold mb-2">Qualidade dos cadastros</div>
+          <div class="daily-action-metrics mb-3">
+            {% for metric in smart_system_dashboard.attention_mode.metrics %}
+            <div class="daily-action-metric {{ 'crit-block' if metric.level == 'danger' else 'crit-attention' if metric.level == 'warning' else 'crit-ready' if metric.level == 'ready' else 'crit-info' }}">
+              <span class="small text-secondary">{{ metric.label }}</span>
+              <strong>{{ metric.value }}</strong>
+            </div>
+            {% endfor %}
+          </div>
+          <div class="small text-secondary">Pontuação calculada por clientes incompletos, eventos sem vínculo, revisão de PDF e inconsistências abertas.</div>
+        </div>
+
+        <div class="daily-review-card">
+          <div class="fw-semibold mb-2">Roteiro de revisão rápida</div>
+          <div class="daily-review-list small">
+            {% for item in smart_system_dashboard.attention_mode.review_checks %}
+            <a class="daily-review-row {% if item.target_href.startswith('#') %}js-tab-link{% endif %}" href="{{ item.target_href }}" {% if item.target_href.startswith('#') %}data-tab-target="{{ item.target_tab }}"{% endif %}>
+              <span class="daily-review-index">{{ loop.index }}</span>
+              <span>
+                <span class="fw-semibold">{{ item.label }}</span><br>
+                <span class="text-secondary">{{ item.detail }}</span>
+              </span>
+              <span class="route-badge {{ 'badge-danger' if item.level == 'danger' else 'badge-avulso' if item.level == 'warning' else 'badge-success' if item.level == 'ready' else 'badge-fixed' }}">{{ item.count }}</span>
+            </a>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="daily-review-card">
+          <div class="fw-semibold mb-2">Atalhos da função e semana</div>
+          <div class="d-flex flex-wrap gap-2 mb-3">
+            {% for item in smart_system_dashboard.favorites %}
+            <a class="btn btn-sm btn-outline-secondary {% if item.target_tab %}js-tab-link{% endif %}" href="{{ item.target_href }}" {% if item.target_tab %}data-tab-target="{{ item.target_tab }}"{% endif %}>{{ item.label }}</a>
+            {% endfor %}
+          </div>
+          <div class="route-badges">
+            {% for item in smart_system_dashboard.attention_mode.weekly_focus %}
+            <span class="route-badge badge-fixed">{{ item.label }}: {{ item.value }}</span>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="entity-card p-3 mb-3" id="completion-hub-panel">
+        <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+          <div>
+            <div class="fw-semibold">Completar o que falta</div>
+            <div class="small text-secondary">Atalhos para ir direto ao campo ou módulo que precisa ser preenchido.</div>
+          </div>
+          <span class="route-badge badge-fixed">Ação guiada</span>
+        </div>
+        <div class="completion-hub-grid">
+          {% for item in smart_system_dashboard.completion_hub["items"] %}
+          <div class="completion-item smart-action-item" data-smart-action-level="{{ item.level }}">
+            <div class="d-flex justify-content-between gap-2 mb-2">
+              <div class="fw-semibold">{{ item.title }}</div>
+              <span class="route-badge {{ 'badge-danger' if item.level == 'danger' else 'badge-avulso' if item.level == 'warning' else 'badge-success' if item.level == 'ready' else 'badge-fixed' }}">{{ 'ação' if item.level in ['danger', 'warning'] else 'ok' if item.level == 'ready' else 'info' }}</span>
+            </div>
+            <div class="small text-secondary mb-3">{{ item.detail }}</div>
+            <button class="btn btn-sm btn-outline-secondary rounded-pill js-complete-missing" type="button" data-tab-target="{{ item.target_tab }}" data-target-href="{{ item.target_href }}" data-highlight-target="{{ item.highlight_target }}">{{ item.action }}</button>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
       <div class="entity-card p-3 mb-3" id="smart-start-day">
         <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
           <div>
@@ -2357,6 +2885,22 @@
         </select>
         <button class="btn btn-outline-secondary js-clear-filters" type="button" data-filter-target=".global-search-item">Limpar filtros</button>
       </div>
+      <div class="entity-card p-3 mb-3" id="command-search-panel">
+        <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-2">
+          <div>
+            <div class="fw-semibold">Busca com comandos</div>
+            <div class="small text-secondary">Use comandos prontos para abrir listas comuns sem digitar filtros do zero.</div>
+          </div>
+          <span class="route-badge badge-fixed">Interativo</span>
+        </div>
+        <div class="quick-filter-row">
+          {% for command in smart_system_dashboard.command_search %}
+          <button class="btn btn-sm btn-outline-secondary js-command-search" type="button" data-command-query="{{ command.query }}" data-command-module="{{ command.module }}" data-tab-target="{{ command.target_tab }}" data-target-href="{{ command.target_href }}">
+            {{ command.label }}
+          </button>
+          {% endfor %}
+        </div>
+      </div>
       <div class="quick-filter-row mb-3">
         {% for module in search_module_counts %}
         <button class="btn btn-sm btn-outline-secondary js-set-filter" type="button" data-select-target="global-search-module" data-value="{{ module.key }}">
@@ -2601,12 +3145,15 @@
                   </div>
                   <span class="route-badge badge-fixed">Cliente + evento</span>
                 </div>
-                <form class="quick-rental-grid" method="post" action="{{ url_for('save_quick_rental') }}">
-                  <div class="span-6 field-stepper">
-                    <span>1. Cliente</span>
-                    <span>2. Data e endereço</span>
-                    <span>3. Equipamento</span>
-                    <span>4. Cobrança</span>
+                <form class="quick-rental-grid" method="post" action="{{ url_for('save_quick_rental') }}" id="quick-rental-form">
+                  <div class="span-6">
+                    <div class="fw-semibold mb-2">Assistente de cadastro por etapas</div>
+                    <div class="field-stepper wizard-progress" aria-label="Assistente de cadastro da locação">
+                      <span class="is-active" data-wizard-step="cliente">1. Cliente</span>
+                      <span data-wizard-step="data">2. Data e endereço</span>
+                      <span data-wizard-step="banheiros">3. Banheiro/equipamento</span>
+                      <span data-wizard-step="cobranca">4. Cobrança</span>
+                    </div>
                   </div>
                   <div class="span-2">
                     <label class="form-label fw-semibold" for="quick_customer_name">Cliente</label>
@@ -2667,6 +3214,18 @@
                       <option value="quinzenal">Quinzenal</option>
                       <option value="mensal">Mensal</option>
                     </select>
+                  </div>
+                  <div class="span-6 review-panel" id="quick-review-panel">
+                    <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
+                      <div class="fw-semibold">Resumo antes de salvar</div>
+                      <span class="route-badge badge-fixed" id="quick-review-status">0/4</span>
+                    </div>
+                    <div class="review-grid small">
+                      <div><span class="text-secondary">Cliente</span><strong id="quick-review-client">sem cliente</strong></div>
+                      <div><span class="text-secondary">Data/local</span><strong id="quick-review-date">sem data</strong></div>
+                      <div><span class="text-secondary">Banheiros</span><strong id="quick-review-equipment">1x Banheiro Luxo</strong></div>
+                      <div><span class="text-secondary">Cobrança</span><strong id="quick-review-billing">avulsa</strong></div>
+                    </div>
                   </div>
                   <div class="span-6 d-flex flex-wrap gap-2 justify-content-end">
                     <button class="btn btn-dark rounded-pill" type="submit">Salvar locação</button>
@@ -2752,11 +3311,11 @@
                 <div class="row g-2">
                   {% for column in operational_kanban %}
                   <div class="col-md">
-                    <div class="stat-card p-2 h-100">
+                    <div class="stat-card kanban-column p-2 h-100" data-kanban-column="{{ column.title }}">
                       <div class="fw-semibold small mb-2">{{ column.title }}</div>
-                      <div class="d-grid gap-2 small">
+                      <div class="kanban-dropzone d-grid gap-2 small" aria-label="Etapa {{ column.title }}">
                         {% for item in column["items"] %}
-                        <div class="p-2 rounded-3 bg-white border">
+                        <div class="kanban-card p-2 rounded-3" draggable="true" tabindex="0">
                           <div class="fw-semibold">{{ item.title or "Sem título" }}</div>
                           <div class="text-secondary">{{ item.detail }}</div>
                           <span class="route-badge badge-avulso">{{ item.badge }}</span>
@@ -3721,11 +4280,12 @@
                   <div class="form-helper mb-3">
                     Menos esforço para operar: monte o evento primeiro, depois vincule clientes e veículos. Se for contrato recorrente, preencha categoria, frequência e próxima execução no mesmo cadastro.
                   </div>
-                  <div class="field-stepper" aria-label="Etapas do cadastro de evento">
-                    <span>1. Dados básicos</span>
-                    <span>2. Clientes e veículos</span>
-                    <span>3. Checklist</span>
-                    <span>4. Financeiro</span>
+                  <div class="fw-semibold mb-2">Assistente de cadastro por etapas</div>
+                  <div class="field-stepper wizard-progress" aria-label="Etapas do cadastro de evento">
+                    <span class="is-active" data-event-wizard-step="basico">1. Dados básicos</span>
+                    <span data-event-wizard-step="vinculos">2. Clientes e veículos</span>
+                    <span data-event-wizard-step="checklist">3. Checklist</span>
+                    <span data-event-wizard-step="financeiro">4. Financeiro</span>
                   </div>
                   <div class="row g-3 mb-3">
                     <div class="col-4">
@@ -3776,10 +4336,10 @@
                   <div class="mb-3">
                     <label class="form-label fw-semibold">Checklist do evento</label>
                     <div class="d-grid gap-2">
-                      <label><input type="checkbox" name="check_checklist_equipamentos"> Equipamentos conferidos</label>
-                      <label><input type="checkbox" name="check_checklist_documentos"> Documentos conferidos</label>
-                      <label><input type="checkbox" name="check_checklist_equipe"> Equipe alinhada</label>
-                      <label><input type="checkbox" name="check_checklist_financeiro"> Financeiro validado</label>
+                      <label class="checklist-motion-label"><input class="js-checklist-motion" type="checkbox" name="check_checklist_equipamentos"> Equipamentos conferidos</label>
+                      <label class="checklist-motion-label"><input class="js-checklist-motion" type="checkbox" name="check_checklist_documentos"> Documentos conferidos</label>
+                      <label class="checklist-motion-label"><input class="js-checklist-motion" type="checkbox" name="check_checklist_equipe"> Equipe alinhada</label>
+                      <label class="checklist-motion-label"><input class="js-checklist-motion" type="checkbox" name="check_checklist_financeiro"> Financeiro validado</label>
                     </div>
                   </div>
                   <div class="entity-card p-3 mb-3">
@@ -3889,6 +4449,18 @@
                     <label class="form-label fw-semibold" for="notes_event">Observações</label>
                     <input class="form-control" id="notes_event" name="notes" type="text" placeholder="Montagem a partir das 07h">
                   </div>
+                  <div class="review-panel mb-3" id="event-review-panel">
+                    <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
+                      <div class="fw-semibold">Resumo antes de salvar</div>
+                      <span class="route-badge badge-fixed" id="event-review-status">0/4</span>
+                    </div>
+                    <div class="review-grid small">
+                      <div><span class="text-secondary">Evento</span><strong id="event-review-title">sem nome</strong></div>
+                      <div><span class="text-secondary">Período</span><strong id="event-review-date">sem data</strong></div>
+                      <div><span class="text-secondary">Vínculos</span><strong id="event-review-links">sem cliente/veículo</strong></div>
+                      <div><span class="text-secondary">Financeiro</span><strong id="event-review-money">sem valor</strong></div>
+                    </div>
+                  </div>
                   <div class="d-grid">
                     <button class="btn btn-dark rounded-pill" type="submit" id="save-event-button">Salvar evento</button>
                   </div>
@@ -3960,9 +4532,30 @@
                           {% endif %}
                           <div class="route-badges mt-2">
                             {% for item in event.checklist %}
-                            <span class="route-badge {{ 'badge-success' if item.done else 'badge-danger' }}">{{ item.label }}</span>
+                            <span class="route-badge checklist-status-badge {{ 'badge-success' if item.done else 'badge-danger' }}">{{ item.label }}</span>
                             {% endfor %}
                           </div>
+                          <div class="event-progress" aria-label="Progresso do evento">
+                            {% for step in event.progress_steps %}
+                            <div class="event-progress-step is-{{ step.state }}" title="{{ step.detail }}">
+                              <strong>{{ step.label }}</strong>
+                              <span>{{ 'pronto' if step.state == 'done' else 'agora' if step.state == 'current' else 'pendente' }}</span>
+                            </div>
+                            {% endfor %}
+                          </div>
+                          <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap small text-secondary">
+                            <span>Progresso do evento: {{ event.progress_label }}</span>
+                            {% if event.progress_missing_actions %}
+                            <span>{{ event.progress_missing_actions|length }} ação(ões) para completar</span>
+                            {% endif %}
+                          </div>
+                          {% if event.progress_missing_actions %}
+                          <div class="completion-actions">
+                            {% for action in event.progress_missing_actions %}
+                            <button class="btn btn-sm btn-outline-secondary rounded-pill js-complete-missing" type="button" data-tab-target="{{ action.target_tab }}" data-target-href="{{ action.target_href }}" data-highlight-target="{{ action.highlight_target }}">{{ action.label }}</button>
+                            {% endfor %}
+                          </div>
+                          {% endif %}
                           {% if event.recurrence_enabled == 'true' %}
                           <div class="small text-secondary mt-2">
                             Próxima execução {{ event.next_occurrence_date|date_br if event.next_occurrence_date else "n/d" }} • status {{ event.recurrence_status or "ativo" }}{% if event.recurring_value %} • valor recorrente {{ event.recurring_value|currency_br }}{% endif %}
@@ -3987,7 +4580,7 @@
                           </form>
                           <form method="post" action="{{ url_for('update_event_status', event_id=event.event_id) }}">
                             <input type="hidden" name="status" value="finalizado">
-                            <button class="btn btn-sm btn-outline-success rounded-pill" type="submit" data-confirm-message="Finalizar este evento? Confirme se os equipamentos ja retornaram.">Finalizar</button>
+                            <button class="btn btn-sm btn-outline-success rounded-pill" type="submit" data-confirm-message="Finalizar este evento? Confirme checklist, financeiro e registros antes de concluir.">Finalizar</button>
                           </form>
                           <form method="post" action="{{ url_for('delete_event', event_id=event.event_id) }}">
                             <button class="btn btn-sm btn-outline-danger rounded-pill" type="submit" data-confirm-message="Excluir este evento? Esta ação não pode ser desfeita pelo painel.">Excluir</button>
@@ -4671,6 +5264,18 @@
                             <div class="text-secondary">Orçamento {{ quote.id }} • {{ quote.status }}</div>
                             {% endfor %}
                           </div>
+                        </div>
+                        <div class="client-timeline mt-3" aria-label="Linha do tempo do cliente">
+                          <div class="fw-semibold">Linha do tempo do cliente</div>
+                          {% for timeline in detail.timeline %}
+                          <div class="timeline-item">
+                            <div class="timeline-date">{{ timeline.date }}</div>
+                            <div>
+                              <strong>{{ timeline.label }}</strong>
+                              <span class="text-secondary">{{ timeline.detail }}</span>
+                            </div>
+                          </div>
+                          {% endfor %}
                         </div>
                       </details>
                     </div>
@@ -6379,6 +6984,8 @@
       const panel = document.getElementById(panelId);
       if (!panel) return null;
       panel.hidden = false;
+      panel.classList.add("filter-just-matched");
+      window.setTimeout(() => panel.classList.remove("filter-just-matched"), 360);
       return panel;
     }
 
@@ -6387,6 +6994,8 @@
       if (!panel) return;
       panel.hidden = !panel.hidden;
       if (!panel.hidden) {
+        panel.classList.add("filter-just-matched");
+        window.setTimeout(() => panel.classList.remove("filter-just-matched"), 360);
         panel.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     }
@@ -6470,9 +7079,251 @@
       }).format(Number(value || 0));
     }
 
+    function selectedOptionCount(element) {
+      return element ? [...element.selectedOptions].length : 0;
+    }
+
+    function setTextById(id, value) {
+      const element = document.getElementById(id);
+      if (element) element.textContent = value;
+    }
+
+    function updateWizardSteps(container, states) {
+      if (!container) return;
+      container.querySelectorAll("span").forEach((step) => {
+        const key = step.dataset.wizardStep || step.dataset.eventWizardStep;
+        step.classList.toggle("is-active", Boolean(states[key]));
+      });
+    }
+
+    function updateQuickReview() {
+      const form = document.getElementById("quick-rental-form");
+      if (!form) return;
+      const name = document.getElementById("quick_customer_name")?.value.trim();
+      const address = document.getElementById("quick_address")?.value.trim();
+      const start = document.getElementById("quick_event_date")?.value;
+      const end = document.getElementById("quick_event_end_date")?.value;
+      const equipment = document.getElementById("quick_equipment_type")?.value || "Banheiro Luxo";
+      const quantity = document.getElementById("quick_equipment_quantity")?.value || "1";
+      const billing = document.getElementById("quick_billing_model")?.value || "avulso";
+      const serviceValue = document.getElementById("quick_service_value")?.value || "0";
+      const complete = [
+        Boolean(name),
+        Boolean(address && start),
+        Boolean(equipment && quantity),
+        Number(serviceValue) > 0 || Boolean(billing),
+      ].filter(Boolean).length;
+      setTextById("quick-review-client", name || "sem cliente");
+      setTextById("quick-review-date", start ? `${start}${end && end !== start ? ` ate ${end}` : ""}` : "sem data");
+      setTextById("quick-review-equipment", `${quantity}x ${equipment}`);
+      setTextById("quick-review-billing", `${billing} • ${formatCurrencyBRL(serviceValue)}`);
+      setTextById("quick-review-status", `${complete}/4`);
+      updateWizardSteps(form.querySelector(".wizard-progress"), {
+        cliente: Boolean(name),
+        data: Boolean(address && start),
+        banheiros: Boolean(equipment && quantity),
+        cobranca: Number(serviceValue) > 0 || Boolean(billing),
+      });
+    }
+
+    function updateEventReview() {
+      if (!eventForm) return;
+      const clients = selectedOptionCount(document.getElementById("event_client_ids"));
+      const vehicles = selectedOptionCount(document.getElementById("event_vehicle_ids"));
+      const title = eventFields.title?.value.trim();
+      const start = eventFields.event_date?.value;
+      const end = eventFields.event_end_date?.value;
+      const value = Number(eventFields.valor_servico?.value || 0) + Number(eventFields.valor_adicional?.value || 0);
+      const complete = [
+        Boolean(title && start),
+        Boolean(clients || vehicles),
+        [...eventForm.querySelectorAll(".js-checklist-motion")].some((item) => item.checked),
+        value > 0 || Number(eventFields.recurring_value?.value || 0) > 0,
+      ].filter(Boolean).length;
+      setTextById("event-review-title", title || "sem nome");
+      setTextById("event-review-date", start ? `${start}${end && end !== start ? ` ate ${end}` : ""}` : "sem data");
+      setTextById("event-review-links", `${clients} cliente(s) • ${vehicles} veículo(s)`);
+      setTextById("event-review-money", value > 0 ? formatCurrencyBRL(value) : "sem valor");
+      setTextById("event-review-status", `${complete}/4`);
+      updateWizardSteps(eventForm.querySelector(".wizard-progress"), {
+        basico: Boolean(title && start),
+        vinculos: Boolean(clients || vehicles),
+        checklist: [...eventForm.querySelectorAll(".js-checklist-motion")].some((item) => item.checked),
+        financeiro: value > 0 || Number(eventFields.recurring_value?.value || 0) > 0,
+      });
+    }
+
+    function highlightTarget(selector) {
+      const target = selector ? document.querySelector(selector) : null;
+      if (!target) return;
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      target.classList.remove("field-needs-attention");
+      void target.offsetWidth;
+      target.classList.add("field-needs-attention");
+      if (typeof target.focus === "function" && ["INPUT", "SELECT", "TEXTAREA", "BUTTON", "A"].includes(target.tagName)) {
+        target.focus({ preventScroll: true });
+      } else {
+        target.querySelector?.("input, select, textarea, button, a")?.focus?.({ preventScroll: true });
+      }
+      window.setTimeout(() => target.classList.remove("field-needs-attention"), 1800);
+    }
+
+    function openGuidedTarget(tabTarget, targetHref, highlightSelector) {
+      if (tabTarget) activateTab(tabTarget);
+      if (targetHref === "#event-create-panel") {
+        showCreatePanel("event-create-panel");
+      }
+      const hrefTarget = targetHref?.startsWith("#") ? document.querySelector(targetHref) : null;
+      hrefTarget?.scrollIntoView({ behavior: "smooth", block: "start" });
+      window.setTimeout(() => highlightTarget(highlightSelector || targetHref), 180);
+    }
+
+    function applyCommandSearch(button) {
+      const input = document.getElementById("global-search");
+      const select = document.getElementById("global-search-module");
+      if (input) {
+        input.value = button.dataset.commandQuery || "";
+        saveFilterState(input);
+      }
+      if (select) {
+        select.value = button.dataset.commandModule || "";
+        saveFilterState(select);
+      }
+      applyFiltersForTarget(".global-search-item");
+      openGuidedTarget(button.dataset.tabTarget || "summary-tab", button.dataset.targetHref || "#global-search-panel", "#global-search-panel");
+      showMotionToast("Busca com comando aplicada.");
+    }
+
+    function showMotionToast(message, tone = "info") {
+      if (!message || !document.body) return;
+      let region = document.getElementById("motion-toast-region");
+      if (!region) {
+        region = document.createElement("div");
+        region.id = "motion-toast-region";
+        region.className = "motion-toast-region";
+        region.setAttribute("aria-live", "polite");
+        document.body.appendChild(region);
+      }
+      const toast = document.createElement("div");
+      toast.className = `motion-toast motion-toast-${tone}`;
+      toast.textContent = message;
+      region.appendChild(toast);
+      window.setTimeout(() => {
+        toast.classList.add("is-leaving");
+        toast.addEventListener("animationend", () => toast.remove(), { once: true });
+      }, 2400);
+    }
+
+    function initMotionLayer() {
+      document.body?.classList.add("motion-ready");
+      const staggerGroups = document.querySelectorAll(
+        ".row, .d-grid, .global-search-grid, .ops-home-grid, .attention-center-grid, .daily-checklist-grid, .calendar-grid, .finance-status-row, .completion-hub-grid, .event-progress, .client-timeline"
+      );
+      staggerGroups.forEach((group) => {
+        const items = [...group.children].filter((child) => child.nodeType === Node.ELEMENT_NODE);
+        items.slice(0, 18).forEach((child, index) => {
+          child.style.setProperty("--motion-order", String(index));
+        });
+      });
+    }
+
+    function markSectionLoading(source) {
+      const section = source?.closest?.(".glass, .entity-card, .modal-content, form");
+      document.body?.classList.add("page-is-loading");
+      section?.classList.add("section-loading");
+      window.setTimeout(() => {
+        document.body?.classList.remove("page-is-loading");
+        section?.classList.remove("section-loading");
+      }, 3600);
+    }
+
+    function initSubmitFeedback() {
+      document.querySelectorAll("form").forEach((form) => {
+        form.addEventListener("submit", (event) => {
+          const button = event.submitter || form.querySelector('button[type="submit"], input[type="submit"]');
+          if (!button) return;
+          button.classList.add("is-submitting");
+          button.setAttribute("aria-busy", "true");
+          if (!button.dataset.motionOriginalLabel) {
+            button.dataset.motionOriginalLabel = button.textContent.trim();
+          }
+          const label = button.dataset.loadingLabel || "Processando";
+          if (button.tagName === "BUTTON") {
+            button.textContent = label;
+          }
+          markSectionLoading(button);
+        });
+      });
+    }
+
+    function initLinkLoadingFeedback() {
+      document.querySelectorAll("a[href]").forEach((link) => {
+        link.addEventListener("click", () => {
+          const href = link.getAttribute("href") || "";
+          const isSamePage = href.startsWith("#");
+          const opensNewTab = link.target && link.target !== "_self";
+          const togglesTab = link.classList.contains("js-tab-link") || link.dataset.bsToggle;
+          if (isSamePage || opensNewTab || togglesTab) return;
+          markSectionLoading(link);
+        });
+      });
+    }
+
+    function initKanbanMotion() {
+      let draggedCard = null;
+      document.querySelectorAll(".kanban-card").forEach((card) => {
+        card.addEventListener("dragstart", (event) => {
+          draggedCard = card;
+          card.classList.add("is-dragging");
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("text/plain", card.textContent.trim());
+        });
+        card.addEventListener("dragend", () => {
+          card.classList.remove("is-dragging");
+          document.querySelectorAll(".kanban-column.is-drop-target").forEach((column) => column.classList.remove("is-drop-target"));
+          draggedCard = null;
+        });
+        card.addEventListener("keydown", (event) => {
+          if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+          const columns = [...document.querySelectorAll(".kanban-dropzone")];
+          const currentIndex = columns.findIndex((column) => column.contains(card));
+          const nextIndex = event.key === "ArrowRight" ? currentIndex + 1 : currentIndex - 1;
+          const nextColumn = columns[nextIndex];
+          if (!nextColumn) return;
+          event.preventDefault();
+          nextColumn.prepend(card);
+          card.classList.add("filter-just-matched");
+          card.focus();
+          window.setTimeout(() => card.classList.remove("filter-just-matched"), 320);
+          showMotionToast("Card movido no kanban.");
+        });
+      });
+      document.querySelectorAll(".kanban-dropzone").forEach((zone) => {
+        zone.addEventListener("dragover", (event) => {
+          if (!draggedCard) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "move";
+          zone.closest(".kanban-column")?.classList.add("is-drop-target");
+        });
+        zone.addEventListener("dragleave", () => {
+          zone.closest(".kanban-column")?.classList.remove("is-drop-target");
+        });
+        zone.addEventListener("drop", (event) => {
+          event.preventDefault();
+          if (!draggedCard) return;
+          zone.appendChild(draggedCard);
+          zone.closest(".kanban-column")?.classList.remove("is-drop-target");
+          draggedCard.classList.add("filter-just-matched");
+          window.setTimeout(() => draggedCard?.classList.remove("filter-just-matched"), 320);
+          showMotionToast("Card movido no kanban.");
+        });
+      });
+    }
+
     function applyFiltersForTarget(targetSelector) {
       const inputs = [...document.querySelectorAll(`.js-filter-input[data-filter-target="${targetSelector}"]`)];
       const selects = [...document.querySelectorAll(`.js-filter-select[data-filter-target="${targetSelector}"]`)];
+      const hasActiveFilter = inputs.some((input) => input.value) || selects.some((select) => select.value);
       document.querySelectorAll(targetSelector).forEach((item) => {
         const haystack = normalizeText(item.dataset.filterText || item.textContent);
         const matchesText = inputs.every((input) => {
@@ -6484,7 +7335,16 @@
           const attribute = select.dataset.filterAttribute;
           return !value || item.dataset[attribute] === value;
         });
-        item.classList.toggle("hidden-by-filter", !(matchesText && matchesSelect));
+        const isVisible = matchesText && matchesSelect;
+        item.classList.toggle("hidden-by-filter", !isVisible);
+        item.classList.toggle("is-filter-visible", isVisible);
+        if (isVisible && hasActiveFilter) {
+          item.classList.remove("filter-just-matched");
+          void item.offsetWidth;
+          item.classList.add("filter-just-matched");
+        } else {
+          item.classList.remove("filter-just-matched");
+        }
       });
     }
 
@@ -6521,6 +7381,10 @@
 
     const hqLat = "{{ hq.lat }}";
     const hqLng = "{{ hq.lng }}";
+    initMotionLayer();
+    initSubmitFeedback();
+    initLinkLoadingFeedback();
+    initKanbanMotion();
     if (vehicleFields.start_lat && !vehicleFields.start_lat.value) {
       vehicleFields.start_lat.value = hqLat;
     }
@@ -6537,10 +7401,17 @@
       const fixed = quickClientType.value === "fixo";
       if (quickBillingModel) quickBillingModel.value = fixed ? "mensal" : "avulso";
       if (quickCleaningFrequency) quickCleaningFrequency.value = fixed ? "semanal" : "nao_aplica";
+      updateQuickReview();
     });
     quickBillingModel?.addEventListener("change", () => {
       if (quickCleaningFrequency && quickBillingModel.value === "mensal") quickCleaningFrequency.value = "semanal";
+      updateQuickReview();
     });
+    document.getElementById("quick-rental-form")?.querySelectorAll("input, select").forEach((field) => {
+      field.addEventListener("input", updateQuickReview);
+      field.addEventListener("change", updateQuickReview);
+    });
+    updateQuickReview();
     document.querySelectorAll(".js-photo-preview").forEach((button) => {
       button.addEventListener("click", () => {
         const image = document.getElementById("assetPhotoPreview");
@@ -6559,7 +7430,21 @@
       if (eventFields.event_end_date && !eventFields.event_end_date.value) {
         eventFields.event_end_date.value = eventFields.event_date.value;
       }
+      updateEventReview();
     });
+    eventForm?.querySelectorAll("input, select").forEach((field) => {
+      field.addEventListener("input", updateEventReview);
+      field.addEventListener("change", updateEventReview);
+    });
+    document.querySelectorAll(".js-checklist-motion").forEach((input) => {
+      const syncChecklistMotion = () => {
+        input.closest(".checklist-motion-label")?.classList.toggle("checklist-done", input.checked);
+        updateEventReview();
+      };
+      input.addEventListener("change", syncChecklistMotion);
+      syncChecklistMotion();
+    });
+    updateEventReview();
 
     document.querySelectorAll(".js-tab-link").forEach((link) => {
       link.addEventListener("click", (event) => {
@@ -6571,6 +7456,13 @@
           showCreatePanel(link.dataset.openCreate);
         }
         document.querySelector(link.getAttribute("href"))?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+
+    document.querySelectorAll(".js-complete-missing").forEach((button) => {
+      button.addEventListener("click", () => {
+        openGuidedTarget(button.dataset.tabTarget, button.dataset.targetHref, button.dataset.highlightTarget);
+        showMotionToast("Atalho aberto para completar o cadastro.");
       });
     });
 
@@ -6617,11 +7509,19 @@
         select.value = button.dataset.value || "";
         saveFilterState(select);
         applyFiltersForTarget(select.dataset.filterTarget);
+        showMotionToast("Filtro aplicado.");
       });
     });
 
+    document.querySelectorAll(".js-command-search").forEach((button) => {
+      button.addEventListener("click", () => applyCommandSearch(button));
+    });
+
     document.querySelectorAll(".js-clear-filters").forEach((button) => {
-      button.addEventListener("click", () => clearFiltersForTarget(button.dataset.filterTarget));
+      button.addEventListener("click", () => {
+        clearFiltersForTarget(button.dataset.filterTarget);
+        showMotionToast("Filtros limpos.");
+      });
     });
 
     const actionOnlyFilter = document.getElementById("action-only-filter");
@@ -6648,7 +7548,12 @@
         try {
           await navigator.clipboard.writeText(value);
           button.textContent = "Copiado";
-          setTimeout(() => { button.textContent = button.dataset.originalLabel || "Copiar link"; }, 1800);
+          button.classList.add("highlight-after-save");
+          showMotionToast("Link copiado.");
+          setTimeout(() => {
+            button.textContent = button.dataset.originalLabel || "Copiar link";
+            button.classList.remove("highlight-after-save");
+          }, 1800);
         } catch (error) {
           window.prompt("Copie o link:", value);
         }
@@ -6776,7 +7681,11 @@
           const input = document.querySelector(`input[name="check_${item.label}"]`);
           if (input) input.checked = Boolean(item.done);
         });
+        document.querySelectorAll(".js-checklist-motion").forEach((input) => {
+          input.closest(".checklist-motion-label")?.classList.toggle("checklist-done", input.checked);
+        });
         document.getElementById("save-event-button").textContent = "Salvar alterações do evento";
+        updateEventReview();
         eventForm.scrollIntoView({ behavior: "smooth", block: "start" });
       });
     });
@@ -6794,6 +7703,7 @@
           eventFields.notes.value = [button.dataset.notes || "", billingText].filter(Boolean).join("\n");
         }
         document.getElementById("save-event-button").textContent = "Salvar evento";
+        updateEventReview();
         eventForm?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
     });
@@ -6805,6 +7715,8 @@
         return;
       }
       geocodeButton.disabled = true;
+      geocodeButton.classList.add("is-submitting");
+      geocodeButton.setAttribute("aria-busy", "true");
       geocodeStatus.textContent = "Buscando coordenadas...";
       try {
         const response = await fetch("{{ url_for('geocode') }}", {
@@ -6818,10 +7730,16 @@
         clientFields.lng.value = payload.lng;
         const provider = payload.provider === "google" ? "Google Maps" : "OpenStreetMap";
         geocodeStatus.textContent = `Coordenadas preenchidas via ${provider}: ${Number(payload.lat).toFixed(5)}, ${Number(payload.lng).toFixed(5)}`;
+        geocodeStatus.classList.add("highlight-after-save");
+        showMotionToast("Coordenadas preenchidas.");
+        window.setTimeout(() => geocodeStatus.classList.remove("highlight-after-save"), 1800);
       } catch (error) {
         geocodeStatus.textContent = error.message;
+        showMotionToast("Não foi possível buscar coordenadas.", "warning");
       } finally {
         geocodeButton.disabled = false;
+        geocodeButton.classList.remove("is-submitting");
+        geocodeButton.removeAttribute("aria-busy");
       }
     });
   </script>

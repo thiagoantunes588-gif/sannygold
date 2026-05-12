@@ -177,6 +177,14 @@ class OperationalUiImprovementsTest(unittest.TestCase):
         self.assertIn("Etapas do cadastro de evento", html)
         self.assertIn("smart-usage-panel", html)
         self.assertIn("Central inteligente de uso diário", html)
+        self.assertIn("daily-attention-mode", html)
+        self.assertIn("Modo atenção do dia", html)
+        self.assertIn("Comando da próxima ação", html)
+        self.assertIn("Qualidade dos cadastros", html)
+        self.assertIn("Roteiro de revisão rápida", html)
+        self.assertIn("Atalhos da função e semana", html)
+        self.assertIn("Banheiros/equipamentos", html)
+        self.assertIn("PDF/impresso", html)
         self.assertIn("Resumo automático do dia", html)
         self.assertIn("Mostrar só o que precisa de ação", html)
         self.assertIn("Pontuação de risco por evento", html)
@@ -191,6 +199,12 @@ class OperationalUiImprovementsTest(unittest.TestCase):
         self.assertIn("Fechar o dia guiado", html)
         self.assertIn("Modo revisão antes de imprimir/PDF", html)
         self.assertIn("Templates rápidos e campos guiados por etapa", html)
+        self.assertIn("Completar o que falta", html)
+        self.assertIn("Busca com comandos", html)
+        self.assertIn("Assistente de cadastro por etapas", html)
+        self.assertIn("Resumo antes de salvar", html)
+        self.assertIn("Progresso do evento", html)
+        self.assertIn("Linha do tempo do cliente", html)
         self.assertNotIn("driver-pane", html)
         self.assertNotIn("driver-tab", html)
         self.assertNotIn("Modo motorista", html)
@@ -248,6 +262,27 @@ class OperationalUiImprovementsTest(unittest.TestCase):
             "applyActionOnlyFilter",
             "smart-template-button",
             "Modelo de cobrança sugerido",
+            "js-complete-missing",
+            "js-command-search",
+            "event-progress-step",
+            "field-needs-attention",
+            "checklist-motion-label",
+            "updateQuickReview",
+            "updateEventReview",
+            "applyCommandSearch",
+            "motion-ready",
+            "surfaceEnter",
+            "toastSlideIn",
+            "section-loading",
+            "page-is-loading",
+            "filter-just-matched",
+            "initSubmitFeedback",
+            "initKanbanMotion",
+            "showMotionToast",
+            "draggable=\"true\"",
+            "kanban-card",
+            "kanban-dropzone",
+            "prefers-reduced-motion",
         ):
             self.assertIn(expected, html)
         self.assertNotIn("Agrupamento por status dos eventos", html)

@@ -1754,9 +1754,9 @@ def build_homologation_checklist(
             action="Abrir PDFs",
         ),
         homologation_item(
-            "8. Registrar checklist de saída",
+            "8. Registrar checklist operacional",
             checklist_marked,
-            problem="Nenhum checklist de saída foi marcado em evento.",
+            problem="Nenhum checklist operacional foi marcado em evento.",
             next_action="Editar um evento e marcar os itens conferidos antes da operação.",
             target_href="#events-pane",
             target_tab="events-tab",
@@ -2351,8 +2351,8 @@ def create_event_record(form) -> dict:
     if end_date < start_date:
         raise ValueError("A data final do evento não pode ser anterior à data inicial.")
 
-    client_ids = request.form.getlist("event_client_ids")
-    vehicle_ids = request.form.getlist("event_vehicle_ids")
+    client_ids = form.getlist("event_client_ids")
+    vehicle_ids = form.getlist("event_vehicle_ids")
     checklist_defaults = [
         "checklist_equipamentos",
         "checklist_documentos",
@@ -5503,13 +5503,51 @@ def build_client_detail_index(
         client_id = clean_text(client.get("client_id"))
         cleanings = sorted(cleanings_by_client.get(client_id, []), key=lambda item: clean_text(item.get("service_date")), reverse=True)
         routes = sorted(routes_by_client.get(client_id, []), key=lambda item: clean_text(item.get("generated_at")), reverse=True)
+        contract = contracts_by_client.get(client_id, {})
+        timeline = []
+        if contract:
+            timeline.append({
+                "label": "Contrato",
+                "date": format_date_br(contract.get("start_date")) if contract.get("start_date") else "ativo",
+                "detail": f"{format_currency_br(contract.get('monthly_value'))} • {clean_text(contract.get('cleaning_frequency'), 'semanal').replace('_', ' ')}",
+                "level": "ready",
+            })
+        if cleanings:
+            timeline.append({
+                "label": "Última limpeza",
+                "date": format_date_br(cleanings[0].get("service_date")),
+                "detail": clean_text(cleanings[0].get("notes")) or clean_text(cleanings[0].get("service_type"), "limpeza"),
+                "level": "info",
+            })
+        for route in routes[:2]:
+            timeline.append({
+                "label": "Rota",
+                "date": format_datetime_br(route.get("generated_at")),
+                "detail": f"{route.get('vehicle_id') or 'sem veículo'} • {route.get('status')}",
+                "level": "info",
+            })
+        for quote in quotes_by_name.get(normalize_business_text(client.get("customer_name")), [])[:2]:
+            timeline.append({
+                "label": "Orçamento",
+                "date": format_date_br(quote.get("event_date")) if quote.get("event_date") else "sem data",
+                "detail": f"{quote.get('id')} • {quote.get('status')}",
+                "level": "warning" if clean_text(quote.get("status")) not in {"aprovado", "finalizado"} else "ready",
+            })
+        if not timeline:
+            timeline.append({
+                "label": "Cadastro",
+                "date": "atual",
+                "detail": "Complete telefone, endereço, banheiro/equipamento e histórico para a linha do tempo crescer.",
+                "level": "info",
+            })
         result[client_id] = {
-            "contract": contracts_by_client.get(client_id, {}),
+            "contract": contract,
             "cleanings_count": len(cleanings),
             "last_cleaning": cleanings[0] if cleanings else {},
             "recent_cleanings": cleanings[:4],
             "recent_routes": routes[:4],
             "open_quotes": quotes_by_name.get(normalize_business_text(client.get("customer_name")), [])[:3],
+            "timeline": timeline[:5],
         }
     return result
 
@@ -5977,6 +6015,90 @@ def build_stock_usage_forecast(warehouse_dashboard: dict) -> list[dict]:
     return rows[:8]
 
 
+def build_event_progress(
+    event: dict,
+    route_data: dict | None,
+    has_pdf: bool,
+    can_view_finance: bool,
+) -> dict:
+    event_id = clean_text(event.get("event_id"))
+    status = normalize_event_status(event.get("status"))
+    checklist = event.get("checklist") or []
+    checklist_done = bool(checklist) and all(bool(item.get("done")) for item in checklist)
+    route_event_id = clean_text((route_data or {}).get("event_id"))
+    route_ready = bool(has_pdf and route_data and (not route_event_id or route_event_id == event_id))
+    financial_summary = event.get("financial_summary") or {}
+    has_financial_value = any(
+        parse_decimal(event.get(field)) > 0
+        for field in ("valor_servico", "valor_adicional", "recurring_value")
+    ) or bool(financial_summary)
+    finished_statuses = {"finalizado", "pago", "cancelado"}
+    raw_steps = [
+        {
+            "key": "cadastro",
+            "label": "Cadastro",
+            "done": bool(clean_text(event.get("title")) and clean_text(event.get("event_date"))),
+            "detail": "Nome e data do evento.",
+        },
+        {
+            "key": "clientes",
+            "label": "Clientes",
+            "done": bool(event.get("client_ids")),
+            "detail": "Cliente(s) ligados ao evento.",
+        },
+        {
+            "key": "banheiros",
+            "label": "Banheiros",
+            "done": bool(event.get("client_ids") and (event.get("vehicles_count", 0) or event.get("vehicle_ids"))),
+            "detail": "Banheiros/equipamentos e veículo definidos.",
+        },
+        {
+            "key": "pdf",
+            "label": "Rota/PDF",
+            "done": route_ready,
+            "detail": "Rota, OS ou PDF pronto para conferência.",
+        },
+        {
+            "key": "financeiro",
+            "label": "Financeiro",
+            "done": has_financial_value or not can_view_finance,
+            "detail": "Valores, cobrança ou resumo financeiro.",
+        },
+        {
+            "key": "fechamento",
+            "label": "Fechamento",
+            "done": status in finished_statuses and checklist_done,
+            "detail": "Status final e checklist revisado.",
+        },
+    ]
+    first_open_index = next((index for index, step in enumerate(raw_steps) if not step["done"]), None)
+    steps = []
+    for index, step in enumerate(raw_steps):
+        state = "done" if step["done"] else "current" if index == first_open_index else "pending"
+        steps.append({**step, "state": state})
+
+    missing_actions = []
+    if not raw_steps[0]["done"]:
+        missing_actions.append({"label": "Completar cadastro", "target_tab": "events-tab", "target_href": "#event-create-panel", "highlight_target": "#event-form"})
+    if not raw_steps[1]["done"]:
+        missing_actions.append({"label": "Vincular cliente", "target_tab": "events-tab", "target_href": "#event-create-panel", "highlight_target": "#event_client_ids"})
+    if not raw_steps[2]["done"]:
+        missing_actions.append({"label": "Definir veículos", "target_tab": "events-tab", "target_href": "#event-create-panel", "highlight_target": "#event_vehicle_ids"})
+    if not raw_steps[3]["done"]:
+        missing_actions.append({"label": "Gerar PDF/OS", "target_tab": "operations-tab", "target_href": "#operations-pane", "highlight_target": "#gerador"})
+    if not raw_steps[4]["done"]:
+        missing_actions.append({"label": "Registrar valor", "target_tab": "events-tab", "target_href": "#event-create-panel", "highlight_target": "#valor_servico"})
+    if not raw_steps[5]["done"]:
+        missing_actions.append({"label": "Revisar checklist", "target_tab": "events-tab", "target_href": f"#event-{event_id}", "highlight_target": f"#event-{event_id}"})
+    percent = int(round((sum(1 for step in raw_steps if step["done"]) / max(len(raw_steps), 1)) * 100))
+    return {
+        "steps": steps,
+        "missing_actions": missing_actions[:3],
+        "percent": percent,
+        "label": f"{percent}% pronto",
+    }
+
+
 def build_smart_system_dashboard(
     *,
     attention_center: dict,
@@ -6418,7 +6540,7 @@ def build_smart_system_dashboard(
     }
 
     quick_templates = [
-        {"label": "Evento avulso", "status": "confirmado", "category": "evento", "billing": "avulso", "notes": "Evento avulso com entrega, permanência e retirada combinadas."},
+        {"label": "Evento avulso", "status": "confirmado", "category": "evento", "billing": "avulso", "notes": "Evento avulso com entrega, permanência e logística combinadas."},
         {"label": "Contrato mensal", "status": "confirmado", "category": "contrato", "billing": "mensal", "notes": "Contrato mensal com banheiro instalado e limpeza recorrente."},
         {"label": "Limpeza recorrente", "status": "em_preparacao", "category": "contrato", "billing": "mensal", "notes": "Atendimento de limpeza recorrente com baixa de insumos."},
         {"label": "Orçamento", "status": "orcamento", "category": "orcamento", "billing": "orcamento", "notes": "Pedido em orçamento aguardando aprovação do cliente."},
@@ -6448,6 +6570,183 @@ def build_smart_system_dashboard(
         {"label": "Manutenção", "done": not maintenance_preventive_dashboard.get("alerts"), "detail": "Registrar itens com revisão necessária.", "target_href": "#maintenance-panel", "target_tab": "fleet-tab"},
         {"label": "Estoque", "done": not stock_danger, "detail": "Repor materiais críticos ou zerados.", "target_href": "#warehouse-pane", "target_tab": "warehouse-tab"},
         {"label": "Backup e relatório", "done": False, "detail": "Baixar fechamento do dia e backup quando necessário.", "target_href": url_for("download_daily_closeout"), "target_tab": ""},
+    ]
+
+    primary_pool = resolver_agora or revisar_hoje or acompanhar or [
+        bucket_item("ready", "Começar pela agenda", "Abra a Central do Dia e siga o roteiro de operação.", "summary-tab", "#central-day-panel")
+    ]
+    primary_item = primary_pool[0]
+    primary_action_label = {
+        "danger": "Resolver agora",
+        "warning": "Revisar hoje",
+        "ready": "Continuar rotina",
+        "info": "Acompanhar",
+    }.get(clean_text(primary_item.get("level"), "info"), "Abrir")
+    missing_client_core = sum(
+        1
+        for client in clients
+        if not clean_text(client.get("phone")) or not clean_text(client.get("address"))
+    )
+    active_event_core_issues = sum(
+        1
+        for event in events
+        if event_is_active(event) and (not event.get("client_ids") or not event.get("vehicle_ids"))
+    )
+    maintenance_alert_count = len(maintenance_preventive_dashboard.get("alerts", []))
+    pdf_issue_count = int(pdf_review.get("missing_contact") or 0) + int(pdf_review.get("missing_equipment") or 0)
+    pdf_attention_count = pdf_issue_count if pdf_review.get("has_route") else 1
+    quality_issue_count = (
+        missing_client_core
+        + active_event_core_issues
+        + pdf_attention_count
+        + len(resolver_agora)
+        + len(revisar_hoje)
+        + len([item for item in inconsistencies if item.get("level") in {"danger", "warning"}])
+    )
+    quality_score = max(0, 100 - min(100, quality_issue_count * 8))
+
+    def review_level(count: int, *, enabled: bool = True) -> str:
+        if not enabled:
+            return "info"
+        if count >= 3:
+            return "danger"
+        if count:
+            return "warning"
+        return "ready"
+
+    attention_mode = {
+        "primary": {
+            "level": clean_text(primary_item.get("level"), "info"),
+            "title": clean_text(primary_item.get("title"), "Começar o dia"),
+            "detail": clean_text(primary_item.get("detail"), "Revise prioridades antes de abrir módulos separados."),
+            "target_tab": clean_text(primary_item.get("target_tab"), "summary-tab"),
+            "target_href": clean_text(primary_item.get("target_href"), "#smart-start-day"),
+            "action": primary_action_label,
+        },
+        "metrics": [
+            {"label": "Bloqueios", "value": len(resolver_agora), "level": review_level(len(resolver_agora))},
+            {"label": "Revisar hoje", "value": len(revisar_hoje), "level": review_level(len(revisar_hoje))},
+            {"label": "PDF/impresso", "value": pdf_attention_count, "level": review_level(pdf_attention_count)},
+            {"label": "Qualidade", "value": f"{quality_score}%", "level": "ready" if quality_score >= 85 else "warning" if quality_score >= 65 else "danger"},
+        ],
+        "review_checks": [
+            {
+                "label": "Cliente",
+                "level": review_level(missing_client_core),
+                "count": missing_client_core,
+                "detail": f"{missing_client_core} cadastro(s) sem telefone ou endereço completo.",
+                "target_tab": "clients-tab",
+                "target_href": "#clients-pane",
+            },
+            {
+                "label": "Evento",
+                "level": review_level(active_event_core_issues + len(deadline_alerts)),
+                "count": active_event_core_issues + len(deadline_alerts),
+                "detail": f"{active_event_core_issues} ativo(s) sem cliente/veículo e {len(deadline_alerts)} prazo(s) críticos.",
+                "target_tab": "events-tab",
+                "target_href": "#events-pane",
+            },
+            {
+                "label": "Banheiros/equipamentos",
+                "level": review_level(len(stock_danger) + maintenance_alert_count),
+                "count": len(stock_danger) + maintenance_alert_count,
+                "detail": f"{len(stock_danger)} estoque(s) crítico(s) e {maintenance_alert_count} alerta(s) de manutenção.",
+                "target_tab": "fleet-tab",
+                "target_href": "#maintenance-panel",
+            },
+            {
+                "label": "Financeiro",
+                "level": review_level(len(financial_management.get("overdue", [])), enabled=can_view_finance),
+                "count": len(financial_management.get("overdue", [])) if can_view_finance else 0,
+                "detail": f"{len(financial_management.get('overdue', []))} cobrança(s) vencida(s)." if can_view_finance else "Visível apenas para perfil financeiro ou administrador.",
+                "target_tab": "summary-tab",
+                "target_href": "#receivables-panel" if can_view_finance else "#summary-pane",
+            },
+            {
+                "label": "PDF/impresso",
+                "level": review_level(pdf_attention_count),
+                "count": pdf_attention_count,
+                "detail": "Rota pronta para revisão antes de entregar em PDF/impresso." if pdf_review.get("has_route") and pdf_issue_count == 0 else "Gere ou revise rota, contatos, banheiros e placas antes do PDF.",
+                "target_tab": "operations-tab",
+                "target_href": "#operations-pane",
+            },
+        ],
+        "quality_score": quality_score,
+        "quality_issue_count": quality_issue_count,
+        "weekly_focus": [
+            {"label": "Eventos 7 dias", "value": weekly_report["events"]},
+            {"label": "Recebimentos", "value": weekly_report["receivables"]},
+            {"label": "Vencidos", "value": weekly_report["overdue"]},
+            {"label": "Estoque crítico", "value": weekly_report["stock_critical"]},
+            {"label": "Manutenção", "value": weekly_report["maintenance"]},
+        ],
+    }
+    completion_hub_items = [
+        {
+            "level": review_level(missing_client_core),
+            "title": "Clientes incompletos",
+            "detail": f"{missing_client_core} cliente(s) sem telefone ou endereço.",
+            "target_tab": "clients-tab",
+            "target_href": "#clients-pane",
+            "highlight_target": "#client-search",
+            "action": "Completar clientes",
+        },
+        {
+            "level": review_level(active_event_core_issues + len(deadline_alerts)),
+            "title": "Eventos para completar",
+            "detail": f"{active_event_core_issues} evento(s) sem cliente/veículo e {len(deadline_alerts)} prazo(s) em atenção.",
+            "target_tab": "events-tab",
+            "target_href": "#events-pane",
+            "highlight_target": "#event-filter",
+            "action": "Abrir eventos",
+        },
+        {
+            "level": review_level(pdf_attention_count),
+            "title": "PDF e links de endereço",
+            "detail": "Gere ou revise a rota antes de entregar PDF, impresso ou links para a equipe.",
+            "target_tab": "operations-tab",
+            "target_href": "#operations-pane",
+            "highlight_target": "#gerador",
+            "action": "Revisar PDF",
+        },
+        {
+            "level": review_level(len(stock_danger) + maintenance_alert_count),
+            "title": "Banheiros/equipamentos",
+            "detail": f"{len(stock_danger)} estoque(s) crítico(s) e {maintenance_alert_count} alerta(s) de manutenção.",
+            "target_tab": "fleet-tab",
+            "target_href": "#maintenance-panel",
+            "highlight_target": "#maintenance-panel",
+            "action": "Ver equipamentos",
+        },
+    ]
+    if can_view_finance:
+        completion_hub_items.append({
+            "level": review_level(len(financial_management.get("overdue", []))),
+            "title": "Cobranças pendentes",
+            "detail": f"{len(financial_management.get('overdue', []))} cobrança(s) vencida(s) para revisar.",
+            "target_tab": "summary-tab",
+            "target_href": "#receivables-panel",
+            "highlight_target": "#receivables-panel",
+            "action": "Abrir financeiro",
+        })
+    else:
+        completion_hub_items.append({
+            "level": "info",
+            "title": "Financeiro protegido",
+            "detail": "Pendências financeiras aparecem para administrador ou financeiro.",
+            "target_tab": "summary-tab",
+            "target_href": "#summary-pane",
+            "highlight_target": "#summary-pane",
+            "action": "Ver resumo",
+        })
+
+    command_search = [
+        {"label": "Clientes sem contato", "query": "sem telefone", "module": "clientes", "target_tab": "clients-tab", "target_href": "#clients-pane"},
+        {"label": "Eventos da semana", "query": "evento", "module": "eventos", "target_tab": "events-tab", "target_href": "#events-pane"},
+        {"label": "Placas e frota", "query": "placa", "module": "frota", "target_tab": "fleet-tab", "target_href": "#fleet-pane"},
+        {"label": "Banheiros", "query": "banheiro", "module": "equipamentos", "target_tab": "fleet-tab", "target_href": "#fleet-pane"},
+        {"label": "NF e notas", "query": "nf", "module": "financeiro" if can_view_finance else "", "target_tab": "summary-tab", "target_href": "#receivables-panel" if can_view_finance else "#global-search-panel"},
+        {"label": "Estoque crítico", "query": "baixo", "module": "almoxarifado", "target_tab": "warehouse-tab", "target_href": "#warehouse-pane"},
     ]
 
     return {
@@ -6480,6 +6779,9 @@ def build_smart_system_dashboard(
         "change_history": change_history,
         "start_day_actions": start_day_actions,
         "close_day_steps": close_day_steps,
+        "attention_mode": attention_mode,
+        "completion_hub": {"items": completion_hub_items},
+        "command_search": command_search,
         "action_filter_counts": {
             "resolver_agora": len(resolver_agora),
             "revisar_hoje": len(revisar_hoje),
@@ -7277,17 +7579,21 @@ def build_dashboard_context() -> dict:
             {**item, "label": "checklist_equipe" if clean_text(item.get("label")) == "checklist_motorista" else item.get("label")}
             for item in event.get("checklist", [])
         ]
-        enriched_events.append(
-            {
-                **event,
-                "checklist": checklist,
-                "clients_count": len(linked_clients),
-                "vehicles_count": len(linked_vehicles),
-                "equipment_count": equipment_count,
-                "financial_summary": latest_financial_by_event.get(clean_text(event.get("event_id")), {}),
-                "event_period_label": event_period_label(event),
-            }
-        )
+        event_record = {
+            **event,
+            "checklist": checklist,
+            "clients_count": len(linked_clients),
+            "vehicles_count": len(linked_vehicles),
+            "equipment_count": equipment_count,
+            "financial_summary": latest_financial_by_event.get(clean_text(event.get("event_id")), {}),
+            "event_period_label": event_period_label(event),
+        }
+        progress = build_event_progress(event_record, route_data, ROUTE_PDF_PATH.exists(), can_view_finance)
+        event_record["progress_steps"] = progress["steps"]
+        event_record["progress_missing_actions"] = progress["missing_actions"]
+        event_record["progress_percent"] = progress["percent"]
+        event_record["progress_label"] = progress["label"]
+        enriched_events.append(event_record)
     return {
         "route_data": route_data,
         "has_pdf": ROUTE_PDF_PATH.exists(),
@@ -7778,13 +8084,14 @@ def save_quick_rental():
                 "event_date": event_date,
                 "event_end_date": clean_text(form.get("event_end_date")) or event_date,
                 "status": "planejado",
-                "valor_servico": client_record["service_value"],
-                "custo_equipe": client_record["team_cost"],
-                "custo_por_equipamento": client_record["equipment_cost"],
+                "valor_servico": str(client_record["service_value"]),
+                "custo_equipe": str(client_record["team_cost"]),
+                "custo_por_equipamento": str(client_record["equipment_cost"]),
                 "notes": clean_text(form.get("notes")),
             }
         )
-        event_form.setlist("client_ids", [client_record["client_id"]])
+        event_form.setlist("event_client_ids", [client_record["client_id"]])
+        event_form.setlist("event_vehicle_ids", [])
         event_record = create_event_record(event_form)
         save_events(upsert_item(load_events(), event_record, "event_id"))
         record_audit("quick_rental", "events", event_record["event_id"], f"Locação rápida criada para {client_record['customer_name']}.", after=event_record)
