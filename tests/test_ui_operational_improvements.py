@@ -140,6 +140,12 @@ class OperationalUiImprovementsTest(unittest.TestCase):
         self.assertIn("Alerta de duplicidade", html)
         self.assertIn("Status padrão do processo", html)
         self.assertIn("Relatórios recomendados", html)
+        self.assertIn("Escopo aplicado agora", html)
+        self.assertIn("Item 5 fora", html)
+        self.assertIn("Agenda operacional reforçada", html)
+        self.assertIn("Preparo para publicação", html)
+        self.assertIn("Relatório semanal PDF", html)
+        self.assertIn("Baixar PDF semanal", html)
         self.assertIn("Eventos de hoje", html)
         self.assertIn("Rotas/paradas prontas", html)
         self.assertIn("Cobranças vencidas", html)
@@ -211,6 +217,15 @@ class OperationalUiImprovementsTest(unittest.TestCase):
         self.assertNotIn("Ações de rua em poucos toques", html)
         self.assertNotIn("folha impressa por evento", html.lower())
         self.assertNotIn("equipamento ideal", html.lower())
+
+    def test_weekly_report_pdf_is_available(self):
+        response = self.client.get("/reports/weekly.pdf")
+        pdf_bytes = response.get_data()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.mimetype, "application/pdf")
+        self.assertIn(b"SannyGold - Relat", pdf_bytes)
+        self.assertIn(b"Agenda da semana", pdf_bytes)
 
     def test_usability_improvements_are_rendered(self):
         response = self.client.get("/")

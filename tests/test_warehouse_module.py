@@ -10,6 +10,8 @@ os.environ["SANNYGOLD_ADMIN_EMAIL"] = "admin@sannygold.local"
 os.environ["SANNYGOLD_ADMIN_PASSWORD"] = "Sanny123Gold"
 
 from app.main import (  # noqa: E402
+    CLIENTS_PATH,
+    EVENTS_PATH,
     USERS_PATH,
     WAREHOUSE_ITEMS_PATH,
     WAREHOUSE_MOVEMENTS_PATH,
@@ -167,9 +169,23 @@ class WarehouseModuleTest(unittest.TestCase):
             f"/warehouse/items/{item_id}/movement",
             data={"movement_type": "entrada", "quantity": "7", "observation": "Compra semanal"},
         )
+        CLIENTS_PATH.write_text(
+            json.dumps([{"client_id": "CLI-001", "customer_name": "Cliente Evento", "phone": "11999990000", "address": "Rua A"}]),
+            encoding="utf-8",
+        )
+        EVENTS_PATH.write_text(
+            json.dumps([{"event_id": "EVT-001", "title": "Evento Teste", "event_date": "2026-05-12", "client_ids": ["CLI-001"], "vehicle_ids": []}]),
+            encoding="utf-8",
+        )
         self.client.post(
             f"/warehouse/items/{item_id}/movement",
-            data={"movement_type": "saida", "quantity": "4", "observation": "Uso na sede"},
+            data={
+                "movement_type": "saida",
+                "quantity": "4",
+                "observation": "Uso no evento",
+                "event_id": "EVT-001",
+                "client_id": "CLI-001",
+            },
         )
         self.client.post(
             f"/warehouse/items/{item_id}/movement",
@@ -185,6 +201,10 @@ class WarehouseModuleTest(unittest.TestCase):
         self.assertEqual(movements[0]["final_balance"], 10.0)
         self.assertEqual(movements[1]["previous_balance"], 10.0)
         self.assertEqual(movements[1]["final_balance"], 6.0)
+        self.assertEqual(movements[1]["event_id"], "EVT-001")
+        self.assertEqual(movements[1]["event_title"], "Evento Teste")
+        self.assertEqual(movements[1]["client_id"], "CLI-001")
+        self.assertEqual(movements[1]["client_name"], "Cliente Evento")
         self.assertEqual(movements[2]["quantity_changed"], 6.0)
         self.assertEqual(movements[2]["final_balance"], 12.0)
         self.assertEqual(movements[2]["user_email"], "admin@sannygold.local")

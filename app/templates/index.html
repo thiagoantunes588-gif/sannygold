@@ -1633,7 +1633,7 @@
     <section class="sticky-global-search" id="sticky-global-search" aria-label="Busca global fixa">
       <div class="d-flex flex-wrap align-items-center gap-2">
         <label class="fw-semibold small mb-0" for="sticky-global-search-input">Buscar no sistema</label>
-        <input class="form-control form-control-sm js-filter-input flex-grow-1" id="sticky-global-search-input" type="search" placeholder="Cliente, evento, equipamento, veículo, material ou cobrança..." autocomplete="off" data-filter-target=".global-search-item">
+        <input class="form-control form-control-sm js-filter-input flex-grow-1" id="sticky-global-search-input" type="search" placeholder="Cliente, evento, endereço, placa, NF, anexo, material ou cobrança..." autocomplete="off" data-filter-target=".global-search-item">
         <a class="btn btn-sm btn-outline-secondary" href="#global-search-panel">Ver resultados</a>
         <a class="btn btn-sm btn-dark js-tab-link" href="#quick-rental-panel" data-tab-target="summary-tab">Criar locação</a>
         <a class="btn btn-sm btn-outline-secondary js-tab-link" href="#events-pane" data-tab-target="events-tab">Eventos</a>
@@ -2200,11 +2200,163 @@
           {% endfor %}
         </div>
       </div>
-    </section>
+	    </section>
 
-    <section class="glass p-4 mb-4" id="smart-usage-panel">
-      <div class="module-toolbar mb-3">
-        <div>
+	    <section class="glass p-4 mb-4" id="operational-memory-panel">
+	      <div class="module-toolbar mb-3">
+	        <div>
+	          <div class="eyebrow mb-2">Memória operacional</div>
+	          <h2 class="h5 mb-1">Sistema lembrando clientes, banheiros, pendências e decisões</h2>
+	          <p class="text-secondary small mb-0">Histórico, anexos, financeiro, auditoria, rotas e equipamentos reunidos para reduzir retrabalho.</p>
+	        </div>
+	        <div class="route-badges">
+	          <span class="route-badge badge-success">{{ operational_memory_dashboard.counts.searchable }} buscáveis</span>
+	          <span class="route-badge badge-fixed">{{ operational_memory_dashboard.counts.attachments }} anexo(s)</span>
+	          <span class="route-badge {{ 'badge-danger' if operational_memory_dashboard.pending_context else 'badge-success' }}">{{ operational_memory_dashboard.pending_context|length }} pendência(s)</span>
+	        </div>
+	      </div>
+
+	      <div class="row g-3 mb-3">
+	        {% for item in operational_memory_dashboard.daily_recall %}
+	        <div class="col-md">
+	          <a class="task-tile text-reset text-decoration-none {% if item.target_href.startswith('#') %}js-tab-link{% endif %}" href="{{ item.target_href }}" {% if item.target_href.startswith('#') %}data-tab-target="{{ item.target_tab }}"{% endif %}>
+	            <span class="small text-secondary">{{ item.label }}</span>
+	            <strong>{{ item.value }}</strong>
+	            <span class="route-badge badge-fixed">{{ item.detail }}</span>
+	          </a>
+	        </div>
+	        {% endfor %}
+	      </div>
+
+	      <div class="row g-3 mb-3">
+	        <div class="col-lg-5">
+	          <div class="entity-card p-3 h-100">
+	            <div class="fw-semibold mb-2">Cobertura da memória do sistema</div>
+	            <div class="small text-secondary mb-2">Progresso do evento, histórico do cliente e rastro de decisões aparecem juntos conforme o uso do sistema.</div>
+	            <div class="d-grid gap-2 small">
+	              {% for item in operational_memory_dashboard.coverage %}
+	              <div>
+	                <div class="d-flex justify-content-between gap-2">
+	                  <span>{{ item.label }}</span>
+	                  <span class="fw-semibold">{{ item.value }}/{{ item.total }}</span>
+	                </div>
+	                <div class="progress" role="progressbar" aria-label="{{ item.label }}" aria-valuenow="{{ item.value }}" aria-valuemin="0" aria-valuemax="{{ item.total or 1 }}" style="height: 8px;">
+	                  <div class="progress-bar bg-dark" style="width: {{ (item.value / (item.total or 1) * 100)|round(0, 'floor') }}%"></div>
+	                </div>
+	              </div>
+	              {% endfor %}
+	            </div>
+	          </div>
+	        </div>
+	        <div class="col-lg-7">
+	          <div class="entity-card p-3 h-100">
+	            <div class="fw-semibold mb-2">Pendências com contexto</div>
+	            <div class="d-grid gap-2 small">
+	              {% for item in operational_memory_dashboard.pending_context[:5] %}
+	              <a class="text-reset text-decoration-none {% if item.target_href.startswith('#') %}js-tab-link{% endif %} {{ 'crit-block' if item.level == 'danger' else 'crit-attention' }} p-2" href="{{ item.target_href }}" {% if item.target_href.startswith('#') %}data-tab-target="{{ item.target_tab }}"{% endif %}>
+	                <span class="{{ 'severity-block' if item.level == 'danger' else 'severity-attention' }}">{{ item.area }}</span>
+	                <span class="fw-semibold">{{ item.title }}</span><br>
+	                <span class="text-secondary">{{ item.reason }} • responsável {{ item.owner }} • {{ item.age }}</span>
+	              </a>
+	              {% else %}
+	              <div class="text-secondary">Nenhuma pendência com contexto aberta agora.</div>
+	              {% endfor %}
+	            </div>
+	          </div>
+	        </div>
+	      </div>
+
+	      <div class="row g-3 mb-3">
+	        <div class="col-lg-6">
+	          <div class="entity-card p-3 h-100">
+	            <div class="fw-semibold mb-2">Memória por cliente e endereço</div>
+	            <div class="d-grid gap-2 small">
+	              {% for item in operational_memory_dashboard.client_memory[:5] %}
+	              <a class="d-flex justify-content-between gap-2 text-reset text-decoration-none js-tab-link" href="{{ item.target_href }}" data-tab-target="{{ item.target_tab }}">
+	                <span>
+	                  <span class="fw-semibold">{{ item.name }}</span><br>
+	                  <span class="text-secondary">{{ item.events }} evento(s) • {{ item.routes }} rota(s) • {{ item.attachments }} anexo(s){% if item.missing %} • falta {{ item.missing|join(", ") }}{% endif %}</span>
+	                </span>
+	                <span class="route-badge {{ 'badge-danger' if item.open_amount else 'badge-fixed' }}">{{ item.next_action }}</span>
+	              </a>
+	              {% else %}
+	              <div class="text-secondary">Cadastre clientes para formar a memória por endereço.</div>
+	              {% endfor %}
+	            </div>
+	          </div>
+	        </div>
+	        <div class="col-lg-6">
+	          <div class="entity-card p-3 h-100">
+	            <div class="fw-semibold mb-2">Memória por banheiro/equipamento</div>
+	            <div class="d-grid gap-2 small">
+	              {% for item in operational_memory_dashboard.equipment_memory[:5] %}
+	              <a class="d-flex justify-content-between gap-2 text-reset text-decoration-none js-tab-link" href="{{ item.target_href }}" data-tab-target="{{ item.target_tab }}">
+	                <span>
+	                  <span class="fw-semibold">{{ item.equipment_id }} • {{ item.equipment_type }}</span><br>
+	                  <span class="text-secondary">placa {{ item.plate or "n/d" }} • {{ item.status }} • {{ item.routes }} rota(s) • {{ item.cleanings }} limpeza(s)</span>
+	                </span>
+	                <span class="route-badge {{ 'badge-danger' if item.maintenance_reason else 'badge-avulso' if item.next_action != 'Histórico em uso' else 'badge-success' }}">{{ item.next_action }}</span>
+	              </a>
+	              {% else %}
+	              <div class="text-secondary">Cadastre banheiros/equipamentos para formar histórico de uso.</div>
+	              {% endfor %}
+	            </div>
+	          </div>
+	        </div>
+	      </div>
+
+	      <div class="row g-3">
+	        <div class="col-lg-4">
+	          <div class="entity-card p-3 h-100">
+	            <div class="fw-semibold mb-2">Registro de decisões</div>
+	            <div class="d-grid gap-2 small">
+	              {% for item in operational_memory_dashboard.decision_log[:5] %}
+	              <div>
+	                <span class="route-badge badge-fixed">{{ item.module }}</span>
+	                <span class="fw-semibold">{{ item.action }}</span><br>
+	                <span class="text-secondary">{{ item.target or item.detail }} • {{ item.user or "usuário" }} • {{ item.created_at|datetime_br }}</span>
+	              </div>
+	              {% else %}
+	              <div class="text-secondary">As ações auditadas aparecerão aqui após o uso do sistema.</div>
+	              {% endfor %}
+	            </div>
+	          </div>
+	        </div>
+	        <div class="col-lg-4">
+	          <div class="entity-card p-3 h-100">
+	            <div class="fw-semibold mb-2">Campos guiados de observação</div>
+	            <div class="d-grid gap-2 small">
+	              {% for item in operational_memory_dashboard.observation_templates %}
+	              <div>
+	                <span class="route-badge badge-avulso">{{ item.label }}</span>
+	                <span class="text-secondary">{{ item.fields|join(" • ") }}</span>
+	              </div>
+	              {% endfor %}
+	            </div>
+	          </div>
+	        </div>
+	        <div class="col-lg-4">
+	          <div class="entity-card p-3 h-100">
+	            <div class="fw-semibold mb-2">Memória financeira, backup e auditoria</div>
+	            {% if operational_memory_dashboard.finance_memory.visible %}
+	            <div class="row g-2 small mb-3">
+	              <div class="col-6"><div class="stat-card p-2"><div class="fw-bold">{{ operational_memory_dashboard.finance_memory.open_total|currency_br }}</div><div class="text-secondary">em aberto</div></div></div>
+	              <div class="col-6"><div class="stat-card p-2"><div class="fw-bold">{{ operational_memory_dashboard.finance_memory.overdue_count }}</div><div class="text-secondary">vencido(s)</div></div></div>
+	              <div class="col-6"><div class="stat-card p-2"><div class="fw-bold">{{ operational_memory_dashboard.finance_memory.paid_count }}</div><div class="text-secondary">pago(s)</div></div></div>
+	              <div class="col-6"><div class="stat-card p-2"><div class="fw-bold">{{ operational_memory_dashboard.finance_memory.closeouts_count }}</div><div class="text-secondary">fechamento(s)</div></div></div>
+	            </div>
+	            {% else %}
+	            <div class="text-secondary small mb-3">Memória financeira aparece para perfis autorizados.</div>
+	            {% endif %}
+	            <div class="small text-secondary">Último backup {{ operational_memory_dashboard.backup_memory.last_backup|datetime_br }} • último fechamento {{ operational_memory_dashboard.backup_memory.last_closeout|datetime_br }} • {{ operational_memory_dashboard.backup_memory.audit_count }} alteração(ões) auditadas.</div>
+	          </div>
+	        </div>
+	      </div>
+	    </section>
+
+	    <section class="glass p-4 mb-4" id="smart-usage-panel">
+	      <div class="module-toolbar mb-3">
+	        <div>
           <div class="eyebrow mb-2">Mais facilidade</div>
           <h2 class="h5 mb-1">Central inteligente de uso diário</h2>
           <p class="text-secondary small mb-0">Comece o dia, filtre somente o que exige ação, revise riscos e feche a rotina sem abrir vários módulos sem necessidade.</p>
@@ -2432,7 +2584,10 @@
               <div class="col-6"><div class="stat-card p-2 {{ 'crit-block' if smart_system_dashboard.weekly_report.overdue else '' }}"><div class="fw-bold">{{ smart_system_dashboard.weekly_report.overdue }}</div><div class="text-secondary">vencidos</div></div></div>
               <div class="col-6"><div class="stat-card p-2 {{ 'crit-attention' if smart_system_dashboard.weekly_report.stock_critical else '' }}"><div class="fw-bold">{{ smart_system_dashboard.weekly_report.stock_critical }}</div><div class="text-secondary">estoque crítico</div></div></div>
             </div>
-            <a class="btn btn-sm btn-outline-secondary mt-3 js-tab-link" href="#reports-panel" data-tab-target="summary-tab">Abrir relatórios</a>
+            <div class="d-flex flex-wrap gap-2 mt-3">
+              <a class="btn btn-sm btn-outline-secondary js-tab-link" href="#reports-panel" data-tab-target="summary-tab">Abrir relatórios</a>
+              <a class="btn btn-sm btn-dark" href="{{ url_for('download_weekly_report_pdf') }}">Baixar PDF semanal</a>
+            </div>
           </div>
         </div>
         <div class="col-lg-4">
@@ -2603,6 +2758,7 @@
         <div class="d-flex flex-wrap gap-2">
           <a class="btn btn-dark btn-sm js-tab-link" href="#dispatch-today-panel" data-tab-target="summary-tab">Preparar despacho</a>
           <a class="btn btn-outline-secondary btn-sm js-tab-link" href="#global-search-panel" data-tab-target="summary-tab">Buscar por telefone, placa ou NF</a>
+          <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('download_weekly_report_pdf') }}">Relatório semanal PDF</a>
         </div>
       </div>
       <div class="row g-3 mb-3">
@@ -2622,20 +2778,83 @@
         </div>
         <div class="col-lg-3">
           <div class="task-tile">
-            <span class="small text-secondary">Duplicidades possíveis</span>
-            <strong>{{ general_improvements.duplicate_count }}</strong>
-            <span class="route-badge {{ 'badge-danger' if general_improvements.duplicate_count else 'badge-success' }}">cadastro</span>
+            <span class="small text-secondary">Qualidade do cadastro</span>
+            <strong>{{ general_improvements.quality_score }}%</strong>
+            <span class="route-badge {{ 'badge-danger' if general_improvements.quality_score < 65 else 'badge-avulso' if general_improvements.quality_score < 85 else 'badge-success' }}">cadastro</span>
           </div>
         </div>
         <div class="col-lg-3">
           <div class="task-tile">
-            <span class="small text-secondary">Eventos em aberto</span>
-            <strong>{{ general_improvements.open_events }}</strong>
-            <span class="route-badge badge-fixed">operação</span>
+            <span class="small text-secondary">Agenda para revisar</span>
+            <strong>{{ general_improvements.agenda_issue_count }}</strong>
+            <span class="route-badge {{ 'badge-danger' if general_improvements.agenda_issue_count else 'badge-success' }}">agenda</span>
           </div>
         </div>
       </div>
       <div class="row g-3">
+        <div class="col-12">
+          <div class="entity-card p-3">
+            <div class="d-flex flex-wrap justify-content-between gap-2 mb-2">
+              <div class="fw-semibold">Escopo aplicado agora</div>
+              <span class="route-badge badge-avulso">Item {{ general_improvements.excluded_improvement.number }} fora: {{ general_improvements.excluded_improvement.label }}</span>
+            </div>
+            <div class="row g-2 small">
+              {% for item in general_improvements.selected_improvements %}
+              <div class="col-md-6 col-xl-3">
+                <div class="p-2 rounded-3 bg-white border h-100">
+                  <span class="route-badge badge-success">{{ item.number }}</span>
+                  <span class="fw-semibold">{{ item.label }}</span><br>
+                  <span class="text-secondary">{{ item.detail }}</span>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            <div class="form-helper mt-2">{{ general_improvements.excluded_improvement.detail }}</div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="entity-card p-3 h-100">
+            <div class="fw-semibold mb-2">Agenda operacional reforçada</div>
+            <div class="d-grid gap-2 small">
+              {% for item in general_improvements.agenda_issues %}
+              <a class="text-reset text-decoration-none {% if item.target.startswith('#') %}js-tab-link{% endif %}" href="{{ item.target }}" {% if item.target.startswith('#') %}data-tab-target="events-tab"{% endif %}>
+                <span class="route-badge {{ 'badge-danger' if item.level == 'danger' else 'badge-avulso' }}">{{ item.title }}</span>
+                <span class="text-secondary">{{ item.detail }}</span>
+              </a>
+              {% else %}
+              <div class="text-secondary">Nenhum conflito principal nos próximos 14 dias.</div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="entity-card p-3 h-100">
+            <div class="fw-semibold mb-2">Qualidade dos cadastros</div>
+            <div class="d-grid gap-2 small">
+              {% for item in general_improvements.quality_issues %}
+              <a class="text-reset text-decoration-none {% if item.target.startswith('#') %}js-tab-link{% endif %}" href="{{ item.target }}" {% if item.target.startswith('#client-') %}data-tab-target="clients-tab"{% elif item.target.startswith('#event-') %}data-tab-target="events-tab"{% elif item.target == '#warehouse-pane' %}data-tab-target="warehouse-tab"{% endif %}>
+                <span class="route-badge {{ 'badge-danger' if item.level == 'danger' else 'badge-avulso' }}">{{ item.title }}</span>
+                <span class="text-secondary">{{ item.detail }}</span>
+              </a>
+              {% else %}
+              <div class="text-secondary">Cadastros essenciais estão completos no momento.</div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="entity-card p-3 h-100">
+            <div class="fw-semibold mb-2">Preparo para publicação</div>
+            <div class="d-grid gap-2 small">
+              {% for item in general_improvements.publication_readiness %}
+              <div>
+                <span class="route-badge {{ 'badge-success' if item.level == 'ready' else 'badge-avulso' }}">{{ item.label }}</span>
+                <span class="text-secondary">{{ item.detail }}</span>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
         <div class="col-12">
           <div class="entity-card p-3">
             <div class="fw-semibold mb-2">Mapa geral de melhorias aplicadas</div>
@@ -2757,8 +2976,8 @@
         <span class="route-badge {{ 'badge-success' if system_status.health.has_secret_key else 'badge-avulso' }}">Secret key {{ 'configurada' if system_status.health.has_secret_key else 'temporária' }}</span>
         <span class="route-badge {{ 'badge-success' if system_status.operations.has_route_pdf else 'badge-avulso' }}">PDF {{ 'disponível' if system_status.operations.has_route_pdf else 'pendente' }}</span>
         <span class="route-badge {{ 'badge-success' if system_status.operations.has_route_json else 'badge-avulso' }}">JSON {{ 'disponível' if system_status.operations.has_route_json else 'pendente' }}</span>
-        <span class="route-badge badge-fixed">Último backup {{ last_backup_label }}</span>
-        <span class="route-badge badge-fixed">Último fechamento {{ last_closeout_label }}</span>
+        <span class="route-badge {{ 'badge-success' if system_status.health.has_recent_backup else 'badge-avulso' }}">Backup {{ last_backup_label }}{% if system_status.operations.backup_age_days is not none %} • {{ system_status.operations.backup_age_days }} dia(s){% endif %}</span>
+        <span class="route-badge {{ 'badge-success' if system_status.health.has_recent_closeout else 'badge-avulso' }}">Fechamento {{ last_closeout_label }}{% if system_status.operations.closeout_age_days is not none %} • {{ system_status.operations.closeout_age_days }} dia(s){% endif %}</span>
       </div>
     </section>
     {% endif %}
@@ -2874,15 +3093,16 @@
         <input class="form-control js-filter-input" id="global-search" type="search" placeholder="Digite nome, ID, telefone, placa, material..." autocomplete="off" data-filter-target=".global-search-item">
         <select class="form-select js-filter-select" id="global-search-module" data-filter-target=".global-search-item" data-filter-attribute="module">
           <option value="">Todos os módulos</option>
-          <option value="clientes">Clientes</option>
-          <option value="eventos">Eventos</option>
-          {% if can_view_finance %}
-          <option value="financeiro">Financeiro</option>
-          {% endif %}
-          <option value="frota">Frota</option>
-          <option value="equipamentos">Equipamentos</option>
-          <option value="almoxarifado">Almoxarifado</option>
-        </select>
+	          <option value="clientes">Clientes</option>
+	          <option value="eventos">Eventos</option>
+	          {% if can_view_finance %}
+	          <option value="financeiro">Financeiro</option>
+	          {% endif %}
+	          <option value="frota">Frota</option>
+	          <option value="equipamentos">Equipamentos</option>
+	          <option value="anexos">Anexos</option>
+	          <option value="almoxarifado">Almoxarifado</option>
+	        </select>
         <button class="btn btn-outline-secondary js-clear-filters" type="button" data-filter-target=".global-search-item">Limpar filtros</button>
       </div>
       <div class="entity-card p-3 mb-3" id="command-search-panel">
@@ -5929,7 +6149,7 @@
                     </thead>
                     <tbody>
                       {% for item in warehouse_dashboard["items"] %}
-                      <tr class="warehouse-list-item" data-filter-text="{{ item.name }} {{ item.category }} {{ item.description }} {{ item.storage_location }} {{ item.purchase_link }} {{ item.purchase_location }} {{ item.notes }}" data-category="{{ item.category }}" data-stock-status="{{ item.stock_status }}">
+                      <tr class="warehouse-list-item" data-filter-text="{{ item.name }} {{ item.category }} {{ item.description }} {{ item.storage_location }} {{ item.purchase_link }} {{ item.purchase_location }} {{ item.notes }} {{ item.recent_movements|map(attribute='event_id')|join(' ') }} {{ item.recent_movements|map(attribute='client_name')|join(' ') }} {{ item.recent_movements|map(attribute='observation')|join(' ') }}" data-category="{{ item.category }}" data-stock-status="{{ item.stock_status }}">
                         <td class="fw-semibold" data-label="Material">{{ item.name }}</td>
                         <td data-label="Categoria">{{ item.category }}</td>
                         <td data-label="Quantidade">{{ item.quantity_current }} {{ item.unit }}</td>
@@ -5955,7 +6175,7 @@
 
                 <div class="d-grid gap-3">
                   {% for item in warehouse_dashboard["items"] %}
-                  <div class="entity-card warehouse-status-{{ item.stock_status }} p-3 warehouse-list-item" data-filter-text="{{ item.name }} {{ item.category }} {{ item.description }} {{ item.storage_location }} {{ item.purchase_link }} {{ item.purchase_location }} {{ item.notes }}" data-category="{{ item.category }}" data-stock-status="{{ item.stock_status }}">
+                  <div class="entity-card warehouse-status-{{ item.stock_status }} p-3 warehouse-list-item" data-filter-text="{{ item.name }} {{ item.category }} {{ item.description }} {{ item.storage_location }} {{ item.purchase_link }} {{ item.purchase_location }} {{ item.notes }} {{ item.recent_movements|map(attribute='event_id')|join(' ') }} {{ item.recent_movements|map(attribute='client_name')|join(' ') }} {{ item.recent_movements|map(attribute='observation')|join(' ') }}" data-category="{{ item.category }}" data-stock-status="{{ item.stock_status }}">
                     <div class="d-flex flex-wrap justify-content-between gap-3">
                       {% if item.photo_url %}
                       <img class="warehouse-thumb" src="{{ item.photo_url }}" alt="Foto de {{ item.name }}">
@@ -6006,6 +6226,12 @@
                           <div class="text-secondary">
                             {{ movement.quantity_changed }} {{ item.unit }} • saldo {{ movement.previous_balance }} → {{ movement.final_balance }} • {{ movement.user_name or movement.user_email or "usuário" }}
                           </div>
+                          {% if movement.event_id or movement.client_id %}
+                          <div class="text-secondary">
+                            {% if movement.event_id %}Evento {{ movement.event_id }}{% if movement.event_title %} • {{ movement.event_title }}{% endif %}{% endif %}
+                            {% if movement.client_id %}{% if movement.event_id %} • {% endif %}Cliente {{ movement.client_name or movement.client_id }}{% endif %}
+                          </div>
+                          {% endif %}
                           {% if movement.observation %}<div class="text-secondary">{{ movement.observation }}</div>{% endif %}
                         </div>
                         {% else %}
@@ -6672,9 +6898,29 @@
             <label class="form-label fw-semibold" for="warehouse_final_quantity">Quantidade final correta</label>
             <input class="form-control" id="warehouse_final_quantity" name="final_quantity" type="number" min="0" step="0.01">
           </div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold" for="warehouse_event_id">Evento relacionado</label>
+              <select class="form-select" id="warehouse_event_id" name="event_id">
+                <option value="">Sem evento</option>
+                {% for event in events %}
+                <option value="{{ event.event_id }}">{{ event.event_id }} • {{ event.title }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold" for="warehouse_client_id">Cliente relacionado</label>
+              <select class="form-select" id="warehouse_client_id" name="client_id">
+                <option value="">Sem cliente</option>
+                {% for client in clients %}
+                <option value="{{ client.client_id }}">{{ client.client_id }} • {{ client.customer_name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
           <div class="mb-3">
             <label class="form-label fw-semibold" for="warehouse_observation">Observação</label>
-            <input class="form-control" id="warehouse_observation" name="observation" type="text" placeholder="Motivo, compra, contagem física...">
+            <input class="form-control" id="warehouse_observation" name="observation" type="text" placeholder="Motivo, compra, contagem física, evento ou cliente...">
           </div>
           <label class="small text-secondary d-flex gap-2 align-items-start">
             <input type="checkbox" name="allow_negative" value="true">
@@ -7654,6 +7900,8 @@
         document.getElementById("warehouse_movement_type").value = type;
         document.getElementById("warehouse_movement_quantity").value = "";
         document.getElementById("warehouse_final_quantity").value = current;
+        document.getElementById("warehouse_event_id").value = "";
+        document.getElementById("warehouse_client_id").value = "";
         document.getElementById("warehouse_observation").value = "";
         form.querySelector('input[name="allow_negative"]').checked = false;
         const isAdjustment = type === "ajuste manual";

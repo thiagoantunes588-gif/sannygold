@@ -878,6 +878,10 @@ def apply_warehouse_movement(item_id: str, form, user: dict) -> dict:
     target["updated_at"] = now
     save_warehouse_items(items)
 
+    event_id = clean_text(form.get("event_id"))
+    client_id = clean_text(form.get("client_id"))
+    event = next((item for item in load_events() if clean_text(item.get("event_id")) == event_id), {}) if event_id else {}
+    client = next((item for item in load_clients() if clean_text(item.get("client_id")) == client_id), {}) if client_id else {}
     movements = load_warehouse_movements()
     movement = {
         "id": next_numeric_id(movements, "MOV", "id"),
@@ -888,6 +892,10 @@ def apply_warehouse_movement(item_id: str, form, user: dict) -> dict:
         "previous_balance": previous_balance,
         "final_balance": final_balance,
         "observation": clean_text(form.get("observation")),
+        "event_id": event_id,
+        "event_title": clean_text(event.get("title")),
+        "client_id": client_id,
+        "client_name": clean_text(client.get("customer_name")),
         "user_id": clean_text(user.get("id")),
         "user_name": clean_text(user.get("nome")),
         "user_email": clean_text(user.get("email")),
@@ -1526,12 +1534,16 @@ def build_system_status_snapshot() -> dict:
     active_users = [user for user in users if clean_text(user.get("status")) == "ativo"]
     pending_invitations = [user for user in users if clean_text(user.get("status")) == "convite_pendente"]
     storage_ready = all(path.exists() for path in (DATA_DIR, PREVIEW_DIR, UPLOADS_DIR))
+    backup_age_days = days_since_iso(settings.get("last_backup_at"))
+    closeout_age_days = days_since_iso(settings.get("last_closeout_at"))
     health = {
         "ok": True,
         "storage_ready": storage_ready,
         "has_secret_key": SECRET_KEY_CONFIGURED,
-        "has_recent_backup": bool(clean_text(settings.get("last_backup_at"))),
-        "has_recent_closeout": bool(clean_text(settings.get("last_closeout_at"))),
+        "has_recent_backup": backup_age_days is not None and backup_age_days <= 7,
+        "has_recent_closeout": closeout_age_days is not None and closeout_age_days <= 7,
+        "backup_age_days": backup_age_days,
+        "closeout_age_days": closeout_age_days,
     }
     metadata = {
         "app_version": APP_VERSION,
@@ -1550,6 +1562,8 @@ def build_system_status_snapshot() -> dict:
     operations = {
         "last_backup_at": clean_text(settings.get("last_backup_at")),
         "last_closeout_at": clean_text(settings.get("last_closeout_at")),
+        "backup_age_days": backup_age_days,
+        "closeout_age_days": closeout_age_days,
         "has_route_pdf": ROUTE_PDF_PATH.exists(),
         "has_route_json": ROUTE_JSON_PATH.exists(),
     }
@@ -1869,6 +1883,17 @@ def format_datetime_br(value: str | None) -> str:
     except ValueError:
         return text
     return parsed.strftime("%d/%m/%Y %H:%M")
+
+
+def days_since_iso(value: str | None) -> int | None:
+    text = clean_text(value)
+    if not text:
+        return None
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    return max((datetime.now() - parsed).days, 0)
 
 
 def format_date_br(value: str | None) -> str:
@@ -5284,6 +5309,7 @@ def build_global_search_items(
     vehicles: list[dict],
     equipment: list[dict],
     warehouse_dashboard: dict,
+    attachments: list[dict] | None = None,
     receivables: list[dict] | None = None,
 ) -> list[dict]:
     items: list[dict] = []
@@ -5343,6 +5369,13 @@ def build_global_search_items(
             "text": " ".join(str(item.get(field) or "") for field in ("equipment_id", "equipment_type", "plate", "status", "linked_client_name", "notes")),
         })
     for item in warehouse_dashboard.get("items") or []:
+        movement_text = " ".join(
+            " ".join(
+                str(movement.get(field) or "")
+                for field in ("movement_type", "observation", "event_id", "event_title", "client_id", "client_name")
+            )
+            for movement in item.get("recent_movements") or []
+        )
         items.append({
             "module": "Almoxarifado",
             "module_key": "almoxarifado",
@@ -5350,7 +5383,28 @@ def build_global_search_items(
             "detail": f"{item.get('category')} • {item.get('quantity_current')} {item.get('unit')} • {item.get('stock_status_label')}",
             "target_tab": "warehouse-tab",
             "target_href": "#warehouse-pane",
-            "text": " ".join(str(item.get(field) or "") for field in ("id", "name", "category", "storage_location", "purchase_location")),
+            "text": " ".join(str(item.get(field) or "") for field in ("id", "name", "category", "storage_location", "purchase_location", "notes")) + " " + movement_text,
+        })
+    for movement in warehouse_dashboard.get("movements") or []:
+        items.append({
+            "module": "Almoxarifado",
+            "module_key": "almoxarifado",
+            "title": clean_text(movement.get("item_name")) or clean_text(movement.get("item_id")),
+            "detail": f"{movement.get('movement_type')} • evento {movement.get('event_id') or 'n/d'} • cliente {movement.get('client_name') or movement.get('client_id') or 'n/d'}",
+            "target_tab": "warehouse-tab",
+            "target_href": "#warehouse-pane",
+            "text": " ".join(str(movement.get(field) or "") for field in ("id", "item_id", "item_name", "movement_type", "observation", "event_id", "event_title", "client_id", "client_name", "user_name")),
+        })
+    for attachment in attachments or []:
+        scope = clean_text(attachment.get("scope"), "anexo")
+        items.append({
+            "module": "Anexos",
+            "module_key": "anexos",
+            "title": clean_text(attachment.get("title")) or clean_text(attachment.get("id")),
+            "detail": f"{scope} • cliente {attachment.get('client_id') or 'n/d'} • evento {attachment.get('event_id') or 'n/d'}",
+            "target_tab": "clients-tab",
+            "target_href": "#attachments-panel",
+            "text": " ".join(str(attachment.get(field) or "") for field in ("id", "scope", "client_id", "event_id", "title", "notes", "attachment_url")),
         })
     for receivable in receivables or []:
         items.append({
@@ -5375,6 +5429,10 @@ def build_general_improvements_dashboard(
     usability_alerts: list[dict],
     dispatch_today: dict,
     receivables: list[dict],
+    *,
+    route_data: dict | None = None,
+    has_pdf: bool = False,
+    settings: dict | None = None,
 ) -> dict:
     def duplicate_rows(items: list[dict], field: str, label: str, display_field: str) -> list[dict]:
         grouped: dict[str, list[dict]] = {}
@@ -5408,6 +5466,117 @@ def build_general_improvements_dashboard(
         {"label": "Estoque", "count": (warehouse_dashboard.get("counts", {}).get("low", 0) or 0) + (warehouse_dashboard.get("counts", {}).get("zero", 0) or 0), "detail": "item(ns) baixo(s) ou zerado(s)", "target": "#warehouse-pane"},
         {"label": "Frota", "count": sum(1 for item in equipment if clean_text(item.get("status")) in {"manutencao", "indisponivel"}), "detail": "equipamento(s) indisponível(is)", "target": "#maintenance-panel"},
     ]
+    today = datetime.now().date()
+    horizon = today + timedelta(days=14)
+    upcoming_events = [
+        event for event in events
+        if event_is_active(event)
+        and parse_date(event.get("event_date"))
+        and today <= parse_date(event.get("event_date")) <= horizon
+    ]
+    agenda_issues = []
+    for event in upcoming_events:
+        missing = []
+        if not event.get("client_ids"):
+            missing.append("cliente")
+        if not event.get("vehicle_ids"):
+            missing.append("veículo")
+        if any(not item.get("done") for item in event.get("checklist") or []):
+            missing.append("checklist")
+        if not has_pdf:
+            missing.append("PDF/OS")
+        if missing:
+            agenda_issues.append({
+                "level": "danger" if parse_date(event.get("event_date")) == today else "warning",
+                "title": clean_text(event.get("title")) or clean_text(event.get("event_id")),
+                "detail": f"{format_date_br(event.get('event_date'))}: revisar {', '.join(missing)}",
+                "target": f"#event-{clean_text(event.get('event_id'))}",
+            })
+    active_events = [event for event in events if event_is_active(event)]
+    for index, event in enumerate(active_events):
+        event_vehicles = {clean_text(vehicle_id) for vehicle_id in event.get("vehicle_ids", []) if clean_text(vehicle_id)}
+        if not event_vehicles:
+            continue
+        for other in active_events[index + 1:]:
+            shared = event_vehicles.intersection({clean_text(vehicle_id) for vehicle_id in other.get("vehicle_ids", []) if clean_text(vehicle_id)})
+            if shared and event_overlaps_period(other, event.get("event_date"), event.get("event_end_date")):
+                agenda_issues.append({
+                    "level": "danger",
+                    "title": "Conflito de veículo na agenda",
+                    "detail": f"{', '.join(sorted(shared))}: {event.get('title')} e {other.get('title')}",
+                    "target": "#agenda-pane",
+                })
+                break
+    quality_issues = []
+    for client in clients:
+        missing = []
+        if not clean_text(client.get("phone")):
+            missing.append("telefone")
+        if not clean_text(client.get("address")):
+            missing.append("endereço")
+        if not clean_text(client.get("contact_name")):
+            missing.append("contato")
+        if missing:
+            quality_issues.append({
+                "level": "warning",
+                "title": clean_text(client.get("customer_name")) or clean_text(client.get("client_id")),
+                "detail": f"Cadastro sem {', '.join(missing)}",
+                "target": f"#client-{clean_text(client.get('client_id'))}",
+            })
+    for event in active_events:
+        missing = []
+        if not event.get("client_ids"):
+            missing.append("cliente")
+        if not event.get("vehicle_ids"):
+            missing.append("veículo")
+        if parse_decimal(event.get("valor_servico")) <= 0 and parse_decimal(event.get("recurring_value")) <= 0:
+            missing.append("valor")
+        if missing:
+            quality_issues.append({
+                "level": "warning",
+                "title": clean_text(event.get("title")) or clean_text(event.get("event_id")),
+                "detail": f"Evento sem {', '.join(missing)}",
+                "target": f"#event-{clean_text(event.get('event_id'))}",
+            })
+    for item in warehouse_dashboard.get("items") or []:
+        if item.get("stock_status") in {"baixo", "zerado"} and not clean_text(item.get("purchase_link") or item.get("purchase_location")):
+            quality_issues.append({
+                "level": "warning",
+                "title": clean_text(item.get("name")),
+                "detail": "Estoque crítico sem referência de compra.",
+                "target": "#warehouse-pane",
+            })
+    backup_age = days_since_iso((settings or {}).get("last_backup_at"))
+    if backup_age is None or backup_age > 7:
+        quality_issues.append({
+            "level": "warning",
+            "title": "Backup antigo ou ausente",
+            "detail": "Baixe um backup completo antes de mudanças importantes.",
+            "target": url_for("download_system_backup"),
+        })
+    quality_score = max(0, 100 - min(100, len(quality_issues) * 7 + len(agenda_issues) * 5))
+    selected_improvements = [
+        {"number": 1, "label": "Agenda operacional", "status": "Ativo", "detail": f"{len(agenda_issues)} ponto(s) para revisar."},
+        {"number": 2, "label": "Qualidade do cadastro", "status": "Ativo", "detail": f"Pontuação {quality_score}%."},
+        {"number": 3, "label": "Ordem de serviço em PDF", "status": "Ativo", "detail": "PDF por evento e revisão antes de imprimir."},
+        {"number": 4, "label": "Histórico por cliente", "status": "Ativo", "detail": "Linha do tempo por cliente mantida no cadastro."},
+        {"number": 6, "label": "Alertas inteligentes", "status": "Ativo", "detail": "Pendências, prazos, financeiro e estoque."},
+        {"number": 7, "label": "Financeiro prático", "status": "Ativo", "detail": "Recebimentos, recibos, DRE e fechamento."},
+        {"number": 8, "label": "Almoxarifado ligado ao evento", "status": "Ativo", "detail": "Movimentações podem indicar evento e cliente."},
+        {"number": 9, "label": "Admin discreto", "status": "Ativo", "detail": "Acessos e auditoria ficam fora do fluxo principal."},
+        {"number": 10, "label": "Busca geral", "status": "Ativo", "detail": "Inclui anexos, financeiro e movimentações."},
+        {"number": 11, "label": "Relatório semanal", "status": "Ativo", "detail": "Resumo baixável em PDF."},
+        {"number": 12, "label": "Observações padrão", "status": "Ativo", "detail": "Modelos para pendência, manutenção, financeiro e cliente."},
+        {"number": 13, "label": "Visão por função", "status": "Ativo", "detail": "Atalhos mudam conforme perfil."},
+        {"number": 14, "label": "Backup e segurança", "status": "Ativo", "detail": "Backup recente agora considera prazo de 7 dias."},
+        {"number": 15, "label": "Preparo para publicação", "status": "Ativo", "detail": "Checklist de Render, segredo, storage e saúde."},
+    ]
+    publication_readiness = [
+        {"label": "Hospedagem Python", "level": "ready" if DEPLOY_TARGET else "warning", "detail": f"Ambiente atual: {DEPLOY_TARGET or 'local'}."},
+        {"label": "Chave secreta", "level": "ready" if SECRET_KEY_CONFIGURED else "warning", "detail": "Configure SECRET_KEY antes de liberar uso externo."},
+        {"label": "Backup", "level": "ready" if backup_age is not None and backup_age <= 7 else "warning", "detail": f"Último backup: {format_datetime_br((settings or {}).get('last_backup_at'))}."},
+        {"label": "Status público", "level": "ready", "detail": "Rotas /health e /system/status.json disponíveis para conferência."},
+    ]
     process_statuses = [item["label"] for item in EVENT_STATUS_FLOW]
     workflow_tracks = [
         {
@@ -5432,7 +5601,7 @@ def build_general_improvements_dashboard(
         },
         {
             "label": "Equipamentos",
-            "detail": "Tipo, placa quando for trailer, status, foto, manutenção, vínculo com cliente e histórico de uso.",
+            "detail": "Tipo, placa quando for trailer, status, foto, manutenção e vínculo com cliente.",
             "target": "#fleet-pane",
         },
     ]
@@ -5451,6 +5620,14 @@ def build_general_improvements_dashboard(
         "duplicate_count": len(duplicate_alerts),
         "critical_groups": critical_groups,
         "critical_total": sum(group["count"] for group in critical_groups),
+        "agenda_issues": agenda_issues[:8],
+        "agenda_issue_count": len(agenda_issues),
+        "quality_issues": quality_issues[:8],
+        "quality_issue_count": len(quality_issues),
+        "quality_score": quality_score,
+        "selected_improvements": selected_improvements,
+        "excluded_improvement": {"number": 5, "label": "Histórico por banheiro/equipamento", "detail": "Não ampliado neste pacote, conforme solicitado."},
+        "publication_readiness": publication_readiness,
         "process_statuses": process_statuses,
         "event_status_flow": EVENT_STATUS_FLOW,
         "workflow_tracks": workflow_tracks,
@@ -6894,6 +7071,7 @@ def build_search_module_counts(global_search_items: list[dict], *, can_view_fina
         ("eventos", "Eventos"),
         ("frota", "Frota"),
         ("equipamentos", "Equipamentos"),
+        ("anexos", "Anexos"),
         ("almoxarifado", "Almoxarifado"),
     ]
     if can_view_finance:
@@ -7114,6 +7292,314 @@ def build_equipment_history(equipment: list[dict], clients: list[dict], route_hi
     return rows[:20]
 
 
+def build_operational_memory_dashboard(
+    *,
+    clients: list[dict],
+    events: list[dict],
+    equipment: list[dict],
+    vehicles: list[dict],
+    contracts: list[dict],
+    quotes: list[dict],
+    attachments: list[dict],
+    service_log: list[dict],
+    route_history: list[dict],
+    field_confirmations: list[dict],
+    financial_management: dict,
+    customer_history: list[dict],
+    equipment_history: list[dict],
+    recent_audit_log: list[dict],
+    warehouse_dashboard: dict,
+    settings: dict,
+    global_search_items: list[dict],
+    can_view_finance: bool,
+) -> dict:
+    today = datetime.now().date()
+    today_text = today.isoformat()
+    events_by_client: dict[str, list[dict]] = {}
+    for event in events:
+        for client_id in event.get("client_ids") or []:
+            events_by_client.setdefault(clean_text(client_id), []).append(event)
+
+    attachments_by_client: dict[str, list[dict]] = {}
+    for attachment in attachments:
+        client_id = clean_text(attachment.get("client_id"))
+        if client_id:
+            attachments_by_client.setdefault(client_id, []).append(attachment)
+
+    receivables = financial_management.get("receivables", []) if can_view_finance else []
+    finance_by_client: dict[str, dict] = {}
+    for row in financial_management.get("client_finance", []) if can_view_finance else []:
+        key = clean_text(row.get("client_id")) or clean_text(row.get("client_name"))
+        finance_by_client[key] = row
+        if clean_text(row.get("client_name")):
+            finance_by_client[clean_text(row.get("client_name"))] = row
+
+    client_history_map = {clean_text(item.get("client_id")): item for item in customer_history}
+    client_rows = []
+    for client in clients:
+        client_id = clean_text(client.get("client_id"))
+        history = client_history_map.get(client_id, {})
+        related_events = events_by_client.get(client_id, [])
+        finance = finance_by_client.get(client_id) or finance_by_client.get(clean_text(client.get("customer_name"))) or {}
+        missing = []
+        if not clean_text(client.get("phone")):
+            missing.append("telefone")
+        if not clean_text(client.get("address")):
+            missing.append("endereço")
+        if not clean_text(client.get("contact_name")):
+            missing.append("contato")
+        if not clean_text(client.get("equipment_type")):
+            missing.append("tipo de banheiro/equipamento")
+        if can_view_finance and parse_decimal(finance.get("open")) > 0:
+            missing.append("financeiro aberto")
+        last_dates = [
+            clean_text(history.get("last_route_at")),
+            *[clean_text(event.get("event_date")) for event in related_events],
+            *[clean_text(item.get("created_at")) for item in attachments_by_client.get(client_id, [])],
+        ]
+        last_touch = max([value for value in last_dates if value], default="")
+        if missing:
+            next_action = f"Completar {missing[0]}"
+        elif not attachments_by_client.get(client_id):
+            next_action = "Anexar contrato/comprovante"
+        elif can_view_finance and parse_decimal(finance.get("open")) > 0:
+            next_action = "Resolver financeiro"
+        else:
+            next_action = "Manter histórico atualizado"
+        client_rows.append({
+            "client_id": client_id,
+            "name": clean_text(client.get("customer_name")) or client_id,
+            "address": clean_text(client.get("address")),
+            "events": len(related_events),
+            "routes": int(history.get("routes_count") or 0),
+            "attachments": len(attachments_by_client.get(client_id, [])),
+            "open_amount": round2(finance.get("open") or 0),
+            "last_touch": last_touch,
+            "missing": missing,
+            "next_action": next_action,
+            "target_tab": "clients-tab",
+            "target_href": f"#client-{client_id}",
+        })
+    client_rows.sort(key=lambda item: (len(item["missing"]), item["open_amount"], item["events"], item["routes"]), reverse=True)
+
+    equipment_rows = []
+    equipment_history_by_id = {clean_text(item.get("equipment_id")): item for item in equipment_history}
+    for item in equipment:
+        equipment_id = clean_text(item.get("equipment_id"))
+        history = equipment_history_by_id.get(equipment_id, {})
+        route_items = history.get("routes", [])
+        last_route = max([clean_text(route.get("date")) for route in route_items if clean_text(route.get("date"))], default="")
+        maintenance_reason = clean_text(item.get("maintenance_reason")) or clean_text(history.get("maintenance_reason"))
+        if maintenance_reason or clean_text(item.get("status")) in {"manutencao", "indisponivel"}:
+            next_action = "Resolver manutenção"
+        elif equipment_family(item.get("equipment_type")) == "banheiro_luxo" and not clean_text(item.get("plate")):
+            next_action = "Conferir placa"
+        elif not route_items and not history.get("current_clients"):
+            next_action = "Vincular a cliente/evento"
+        else:
+            next_action = "Histórico em uso"
+        equipment_rows.append({
+            "equipment_id": equipment_id,
+            "equipment_type": clean_text(item.get("equipment_type")),
+            "status": clean_text(item.get("status")),
+            "plate": clean_text(item.get("plate")),
+            "routes": len(route_items),
+            "cleanings": int(history.get("cleanings") or 0),
+            "current_clients": history.get("current_clients", []),
+            "last_route": last_route,
+            "maintenance_reason": maintenance_reason,
+            "next_action": next_action,
+            "target_tab": "fleet-tab",
+            "target_href": f"#equipment-{equipment_id}",
+        })
+    equipment_rows.sort(key=lambda item: (1 if item["maintenance_reason"] else 0, 1 if item["next_action"] != "Histórico em uso" else 0, item["routes"]), reverse=True)
+
+    pending_context = []
+    for client in client_rows:
+        if client["missing"]:
+            pending_context.append({
+                "level": "warning",
+                "area": "Cliente",
+                "title": client["name"],
+                "reason": f"Falta {', '.join(client['missing'][:3])}",
+                "owner": "Administrativo",
+                "age": client["last_touch"] or "sem histórico",
+                "target_tab": client["target_tab"],
+                "target_href": client["target_href"],
+            })
+    for event in events:
+        missing = []
+        if not event.get("client_ids"):
+            missing.append("cliente")
+        if not event.get("vehicle_ids"):
+            missing.append("veículo")
+        if any(not checklist.get("done") for checklist in event.get("checklist", []) or []):
+            missing.append("checklist")
+        event_date = parse_date(event.get("event_date"))
+        if missing:
+            level = "danger" if event_date and 0 <= (event_date - today).days <= 2 else "warning"
+            pending_context.append({
+                "level": level,
+                "area": "Evento",
+                "title": clean_text(event.get("title")) or clean_text(event.get("event_id")),
+                "reason": f"Revisar {', '.join(missing)}",
+                "owner": "Operação",
+                "age": clean_text(event.get("event_date")) or "sem data",
+                "target_tab": "events-tab",
+                "target_href": f"#event-{clean_text(event.get('event_id'))}",
+            })
+    if can_view_finance:
+        for item in financial_management.get("overdue", [])[:8]:
+            pending_context.append({
+                "level": "danger",
+                "area": "Financeiro",
+                "title": clean_text(item.get("client_name")) or clean_text(item.get("id")),
+                "reason": f"{format_currency_br(item.get('open_amount'))} vencido há {item.get('days_overdue', 0)} dia(s)",
+                "owner": "Financeiro",
+                "age": clean_text(item.get("due_date")),
+                "target_tab": "summary-tab",
+                "target_href": "#receivables-panel",
+            })
+    for item in warehouse_dashboard.get("items", [])[:12]:
+        if item.get("stock_status") in {"baixo", "zerado"}:
+            pending_context.append({
+                "level": "danger" if item.get("stock_status") == "zerado" else "warning",
+                "area": "Almoxarifado",
+                "title": clean_text(item.get("name")),
+                "reason": f"{item.get('stock_status_label')} com {item.get('quantity_current')} {item.get('unit')}",
+                "owner": "Estoque",
+                "age": clean_text(item.get("updated_at")) or "saldo atual",
+                "target_tab": "warehouse-tab",
+                "target_href": "#warehouse-pane",
+            })
+    pending_context.sort(key=lambda item: 0 if item["level"] == "danger" else 1)
+
+    today_events = [
+        event for event in events
+        if clean_text(event.get("event_date")) <= today_text <= (clean_text(event.get("event_end_date")) or clean_text(event.get("event_date")))
+    ]
+    today_receivables = [
+        item for item in receivables
+        if clean_text(item.get("due_date")) == today_text and clean_text(item.get("status")) != "pago"
+    ]
+    daily_recall = [
+        {
+            "label": "Eventos lembrados hoje",
+            "value": len(today_events),
+            "detail": "agenda e permanência do dia",
+            "target_tab": "agenda-tab",
+            "target_href": "#agenda-pane",
+        },
+        {
+            "label": "Cobranças lembradas hoje",
+            "value": len(today_receivables) if can_view_finance else 0,
+            "detail": "vencimentos abertos" if can_view_finance else "visível para financeiro",
+            "target_tab": "summary-tab",
+            "target_href": "#receivables-panel",
+        },
+        {
+            "label": "Pendências com contexto",
+            "value": len(pending_context),
+            "detail": "com responsável e motivo",
+            "target_tab": "summary-tab",
+            "target_href": "#operational-memory-panel",
+        },
+        {
+            "label": "Itens pesquisáveis",
+            "value": len(global_search_items),
+            "detail": "clientes, placas, anexos e financeiro",
+            "target_tab": "summary-tab",
+            "target_href": "#global-search-panel",
+        },
+    ]
+
+    audit_count = len(load_audit_log())
+    memory_coverage = [
+        {"label": "Clientes com linha do tempo", "value": sum(1 for item in client_rows if item["events"] or item["routes"] or item["attachments"]), "total": len(clients)},
+        {"label": "Banheiros/equipamentos com histórico", "value": sum(1 for item in equipment_rows if item["routes"] or item["cleanings"] or item["current_clients"]), "total": len(equipment)},
+        {"label": "Anexos ligados ao negócio", "value": len([item for item in attachments if clean_text(item.get("client_id")) or clean_text(item.get("event_id"))]), "total": len(attachments)},
+        {"label": "Alterações auditadas", "value": len(recent_audit_log), "total": min(audit_count, 1000)},
+        {"label": "Registros pesquisáveis", "value": len(global_search_items), "total": len(global_search_items)},
+    ]
+
+    decision_log = [
+        {
+            "module": clean_text(item.get("module"), "sistema"),
+            "action": clean_text(item.get("action"), "ação"),
+            "target": clean_text(item.get("target_id")) or clean_text(item.get("detail")),
+            "user": clean_text(item.get("user_email")) or clean_text(item.get("user_id")),
+            "created_at": clean_text(item.get("created_at")),
+            "detail": clean_text(item.get("detail")),
+        }
+        for item in recent_audit_log[:8]
+    ]
+
+    observation_templates = [
+        {
+            "label": "Pendência operacional",
+            "fields": ["motivo", "responsável", "prazo", "próximo passo"],
+            "example": "Cliente pediu trocar horário; responsável: operação; revisar até hoje.",
+        },
+        {
+            "label": "Manutenção",
+            "fields": ["banheiro/equipamento", "problema", "custo previsto", "liberação"],
+            "example": "TRL-001 com revisão elétrica; liberar após manutenção.",
+        },
+        {
+            "label": "Financeiro",
+            "fields": ["valor", "vencimento", "forma", "comprovante/NF"],
+            "example": "Pagamento parcial via Pix; anexar comprovante e emitir NF.",
+        },
+        {
+            "label": "Cliente/endereço",
+            "fields": ["acesso", "contato", "restrição", "preferência"],
+            "example": "Entrada pela portaria lateral; falar com responsável antes de despachar.",
+        },
+    ]
+
+    finance_memory = {
+        "visible": can_view_finance,
+        "open_total": round2(sum(parse_decimal(item.get("open")) for item in financial_management.get("client_finance", []))) if can_view_finance else 0,
+        "overdue_count": len(financial_management.get("overdue", [])) if can_view_finance else 0,
+        "receivables_count": len(receivables),
+        "paid_count": len(financial_management.get("receivables_paid", [])) if can_view_finance else 0,
+        "closeouts_count": len(financial_management.get("closeouts", [])) if can_view_finance else 0,
+        "invoice_missing": financial_management.get("invoice_summary", {}).get("sem_nota", 0) if can_view_finance else 0,
+    }
+
+    backup_memory = {
+        "last_backup": clean_text(settings.get("last_backup_at")),
+        "last_closeout": clean_text(settings.get("last_closeout_at")),
+        "audit_count": audit_count,
+        "recent_changes": len(recent_audit_log),
+    }
+
+    return {
+        "daily_recall": daily_recall,
+        "coverage": memory_coverage,
+        "client_memory": client_rows[:8],
+        "equipment_memory": equipment_rows[:8],
+        "pending_context": pending_context[:10],
+        "decision_log": decision_log,
+        "observation_templates": observation_templates,
+        "finance_memory": finance_memory,
+        "backup_memory": backup_memory,
+        "counts": {
+            "clients": len(clients),
+            "events": len(events),
+            "equipment": len(equipment),
+            "vehicles": len(vehicles),
+            "contracts": len(contracts),
+            "quotes": len(quotes),
+            "attachments": len(attachments),
+            "routes": len(route_history),
+            "cleanings": len(service_log),
+            "confirmations": len(field_confirmations),
+            "searchable": len(global_search_items),
+        },
+    }
+
+
 def build_service_order_pdf(event: dict, clients: list[dict], vehicles: list[dict], equipment: list[dict]) -> bytes:
     client_map = {clean_text(item.get("client_id")): item for item in clients}
     vehicle_map = {clean_text(item.get("vehicle_id")): item for item in vehicles}
@@ -7282,6 +7768,108 @@ def build_daily_closeout_zip() -> bytes:
     return buffer.getvalue()
 
 
+def build_weekly_management_report_pdf(*, can_view_finance: bool = False) -> bytes:
+    today = datetime.now().date()
+    week_end = today + timedelta(days=7)
+    clients = load_clients()
+    events = load_events()
+    users = load_users()
+    settings = load_settings()
+    warehouse_dashboard = build_warehouse_dashboard()
+    inventory = build_inventory_view(clients, load_route_data(), load_field_confirmations())
+    upcoming_events = [
+        event for event in events
+        if parse_date(event.get("event_date"))
+        and today <= parse_date(event.get("event_date")) <= week_end
+    ]
+    incomplete_clients = [
+        client for client in clients
+        if not clean_text(client.get("phone")) or not clean_text(client.get("address")) or not clean_text(client.get("contact_name"))
+    ]
+    active_events_without_links = [
+        event for event in events
+        if event_is_active(event) and (not event.get("client_ids") or not event.get("vehicle_ids"))
+    ]
+    stock_alerts = [
+        item for item in warehouse_dashboard.get("items", [])
+        if item.get("stock_status") in {"baixo", "zerado"}
+    ]
+    maintenance_items = [
+        item for item in inventory
+        if clean_text(item.get("status")) in {"manutencao", "indisponivel"} or clean_text(item.get("maintenance_reason"))
+    ]
+    pending_users = [user for user in users if clean_text(user.get("status")) == "convite_pendente"]
+    lines = [
+        f"Gerado em {format_datetime_br(now_iso())}",
+        f"Período: {format_date_br(today.isoformat())} até {format_date_br(week_end.isoformat())}",
+        "",
+        "Resumo executivo",
+        f"- Eventos nos próximos 7 dias: {len(upcoming_events)}",
+        f"- Clientes com cadastro incompleto: {len(incomplete_clients)}",
+        f"- Eventos ativos sem cliente ou veículo: {len(active_events_without_links)}",
+        f"- Materiais baixos ou zerados: {len(stock_alerts)}",
+        f"- Equipamentos em manutenção/indisponíveis: {len(maintenance_items)}",
+        f"- Convites de acesso pendentes: {len(pending_users)}",
+        f"- Último backup: {format_datetime_br(settings.get('last_backup_at'))}",
+        "",
+        "Agenda da semana",
+    ]
+    for event in sorted(upcoming_events, key=lambda item: clean_text(item.get("event_date")))[:20]:
+        lines.append(
+            f"- {format_date_br(event.get('event_date'))}: {event.get('title') or event.get('event_id')} | "
+            f"{event.get('status')} | clientes {len(event.get('client_ids') or [])} | veículos {len(event.get('vehicle_ids') or [])}"
+        )
+    if not upcoming_events:
+        lines.append("- Nenhum evento programado para os próximos 7 dias.")
+    lines.extend(["", "Cadastros para completar"])
+    for client in incomplete_clients[:12]:
+        missing = []
+        if not clean_text(client.get("phone")):
+            missing.append("telefone")
+        if not clean_text(client.get("address")):
+            missing.append("endereço")
+        if not clean_text(client.get("contact_name")):
+            missing.append("contato")
+        lines.append(f"- {client.get('customer_name') or client.get('client_id')}: {', '.join(missing)}")
+    if not incomplete_clients:
+        lines.append("- Nenhum cadastro essencial pendente.")
+    lines.extend(["", "Almoxarifado"])
+    for item in stock_alerts[:12]:
+        lines.append(
+            f"- {item.get('name')} | {item.get('stock_status_label')} | saldo {item.get('quantity_current')} {item.get('unit')} | comprar: {item.get('purchase_link') or item.get('purchase_location') or 'n/d'}"
+        )
+    if not stock_alerts:
+        lines.append("- Nenhum material baixo ou zerado.")
+    if can_view_finance:
+        financial_management = build_financial_management_dashboard(
+            load_route_history(),
+            load_financial_receivables(),
+            load_financial_entries(),
+            load_financial_closeouts(),
+            "weekly",
+            "",
+            "",
+        )
+        lines.extend(["", "Financeiro"])
+        lines.append(f"- Cobranças vencidas: {len(financial_management.get('overdue', []))}")
+        lines.append(f"- Recebíveis próximos: {len(financial_management.get('receivables_due_soon', []))}")
+        lines.append(f"- Receita bruta do período: {format_currency_br(financial_management.get('dre', {}).get('gross_revenue'))}")
+        lines.append(f"- Lucro estimado: {format_currency_br(financial_management.get('dre', {}).get('profit'))}")
+    else:
+        lines.extend(["", "Financeiro", "- Dados financeiros ocultos para este perfil."])
+    lines.extend(
+        [
+            "",
+            "Próximas ações recomendadas",
+            "- Resolver cadastros incompletos antes de gerar PDFs.",
+            "- Baixar ou revisar ordem de serviço/PDF dos eventos próximos.",
+            "- Repor materiais críticos do almoxarifado.",
+            "- Fazer backup após alterações importantes.",
+        ]
+    )
+    return build_simple_text_pdf("SannyGold - Relatório Semanal", lines)
+
+
 def build_team_weekly_review(
     *,
     users: list[dict],
@@ -7361,6 +7949,7 @@ def build_dashboard_context() -> dict:
     financial_entries = load_financial_entries()
     financial_closeouts = load_financial_closeouts()
     validation_payload = load_operation_validation()
+    settings = load_settings()
     validations = build_validation_findings(clients, vehicles, events, inventory, route_data, validation_payload)
     pending_reasons = build_pending_reasons(validation_payload)
     operational_dashboard = build_operational_dashboard(
@@ -7409,6 +7998,9 @@ def build_dashboard_context() -> dict:
         usability_alerts,
         dispatch_today,
         financial_receivables,
+        route_data=route_data,
+        has_pdf=ROUTE_PDF_PATH.exists(),
+        settings=settings,
     )
     equipment_history = build_equipment_history(inventory, clients, route_history, service_log)
     maintenance_preventive_dashboard = build_maintenance_preventive_dashboard(inventory, service_log)
@@ -7423,7 +8015,6 @@ def build_dashboard_context() -> dict:
         route_data,
     )
     can_view_finance = has_permission(user, "finance.view")
-    settings = load_settings()
     users = load_users()
     security_posture = build_security_posture(
         secret_key=app.config.get("SECRET_KEY", DEFAULT_SECRET_KEY),
@@ -7521,6 +8112,7 @@ def build_dashboard_context() -> dict:
         vehicles,
         inventory,
         warehouse_dashboard,
+        attachments,
         financial_receivables if can_view_finance else [],
     )
     reports_hub = build_reports_hub(
@@ -7533,6 +8125,26 @@ def build_dashboard_context() -> dict:
         financial_management=financial_management,
     )
     customer_history = build_customer_history(clients, events, route_history, field_confirmations)
+    operational_memory_dashboard = build_operational_memory_dashboard(
+        clients=clients,
+        events=events,
+        equipment=inventory,
+        vehicles=vehicles,
+        contracts=contracts,
+        quotes=quotes,
+        attachments=attachments,
+        service_log=service_log,
+        route_history=route_history,
+        field_confirmations=field_confirmations,
+        financial_management=financial_management,
+        customer_history=customer_history,
+        equipment_history=equipment_history,
+        recent_audit_log=recent_audit_log,
+        warehouse_dashboard=warehouse_dashboard,
+        settings=settings,
+        global_search_items=global_search_items,
+        can_view_finance=can_view_finance,
+    )
     smart_system_dashboard = build_smart_system_dashboard(
         attention_center=attention_center,
         preventive_warnings=preventive_warnings,
@@ -7643,6 +8255,7 @@ def build_dashboard_context() -> dict:
         "operational_kanban": operational_kanban,
         "general_improvements": general_improvements,
         "smart_system_dashboard": smart_system_dashboard,
+        "operational_memory_dashboard": operational_memory_dashboard,
         "equipment_history": equipment_history,
         "contract_financial_dashboard": build_contract_financial_dashboard(contracts, service_log),
         "maintenance_preventive_dashboard": maintenance_preventive_dashboard,
@@ -8409,6 +9022,19 @@ def download_daily_closeout():
     )
 
 
+@app.route("/reports/weekly.pdf", methods=["GET"])
+@require_permission("dashboard.view")
+def download_weekly_report_pdf():
+    payload = build_weekly_management_report_pdf(can_view_finance=has_permission(current_user(), "finance.view"))
+    record_audit("download", "reports", "weekly", "Relatório semanal baixado.")
+    return send_file(
+        io.BytesIO(payload),
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=f"sannygold-relatorio-semanal-{datetime.now().date().isoformat()}.pdf",
+    )
+
+
 @app.route("/clients/<client_id>/delete", methods=["POST"])
 @require_permission("clients.edit")
 def delete_client(client_id: str):
@@ -8708,7 +9334,7 @@ def save_attachment():
 
 
 @app.route("/events/<event_id>/service-order.pdf", methods=["GET"])
-@require_permission("operations.view")
+@require_permission("events.view")
 def download_service_order(event_id: str):
     event = next((item for item in load_events() if clean_text(item.get("event_id")) == clean_text(event_id)), None)
     if not event:
