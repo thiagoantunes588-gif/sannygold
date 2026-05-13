@@ -374,6 +374,32 @@ class OperationalUiImprovementsTest(unittest.TestCase):
         self.assertNotIn("Modo offline", html)
         self.assertNotIn("Sincronização atual", html)
 
+    def test_compact_system_usage_features_are_rendered(self):
+        response = self.client.get("/")
+        html = response.get_data(as_text=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("work-mode compact-density", html)
+        self.assertIn('id="compact-system-panel"', html)
+        self.assertIn("Uso rápido do sistema", html)
+        self.assertIn("menu por áreas", html.lower())
+        self.assertIn('id="compact-area-menu"', html)
+        for label in ("Hoje", "Eventos", "Banheiros", "Clientes", "Financeiro", "Estoque", "Relatórios", "Acessos"):
+            self.assertIn(label, html)
+        self.assertIn("Busca única", html)
+        self.assertIn("cliente, evento, banheiro/equipamento, placa, cobrança, orçamento, material e NF", html)
+        self.assertIn("Mais opções", html)
+        self.assertIn("PDF/impresso", html)
+        self.assertIn('id="compact-list-filters"', html)
+        self.assertIn("js-compact-filter", html)
+        self.assertIn('id="compact-list-toggle"', html)
+        self.assertIn('id="compact-density-toggle"', html)
+        self.assertIn("Detalhes avançados do cliente", html)
+        self.assertIn("Mais campos de cobrança e rota", html)
+        self.assertIn("Mais campos do evento", html)
+        self.assertIn('id="equipment-family-filter"', html)
+        self.assertIn('data-filter-attribute="family"', html)
+
     def test_daily_flow_search_and_form_helpers_are_rendered(self):
         response = self.client.get("/")
         html = response.get_data(as_text=True)

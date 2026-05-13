@@ -7084,6 +7084,177 @@ def build_search_module_counts(global_search_items: list[dict], *, can_view_fina
     return [{"key": key, "label": label, "count": counts.get(key, 0)} for key, label in module_order]
 
 
+def build_compact_system_dashboard(
+    *,
+    clients: list[dict],
+    events: list[dict],
+    vehicles: list[dict],
+    equipment: list[dict],
+    warehouse_dashboard: dict,
+    financial_management: dict,
+    reports_hub: list[dict],
+    attention_center: dict,
+    equipment_family_counts: dict,
+    has_pdf: bool,
+    can_view_finance: bool,
+    can_manage_access: bool,
+) -> dict:
+    today = datetime.now().date()
+    today_text = today.isoformat()
+    week_end = today + timedelta(days=7)
+    today_events = [event for event in events if event_overlaps_date(event, today_text)]
+    week_events = [
+        event
+        for event in events
+        if event_overlaps_period(event, today_text, week_end.isoformat())
+    ]
+    bathroom_total = (
+        int(equipment_family_counts.get("banheiro_luxo") or 0)
+        + int(equipment_family_counts.get("banheiro_quimico") or 0)
+    )
+    support_total = (
+        int(equipment_family_counts.get("climatizacao") or 0)
+        + int(equipment_family_counts.get("hidratacao") or 0)
+        + int(equipment_family_counts.get("apoio") or 0)
+    )
+    warehouse_counts = warehouse_dashboard.get("counts") or {}
+    overdue_count = len(financial_management.get("overdue", [])) if can_view_finance else 0
+    open_alerts = int(attention_center.get("open_total") or 0)
+
+    nav_groups = [
+        {
+            "label": "Hoje",
+            "detail": f"{len(today_events)} evento(s) hoje • {open_alerts} alerta(s)",
+            "count": len(today_events),
+            "href": "#central-day-panel",
+            "tab": "summary-tab",
+            "tone": "primary",
+        },
+        {
+            "label": "Eventos",
+            "detail": f"{len(events)} total • {len(week_events)} na semana",
+            "count": len(events),
+            "href": "#events-pane",
+            "tab": "events-tab",
+            "tone": "default",
+        },
+        {
+            "label": "Banheiros",
+            "detail": f"{bathroom_total} banheiro(s) • {support_total} apoio(s)",
+            "count": bathroom_total,
+            "href": "#fleet-pane",
+            "tab": "fleet-tab",
+            "tone": "primary",
+        },
+        {
+            "label": "Clientes",
+            "detail": f"{len(clients)} cadastro(s)",
+            "count": len(clients),
+            "href": "#clients-pane",
+            "tab": "clients-tab",
+            "tone": "default",
+        },
+        {
+            "label": "Financeiro",
+            "detail": f"{overdue_count} vencido(s)" if can_view_finance else "Protegido por permissão",
+            "count": overdue_count,
+            "href": "#receivables-panel" if can_view_finance else "#system-readiness-panel",
+            "tab": "summary-tab",
+            "tone": "danger" if overdue_count else "default",
+        },
+        {
+            "label": "Estoque",
+            "detail": f"{warehouse_counts.get('total', 0)} item(ns) • {warehouse_counts.get('low', 0) + warehouse_counts.get('zero', 0)} alerta(s)",
+            "count": warehouse_counts.get("total", 0),
+            "href": "#warehouse-pane",
+            "tab": "warehouse-tab",
+            "tone": "danger" if warehouse_counts.get("zero") else "warning" if warehouse_counts.get("low") else "default",
+        },
+        {
+            "label": "Relatórios",
+            "detail": f"{len(reports_hub)} pacote(s) para PDF/Excel",
+            "count": len(reports_hub),
+            "href": "#reports-panel",
+            "tab": "summary-tab",
+            "tone": "default",
+        },
+    ]
+    if can_manage_access:
+        nav_groups.append({
+            "label": "Acessos",
+            "detail": "Usuários, convites e senhas",
+            "count": 0,
+            "href": "#access-management-panel",
+            "tab": "access-tab",
+            "tone": "admin",
+        })
+
+    primary_actions = [
+        {"label": "Criar locação", "href": "#quick-rental-panel", "tab": "summary-tab", "create": ""},
+        {"label": "Novo evento", "href": "#events-pane", "tab": "events-tab", "create": "event-create-panel"},
+        {"label": "Novo cliente", "href": "#clients-pane", "tab": "clients-tab", "create": "manual-client-form"},
+        {"label": "Buscar tudo", "href": "#global-search-panel", "tab": "summary-tab", "create": ""},
+        {"label": "Gerar rota/PDF", "href": "#operations-pane", "tab": "operations-tab", "create": ""},
+    ]
+    if can_view_finance:
+        primary_actions.append({"label": "Baixar pagamento", "href": "#receivables-panel", "tab": "summary-tab", "create": ""})
+
+    more_actions = [
+        {"label": "Frota e equipamentos", "href": "#fleet-pane", "tab": "fleet-tab"},
+        {"label": "Almoxarifado", "href": "#warehouse-pane", "tab": "warehouse-tab"},
+        {"label": "Relatórios completos", "href": "#reports-panel", "tab": "summary-tab"},
+        {"label": "Status do sistema", "href": "#system-readiness-panel", "tab": "summary-tab"},
+        {"label": "Fechar dia", "href": url_for("download_daily_closeout"), "tab": ""},
+    ]
+    if can_manage_access:
+        more_actions.extend(
+            [
+                {"label": "Acessos da equipe", "href": "#access-management-panel", "tab": "access-tab"},
+                {"label": "Homologação", "href": "#homologation-pane", "tab": "homologation-tab"},
+                {"label": "Backup", "href": url_for("download_system_backup"), "tab": ""},
+            ]
+        )
+
+    search_shortcuts = [
+        {"label": "Cliente", "query": "", "module": "clientes", "target_tab": "summary-tab", "target_href": "#global-search-panel"},
+        {"label": "Evento", "query": "", "module": "eventos", "target_tab": "summary-tab", "target_href": "#global-search-panel"},
+        {"label": "Banheiros", "query": "banheiro", "module": "equipamentos", "target_tab": "fleet-tab", "target_href": "#fleet-pane"},
+        {"label": "Apoio", "query": "", "module": "equipamentos", "target_tab": "fleet-tab", "target_href": "#fleet-pane"},
+        {"label": "Placa", "query": "placa", "module": "", "target_tab": "summary-tab", "target_href": "#global-search-panel"},
+        {"label": "NF", "query": "nf", "module": "", "target_tab": "summary-tab", "target_href": "#global-search-panel"},
+        {"label": "Material", "query": "", "module": "almoxarifado", "target_tab": "warehouse-tab", "target_href": "#warehouse-pane"},
+    ]
+    if can_view_finance:
+        search_shortcuts.append({"label": "Cobrança", "query": "vencido", "module": "financeiro", "target_tab": "summary-tab", "target_href": "#receivables-panel"})
+
+    list_filters = [
+        {"label": "Hoje", "target": "", "query": "", "select": "", "value": "", "period": "today"},
+        {"label": "Semana", "target": "", "query": "", "select": "", "value": "", "period": "week"},
+        {"label": "Pendente", "target": "", "query": "", "select": "event-status-filter", "value": "orcamento", "period": ""},
+        {"label": "Pago", "target": "", "query": "", "select": "event-status-filter", "value": "pago", "period": ""},
+        {"label": "Atrasado", "target": "global-search", "query": "vencido", "select": "global-search-module", "value": "financeiro" if can_view_finance else "", "period": ""},
+        {"label": "Banheiros", "target": "equipment-filter", "query": "", "select": "equipment-family-filter", "value": "banheiros", "period": ""},
+        {"label": "Apoio", "target": "equipment-filter", "query": "", "select": "equipment-family-filter", "value": "apoio", "period": ""},
+    ]
+
+    return {
+        "nav_groups": nav_groups,
+        "primary_actions": primary_actions,
+        "more_actions": more_actions,
+        "search_shortcuts": search_shortcuts,
+        "list_filters": list_filters,
+        "today_iso": today_text,
+        "week_end_iso": week_end.isoformat(),
+        "bathroom_total": bathroom_total,
+        "support_total": support_total,
+        "pdf_package": {
+            "ready": has_pdf,
+            "status": "PDF pronto" if has_pdf else "Aguardando rota",
+            "detail": "Rota, ordem de serviço, endereços e fechamento reunidos para imprimir ou enviar.",
+        },
+    }
+
+
 def build_reports_hub(
     *,
     can_view_finance: bool,
@@ -8124,6 +8295,20 @@ def build_dashboard_context() -> dict:
         warehouse_dashboard=warehouse_dashboard,
         financial_management=financial_management,
     )
+    compact_system = build_compact_system_dashboard(
+        clients=clients,
+        events=events,
+        vehicles=vehicles,
+        equipment=inventory,
+        warehouse_dashboard=warehouse_dashboard,
+        financial_management=financial_management,
+        reports_hub=reports_hub,
+        attention_center=attention_center,
+        equipment_family_counts=equipment_family_counts,
+        has_pdf=ROUTE_PDF_PATH.exists(),
+        can_view_finance=can_view_finance,
+        can_manage_access=has_permission(user, "settings.manage"),
+    )
     customer_history = build_customer_history(clients, events, route_history, field_confirmations)
     operational_memory_dashboard = build_operational_memory_dashboard(
         clients=clients,
@@ -8268,6 +8453,7 @@ def build_dashboard_context() -> dict:
         "global_search_items": global_search_items,
         "search_module_counts": build_search_module_counts(global_search_items, can_view_finance=can_view_finance),
         "reports_hub": reports_hub,
+        "compact_system": compact_system,
         "daily_management_checklist": daily_management_checklist,
         "maintenance_items": [item for item in inventory if item.get("status") in {"manutencao", "indisponivel"} or item.get("maintenance_reason")],
         "can_view_finance": can_view_finance,

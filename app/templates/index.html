@@ -588,6 +588,126 @@
       color: var(--aqua-deep);
       font-weight: 800;
     }
+    .compact-density .tab-pane-stack {
+      gap: 0.9rem;
+    }
+    .compact-density .route-badges {
+      gap: 0.28rem;
+    }
+    .compact-density .route-badge {
+      padding: 0.22rem 0.5rem;
+      font-size: 0.69rem;
+      line-height: 1.1;
+    }
+    .compact-density .entity-card,
+    .compact-density .event-card,
+    .compact-density .daily-flow-card,
+    .compact-density .stat-card {
+      border-radius: 12px;
+    }
+    .compact-density .form-control,
+    .compact-density .form-select,
+    .compact-density .btn {
+      border-radius: 8px;
+    }
+    .compact-system-panel {
+      border: 1px solid rgba(185, 133, 45, 0.22);
+      border-radius: 16px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,248,237,0.96));
+      box-shadow: 0 16px 36px rgba(69, 49, 18, 0.09);
+    }
+    .compact-nav-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(138px, 1fr));
+      gap: 0.55rem;
+    }
+    .compact-nav-link {
+      display: grid;
+      gap: 0.25rem;
+      min-height: 74px;
+      padding: 0.72rem;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.78);
+      color: var(--ink);
+      text-decoration: none;
+    }
+    .compact-nav-link:hover,
+    .compact-nav-link:focus-visible {
+      border-color: rgba(53, 191, 210, 0.34);
+      color: var(--ink);
+      background: rgba(246,252,253,0.95);
+    }
+    .compact-nav-link.is-primary {
+      border-color: rgba(53, 191, 210, 0.28);
+      background: linear-gradient(180deg, rgba(246,252,253,0.98), rgba(255,251,244,0.98));
+    }
+    .compact-nav-link.is-danger {
+      border-color: rgba(201, 58, 58, 0.24);
+      background: var(--crit-block-bg);
+    }
+    .compact-nav-link.is-warning {
+      border-color: rgba(185, 129, 33, 0.26);
+      background: var(--crit-attention-bg);
+    }
+    .compact-nav-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.5rem;
+      align-items: center;
+      font-weight: 800;
+    }
+    .compact-nav-detail,
+    .compact-helper-text {
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.3;
+    }
+    .compact-action-row,
+    .compact-filter-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      align-items: center;
+    }
+    .compact-more-options summary,
+    .compact-advanced-fields summary,
+    .row-more-actions summary {
+      cursor: pointer;
+      font-weight: 800;
+      color: var(--gold-shadow);
+      list-style: none;
+    }
+    .compact-more-options summary::-webkit-details-marker,
+    .compact-advanced-fields summary::-webkit-details-marker,
+    .row-more-actions summary::-webkit-details-marker {
+      display: none;
+    }
+    .compact-advanced-fields {
+      border: 1px dashed rgba(185, 129, 33, 0.24);
+      border-radius: 12px;
+      padding: 0.8rem;
+      background: rgba(255, 250, 241, 0.66);
+    }
+    .row-more-actions[open] {
+      min-width: 160px;
+    }
+    .compact-list-mode .event-card,
+    .compact-list-mode .client-list-item,
+    .compact-list-mode .equipment-list-item {
+      padding-block: 0.72rem !important;
+    }
+    .compact-list-mode .client-list-item details:not([open]),
+    .compact-list-mode .event-progress,
+    .compact-list-mode .equipment-list-item .asset-thumb-button,
+    .compact-list-mode .equipment-list-item .asset-thumb-fallback {
+      display: none;
+    }
+    .single-search-hint {
+      border-left: 4px solid rgba(53, 191, 210, 0.42);
+      padding-left: 0.7rem;
+    }
     .highlight-after-save {
       animation: savedPulse 2.2s ease;
     }
@@ -1247,7 +1367,8 @@
       border-radius: 8px;
       background: #111;
     }
-    .hidden-by-filter {
+    .hidden-by-filter,
+    .hidden-by-compact-period {
       display: none !important;
     }
     .bottom-action-bar {
@@ -1536,7 +1657,7 @@
     }
   </style>
 </head>
-<body class="{{ 'work-mode' if is_authenticated else 'public-mode' }}">
+<body class="{{ 'work-mode compact-density' if is_authenticated else 'public-mode' }}">
   <a class="btn btn-dark sr-only-focusable" href="#operationsTabs">Ir para operacao</a>
   <main class="container py-4 shell">
     <div class="top-auth-bar" aria-label="Conta e configurações">
@@ -1633,11 +1754,12 @@
     <section class="sticky-global-search" id="sticky-global-search" aria-label="Busca global fixa">
       <div class="d-flex flex-wrap align-items-center gap-2">
         <label class="fw-semibold small mb-0" for="sticky-global-search-input">Buscar no sistema</label>
-        <input class="form-control form-control-sm js-filter-input flex-grow-1" id="sticky-global-search-input" type="search" placeholder="Cliente, evento, endereço, placa, NF, anexo, material ou cobrança..." autocomplete="off" data-filter-target=".global-search-item">
+        <input class="form-control form-control-sm js-filter-input flex-grow-1" id="sticky-global-search-input" type="search" placeholder="Cliente, evento, banheiro, placa, NF, material ou cobrança..." autocomplete="off" data-filter-target=".global-search-item" data-global-search-input="true">
         <a class="btn btn-sm btn-outline-secondary" href="#global-search-panel">Ver resultados</a>
         <a class="btn btn-sm btn-dark js-tab-link" href="#quick-rental-panel" data-tab-target="summary-tab">Criar locação</a>
         <a class="btn btn-sm btn-outline-secondary js-tab-link" href="#events-pane" data-tab-target="events-tab">Eventos</a>
         <a class="btn btn-sm btn-outline-secondary js-tab-link" href="#operations-pane" data-tab-target="operations-tab">Operação</a>
+        <button class="btn btn-sm btn-outline-secondary" type="button" id="compact-density-toggle">Modo compacto</button>
       </div>
     </section>
     {% endif %}
@@ -2997,8 +3119,13 @@
         <a class="btn btn-outline-secondary btn-sm js-tab-link" href="#warehouse-pane" data-tab-target="warehouse-tab">Almoxarifado</a>
         <a class="btn btn-outline-secondary btn-sm js-tab-link" href="#operations-pane" data-tab-target="operations-tab">Validar/Gerar rota</a>
         {% if '*' in current_user.permissions %}
-        <a class="btn btn-outline-secondary btn-sm js-tab-link" href="#homologation-pane" data-tab-target="homologation-tab">Homologação</a>
-        <a class="btn btn-outline-secondary btn-sm js-tab-link" href="#access-management-panel" data-tab-target="access-tab">Convidar acesso</a>
+        <details class="compact-more-options">
+          <summary class="btn btn-outline-secondary btn-sm">Admin</summary>
+          <div class="compact-action-row mt-2">
+            <a class="btn btn-outline-secondary btn-sm js-tab-link" href="#homologation-pane" data-tab-target="homologation-tab">Homologação</a>
+            <a class="btn btn-outline-secondary btn-sm js-tab-link" href="#access-management-panel" data-tab-target="access-tab">Convidar acesso</a>
+          </div>
+        </details>
         {% endif %}
         {% if has_pdf %}
         <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('preview_file', filename='route-plan.pdf') }}" target="_blank" rel="noreferrer">PDF atual</a>
@@ -3018,6 +3145,87 @@
         {% endif %}
       </div>
     </nav>
+
+    {% if is_authenticated %}
+    <section class="compact-system-panel p-3 p-lg-4 mb-4" id="compact-system-panel" aria-label="Sistema compacto">
+      <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+        <div>
+          <div class="eyebrow mb-2">Modo compacto</div>
+          <h2 class="h5 mb-1">Uso rápido do sistema</h2>
+          <p class="compact-helper-text mb-0">Tela inicial enxuta, menu por áreas, busca única e ações raras guardadas em Mais opções.</p>
+        </div>
+        <div class="route-badges">
+          <span class="route-badge badge-fixed">Banheiros {{ compact_system.bathroom_total }}</span>
+          <span class="route-badge badge-avulso">Apoio {{ compact_system.support_total }}</span>
+          <span class="route-badge {{ 'badge-success' if compact_system.pdf_package.ready else 'badge-avulso' }}">{{ compact_system.pdf_package.status }}</span>
+        </div>
+      </div>
+
+      <div class="compact-nav-grid mb-3" id="compact-area-menu">
+        {% for item in compact_system.nav_groups %}
+        <a class="compact-nav-link {{ 'is-primary' if item.tone == 'primary' else 'is-danger' if item.tone == 'danger' else 'is-warning' if item.tone == 'warning' else '' }} js-tab-link" href="{{ item.href }}" data-tab-target="{{ item.tab }}">
+          <span class="compact-nav-title">{{ item.label }} <span class="route-badge badge-fixed">{{ item.count }}</span></span>
+          <span class="compact-nav-detail">{{ item.detail }}</span>
+        </a>
+        {% endfor %}
+      </div>
+
+      <div class="row g-3">
+        <div class="col-lg-5">
+          <div class="entity-card p-3 h-100">
+            <div class="fw-semibold mb-2">Ações principais</div>
+            <div class="compact-action-row mb-3">
+              {% for action in compact_system.primary_actions %}
+              <a class="btn btn-sm {{ 'btn-dark' if loop.first else 'btn-outline-secondary' }} js-tab-link" href="{{ action.href }}" data-tab-target="{{ action.tab }}"{% if action.create %} data-open-create="{{ action.create }}"{% endif %}>{{ action.label }}</a>
+              {% endfor %}
+            </div>
+            <details class="compact-more-options">
+              <summary>Mais opções</summary>
+              <div class="compact-action-row mt-2">
+                {% for action in compact_system.more_actions %}
+                <a class="btn btn-sm btn-outline-secondary {% if action.tab %}js-tab-link{% endif %}" href="{{ action.href }}"{% if action.tab %} data-tab-target="{{ action.tab }}"{% endif %}>{{ action.label }}</a>
+                {% endfor %}
+              </div>
+            </details>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="entity-card p-3 h-100">
+            <div class="fw-semibold mb-2">Busca única</div>
+            <div class="single-search-hint compact-helper-text mb-3">Use a mesma busca para cliente, evento, banheiro/equipamento, placa, cobrança, orçamento, material e NF.</div>
+            <div class="compact-filter-row">
+              {% for command in compact_system.search_shortcuts %}
+              <button class="btn btn-sm btn-outline-secondary js-command-search" type="button" data-command-query="{{ command.query }}" data-command-module="{{ command.module }}" data-module="{{ command.module }}" data-tab-target="{{ command.target_tab }}" data-target-href="{{ command.target_href }}">{{ command.label }}</button>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3">
+          <div class="entity-card p-3 h-100">
+            <div class="fw-semibold mb-2">PDF/impresso</div>
+            <p class="compact-helper-text mb-3">{{ compact_system.pdf_package.detail }}</p>
+            <div class="compact-action-row">
+              {% if has_pdf %}
+              <a class="btn btn-sm btn-dark" href="{{ url_for('preview_file', filename='route-plan.pdf') }}" target="_blank" rel="noreferrer">PDF da rota</a>
+              {% else %}
+              <a class="btn btn-sm btn-dark js-tab-link" href="#operations-pane" data-tab-target="operations-tab">Gerar PDF</a>
+              {% endif %}
+              <a class="btn btn-sm btn-outline-secondary js-tab-link" href="#dispatch-today-panel" data-tab-target="summary-tab">Despacho</a>
+              <a class="btn btn-sm btn-outline-secondary js-tab-link" href="#real-map-panel" data-tab-target="operations-tab">Endereços</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="compact-filter-row mt-3" id="compact-list-filters" aria-label="Filtros compactos">
+        <span class="compact-helper-text fw-semibold">Filtros rápidos:</span>
+        {% for item in compact_system.list_filters %}
+        <button class="btn btn-sm btn-outline-secondary js-compact-filter" type="button" data-input-target="{{ item.target }}" data-query="{{ item.query }}" data-select-target="{{ item.select }}" data-value="{{ item.value }}" data-period="{{ item.period }}">{{ item.label }}</button>
+        {% endfor %}
+        <button class="btn btn-sm btn-outline-secondary" type="button" id="compact-list-toggle">Listas compactas</button>
+      </div>
+    </section>
+    {% endif %}
 
     <section class="mobile-control-center glass p-3" id="mobile-control-center" aria-label="Central de impressão e links">
       <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
@@ -3090,7 +3298,7 @@
         </div>
       </div>
       <div class="d-flex gap-2 mb-3">
-        <input class="form-control js-filter-input" id="global-search" type="search" placeholder="Digite nome, ID, telefone, placa, material..." autocomplete="off" data-filter-target=".global-search-item">
+        <input class="form-control js-filter-input" id="global-search" type="search" placeholder="Digite cliente, evento, banheiro, placa, NF, material ou cobrança..." autocomplete="off" data-filter-target=".global-search-item" data-global-search-input="true">
         <select class="form-select js-filter-select" id="global-search-module" data-filter-target=".global-search-item" data-filter-attribute="module">
           <option value="">Todos os módulos</option>
 	          <option value="clientes">Clientes</option>
@@ -3115,7 +3323,7 @@
         </div>
         <div class="quick-filter-row">
           {% for command in smart_system_dashboard.command_search %}
-          <button class="btn btn-sm btn-outline-secondary js-command-search" type="button" data-command-query="{{ command.query }}" data-command-module="{{ command.module }}" data-tab-target="{{ command.target_tab }}" data-target-href="{{ command.target_href }}">
+          <button class="btn btn-sm btn-outline-secondary js-command-search" type="button" data-command-query="{{ command.query }}" data-command-module="{{ command.module }}" data-module="{{ command.module }}" data-tab-target="{{ command.target_tab }}" data-target-href="{{ command.target_href }}">
             {{ command.label }}
           </button>
           {% endfor %}
@@ -4562,6 +4770,8 @@
                       <label class="checklist-motion-label"><input class="js-checklist-motion" type="checkbox" name="check_checklist_financeiro"> Financeiro validado</label>
                     </div>
                   </div>
+                  <details class="compact-advanced-fields mb-3" id="event-advanced-fields">
+                    <summary>Mais campos do evento</summary>
                   <div class="entity-card p-3 mb-3">
                     <div class="fw-semibold mb-2">Financeiro do evento</div>
                     <div class="small text-secondary mb-3">As diárias são calculadas automaticamente entre a data inicial e a data final, contando os dois dias.</div>
@@ -4665,6 +4875,7 @@
                       <input class="form-control" id="recurrence_notes" name="recurrence_notes" type="text" placeholder="Contrato mensal com renovação automática">
                     </div>
                   </div>
+                  </details>
                   <div class="mb-3">
                     <label class="form-label fw-semibold" for="notes_event">Observações</label>
                     <input class="form-control" id="notes_event" name="notes" type="text" placeholder="Montagem a partir das 07h">
@@ -4722,7 +4933,7 @@
                   {% if events %}
                     {% for event in events %}
                     {% set normalized_event_status = event.status if event.status in event_status_labels else {'planejado':'confirmado','em_execucao':'em_andamento','novo':'orcamento'}.get(event.status, event.status) %}
-                    <div class="event-card p-3 event-list-item" id="event-{{ event.event_id }}" data-filter-text="{{ event.event_id }} {{ event.title }} {{ event_status_labels.get(normalized_event_status, event.status) }} {{ event.event_period_label }}" data-status="{{ normalized_event_status }}" data-recurring="{{ 'true' if event.recurrence_enabled == 'true' else 'false' }}">
+                    <div class="event-card p-3 event-list-item" id="event-{{ event.event_id }}" data-filter-text="{{ event.event_id }} {{ event.title }} {{ event_status_labels.get(normalized_event_status, event.status) }} {{ event.event_date }} {{ event.event_end_date }} {{ event.event_period_label }}" data-event-start="{{ event.event_date }}" data-event-end="{{ event.event_end_date or event.event_date }}" data-status="{{ normalized_event_status }}" data-recurring="{{ 'true' if event.recurrence_enabled == 'true' else 'false' }}">
                       <div class="d-flex justify-content-between gap-3">
                         <div>
                           <div class="fw-semibold">{{ event.event_id }} • {{ event.title }}</div>
@@ -4785,6 +4996,9 @@
                         <div class="entity-actions">
                           <button class="btn btn-sm btn-outline-secondary rounded-pill edit-event-button" type="button" data-event='{{ event|tojson }}'>Editar</button>
                           <a class="btn btn-sm btn-outline-secondary rounded-pill" href="{{ url_for('download_service_order', event_id=event.event_id) }}">OS</a>
+                          <details class="row-more-actions">
+                            <summary class="btn btn-sm btn-outline-secondary rounded-pill">Mais ações</summary>
+                            <div class="d-grid gap-1 mt-2">
                           {% if event.recurrence_enabled == 'true' %}
                           <form method="post" action="{{ url_for('generate_next_recurrence', event_id=event.event_id) }}">
                             <button class="btn btn-sm btn-outline-secondary rounded-pill" type="submit" data-confirm-message="Gerar a próxima recorrência deste evento?">Gerar próxima</button>
@@ -4805,6 +5019,8 @@
                           <form method="post" action="{{ url_for('delete_event', event_id=event.event_id) }}">
                             <button class="btn btn-sm btn-outline-danger rounded-pill" type="submit" data-confirm-message="Excluir este evento? Esta ação não pode ser desfeita pelo painel.">Excluir</button>
                           </form>
+                            </div>
+                          </details>
                         </div>
                       </div>
                     </div>
@@ -5191,32 +5407,50 @@
             <div class="form-helper mb-3">
               Preenchimento rápido: Cliente fixo pode ser contrato mensal com banheiro instalado e limpeza semanal. Essas limpezas entram na rota como paradas recorrentes de atendimento.
             </div>
-            <div class="mb-3">
-              <label class="form-label fw-semibold" for="client_id">ID do cliente</label>
-              <input class="form-control" id="client_id" name="client_id" type="text" placeholder="CLI-001" autocomplete="off">
-            </div>
-            <div class="mb-3">
-              <label class="form-label fw-semibold" for="customer_name">Nome do cliente</label>
-              <input class="form-control" id="customer_name" name="customer_name" type="text" placeholder="Farmácia Central" autocomplete="organization" required>
+            <div class="field-stepper" aria-label="Cadastro rápido">
+              <span class="is-active">1. Cliente</span>
+              <span>2. Endereço</span>
+              <span>3. Banheiro</span>
+              <span>4. Cobrança</span>
             </div>
             <div class="row g-3 mb-3">
-              <div class="col-md-3">
-                <label class="form-label fw-semibold" for="contact_name">Contato</label>
-                <input class="form-control" id="contact_name" name="contact_name" type="text" placeholder="Marcos Silva" autocomplete="name">
+              <div class="col-md-5">
+                <label class="form-label fw-semibold" for="customer_name">Nome do cliente</label>
+                <input class="form-control" id="customer_name" name="customer_name" type="text" placeholder="Farmácia Central" autocomplete="organization" required>
               </div>
-              <div class="col-md-3">
+              <div class="col-md-4">
                 <label class="form-label fw-semibold" for="phone">Telefone</label>
                 <input class="form-control" id="phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(21) 99999-0000">
               </div>
               <div class="col-md-3">
-                <label class="form-label fw-semibold" for="cpf_cnpj">CPF/CNPJ</label>
-                <input class="form-control" id="cpf_cnpj" name="cpf_cnpj" type="text" inputmode="numeric" placeholder="00.000.000/0001-00">
-              </div>
-              <div class="col-md-3">
-                <label class="form-label fw-semibold" for="email">E-mail</label>
-                <input class="form-control" id="email" name="email" type="email" autocomplete="email" placeholder="contato@cliente.com">
+                <label class="form-label fw-semibold" for="client_type">Tipo de cliente</label>
+                <select class="form-select" id="client_type" name="client_type">
+                  <option value="fixo">fixo</option>
+                  <option value="avulso">avulso</option>
+                </select>
               </div>
             </div>
+            <details class="compact-advanced-fields mb-3" id="client-advanced-fields">
+              <summary>Detalhes avançados do cliente</summary>
+              <div class="row g-3 mt-2">
+                <div class="col-md-3">
+                  <label class="form-label fw-semibold" for="client_id">ID do cliente</label>
+                  <input class="form-control" id="client_id" name="client_id" type="text" placeholder="CLI-001" autocomplete="off">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label fw-semibold" for="contact_name">Contato</label>
+                  <input class="form-control" id="contact_name" name="contact_name" type="text" placeholder="Marcos Silva" autocomplete="name">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label fw-semibold" for="cpf_cnpj">CPF/CNPJ</label>
+                  <input class="form-control" id="cpf_cnpj" name="cpf_cnpj" type="text" inputmode="numeric" placeholder="00.000.000/0001-00">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label fw-semibold" for="email">E-mail</label>
+                  <input class="form-control" id="email" name="email" type="email" autocomplete="email" placeholder="contato@cliente.com">
+                </div>
+              </div>
+            </details>
             <div class="mb-3">
               <label class="form-label fw-semibold" for="client_address">Endereço</label>
               <input class="form-control" id="client_address" name="client_address" type="text" placeholder="Av. Paulista, 1400" autocomplete="street-address" required>
@@ -5237,14 +5471,7 @@
               </div>
             </div>
             <div class="row g-3 mb-3">
-              <div class="col-6">
-                <label class="form-label fw-semibold" for="client_type">Tipo de cliente</label>
-                <select class="form-select" id="client_type" name="client_type">
-                  <option value="fixo">fixo</option>
-                  <option value="avulso">avulso</option>
-                </select>
-              </div>
-              <div class="col-6">
+              <div class="col-12">
                 <label class="form-label fw-semibold" for="equipment_type">Tipo de equipamento</label>
                 <input class="form-control" id="equipment_type" name="equipment_type" type="text" value="Banheiro Luxo" list="equipment-type-suggestions">
                 <div class="form-text">Use banheiro como padrão. Climatizador e ponto de hidratação entram como apoio.</div>
@@ -5281,19 +5508,6 @@
               </div>
             </div>
             <div class="row g-3 mb-3">
-              <div class="col-5">
-                <label class="form-label fw-semibold" for="invoice_status">Nota fiscal</label>
-                <select class="form-select" id="invoice_status" name="invoice_status">
-                  <option value="sem_nota">Sem nota</option>
-                  <option value="com_nota">Com nota</option>
-                </select>
-              </div>
-              <div class="col-7">
-                <label class="form-label fw-semibold" for="invoice_number">Número da nota fiscal</label>
-                <input class="form-control" id="invoice_number" name="invoice_number" type="text" placeholder="NF 12345">
-              </div>
-            </div>
-            <div class="row g-3 mb-3">
               <div class="col-4">
                 <label class="form-label fw-semibold" for="equipment_quantity">Quantidade</label>
                 <input class="form-control" id="equipment_quantity" name="equipment_quantity" type="number" min="1" value="1">
@@ -5308,49 +5522,65 @@
                 </select>
               </div>
             </div>
-            <div class="row g-3 mb-3">
-              <div class="col-6">
-                <label class="form-label fw-semibold" for="default_service_minutes">Serviço (min)</label>
-                <input class="form-control" id="default_service_minutes" name="default_service_minutes" type="number" min="1" value="20">
+            <details class="compact-advanced-fields mb-3" id="client-billing-advanced-fields">
+              <summary>Mais campos de cobrança e rota</summary>
+              <div class="row g-3 mt-2 mb-3">
+                <div class="col-5">
+                  <label class="form-label fw-semibold" for="invoice_status">Nota fiscal</label>
+                  <select class="form-select" id="invoice_status" name="invoice_status">
+                    <option value="sem_nota">Sem nota</option>
+                    <option value="com_nota">Com nota</option>
+                  </select>
+                </div>
+                <div class="col-7">
+                  <label class="form-label fw-semibold" for="invoice_number">Número da nota fiscal</label>
+                  <input class="form-control" id="invoice_number" name="invoice_number" type="text" placeholder="NF 12345">
+                </div>
               </div>
-              <div class="col-6">
-                <label class="form-label fw-semibold" for="default_priority">Prioridade</label>
-                <input class="form-control" id="default_priority" name="default_priority" type="number" min="1" value="3">
+              <div class="row g-3 mb-3">
+                <div class="col-6">
+                  <label class="form-label fw-semibold" for="default_service_minutes">Serviço (min)</label>
+                  <input class="form-control" id="default_service_minutes" name="default_service_minutes" type="number" min="1" value="20">
+                </div>
+                <div class="col-6">
+                  <label class="form-label fw-semibold" for="default_priority">Prioridade</label>
+                  <input class="form-control" id="default_priority" name="default_priority" type="number" min="1" value="3">
+                </div>
               </div>
-            </div>
-            <div class="row g-3 mb-3">
-              <div class="col-4">
-                <label class="form-label fw-semibold" for="window_start">Janela inicial</label>
-                <input class="form-control" id="window_start" name="window_start" type="time" value="08:00">
+              <div class="row g-3 mb-3">
+                <div class="col-4">
+                  <label class="form-label fw-semibold" for="window_start">Janela inicial</label>
+                  <input class="form-control" id="window_start" name="window_start" type="time" value="08:00">
+                </div>
+                <div class="col-4">
+                  <label class="form-label fw-semibold" for="window_end">Janela final</label>
+                  <input class="form-control" id="window_end" name="window_end" type="time" value="18:00">
+                </div>
+                <div class="col-4">
+                  <label class="form-label fw-semibold" for="locked_vehicle_id">Veículo travado</label>
+                  <select class="form-select" id="locked_vehicle_id" name="locked_vehicle_id">
+                    <option value="">Livre para otimizar</option>
+                    {% for vehicle in vehicles_registry %}
+                    <option value="{{ vehicle.vehicle_id }}">{{ vehicle.vehicle_id }} • {{ vehicle.vehicle_type }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
               </div>
-              <div class="col-4">
-                <label class="form-label fw-semibold" for="window_end">Janela final</label>
-                <input class="form-control" id="window_end" name="window_end" type="time" value="18:00">
+              <div class="row g-3">
+                <div class="col-4">
+                  <label class="form-label fw-semibold" for="service_value">Valor do serviço</label>
+                  <input class="form-control" id="service_value" name="service_value" type="number" min="0" step="0.01" value="0">
+                </div>
+                <div class="col-4">
+                  <label class="form-label fw-semibold" for="team_cost">Custo por equipe</label>
+                  <input class="form-control" id="team_cost" name="team_cost" type="number" min="0" step="0.01" value="0">
+                </div>
+                <div class="col-4">
+                  <label class="form-label fw-semibold" for="equipment_cost">Custo por equipamento</label>
+                  <input class="form-control" id="equipment_cost" name="equipment_cost" type="number" min="0" step="0.01" value="0">
+                </div>
               </div>
-              <div class="col-4">
-                <label class="form-label fw-semibold" for="locked_vehicle_id">Veículo travado</label>
-                <select class="form-select" id="locked_vehicle_id" name="locked_vehicle_id">
-                  <option value="">Livre para otimizar</option>
-                  {% for vehicle in vehicles_registry %}
-                  <option value="{{ vehicle.vehicle_id }}">{{ vehicle.vehicle_id }} • {{ vehicle.vehicle_type }}</option>
-                  {% endfor %}
-                </select>
-              </div>
-            </div>
-            <div class="row g-3 mb-3">
-              <div class="col-4">
-                <label class="form-label fw-semibold" for="service_value">Valor do serviço</label>
-                <input class="form-control" id="service_value" name="service_value" type="number" min="0" step="0.01" value="0">
-              </div>
-              <div class="col-4">
-                <label class="form-label fw-semibold" for="team_cost">Custo por equipe</label>
-                <input class="form-control" id="team_cost" name="team_cost" type="number" min="0" step="0.01" value="0">
-              </div>
-              <div class="col-4">
-                <label class="form-label fw-semibold" for="equipment_cost">Custo por equipamento</label>
-                <input class="form-control" id="equipment_cost" name="equipment_cost" type="number" min="0" step="0.01" value="0">
-              </div>
-            </div>
+            </details>
             <div class="d-grid">
               <button class="btn btn-outline-secondary rounded-pill" type="submit" id="save-client-button">Salvar cliente</button>
             </div>
@@ -5505,9 +5735,15 @@
                       <a class="btn btn-sm btn-outline-success rounded-pill" href="https://wa.me/{{ client.phone|replace(' ', '')|replace('(', '')|replace(')', '')|replace('-', '')|replace('+', '') }}" target="_blank" rel="noreferrer">WhatsApp</a>
                       {% endif %}
                       <a class="btn btn-sm btn-outline-secondary rounded-pill js-tab-link" href="#operations-pane" data-tab-target="operations-tab">Rota</a>
-                      <form method="post" action="{{ url_for('delete_client', client_id=client.client_id) }}">
-                        <button class="btn btn-sm btn-outline-danger rounded-pill" type="submit" data-confirm-message="Excluir este cliente? Confira se ele nao esta vinculado a um evento ativo.">Excluir</button>
-                      </form>
+                      <details class="row-more-actions">
+                        <summary class="btn btn-sm btn-outline-secondary rounded-pill">Mais ações</summary>
+                        <div class="d-grid gap-1 mt-2">
+                          <a class="btn btn-sm btn-outline-secondary rounded-pill" href="{{ url_for('download_module_pdf', module='clients') }}">PDF clientes</a>
+                          <form method="post" action="{{ url_for('delete_client', client_id=client.client_id) }}">
+                            <button class="btn btn-sm btn-outline-danger rounded-pill" type="submit" data-confirm-message="Excluir este cliente? Confira se ele nao esta vinculado a um evento ativo.">Excluir</button>
+                          </form>
+                        </div>
+                      </details>
                     </div>
                   </div>
                   {% endfor %}
@@ -5563,7 +5799,7 @@
                 <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
                   <div>
                     <h2 class="h4 mb-1">Histórico por cliente</h2>
-                    <p class="text-secondary mb-0 small">Eventos, rotas, confirmações e resultado acumulado por cadastro.</p>
+                    <p class="text-secondary mb-0 small">Linha do tempo do cliente com eventos, rotas, confirmações e resultado acumulado por cadastro.</p>
                   </div>
                 </div>
                 <div class="d-grid gap-2">
@@ -5840,6 +6076,14 @@
               </select>
             </div>
             <div>
+              <label class="form-label fw-semibold" for="equipment-family-filter">Família</label>
+              <select class="form-select js-filter-select" id="equipment-family-filter" data-filter-target=".equipment-list-item" data-filter-attribute="family">
+                <option value="">Todos</option>
+                <option value="banheiros">Banheiros</option>
+                <option value="apoio">Apoio</option>
+              </select>
+            </div>
+            <div>
               <label class="form-label fw-semibold" for="equipment-event-filter">Vínculo</label>
               <select class="form-select js-filter-select" id="equipment-event-filter" data-filter-target=".equipment-list-item" data-filter-attribute="linked">
                 <option value="">Todos</option>
@@ -5877,7 +6121,7 @@
           <div class="d-grid gap-2">
             {% if equipment_registry %}
               {% for item in equipment_registry %}
-              <div class="entity-card p-3 d-flex gap-3 align-items-center equipment-list-item" id="equipment-{{ item.equipment_id }}" data-filter-text="{{ item.equipment_id }} {{ item.equipment_type }} {{ item.equipment_family_label }} {{ item.plate }} {{ item.status }} {{ item.linked_client_name }} {{ item.linked_event_title }} {{ item.notes }}" data-status="{{ item.status }}" data-linked="{{ 'com-vinculo' if item.linked_client_name or item.linked_event_title else 'sem-vinculo' }}">
+              <div class="entity-card p-3 d-flex gap-3 align-items-center equipment-list-item" id="equipment-{{ item.equipment_id }}" data-filter-text="{{ item.equipment_id }} {{ item.equipment_type }} {{ item.equipment_family_label }} {{ item.plate }} {{ item.status }} {{ item.linked_client_name }} {{ item.linked_event_title }} {{ item.notes }}" data-status="{{ item.status }}" data-family="{{ 'banheiros' if item.equipment_family in ['banheiro_luxo', 'banheiro_quimico'] else 'apoio' }}" data-linked="{{ 'com-vinculo' if item.linked_client_name or item.linked_event_title else 'sem-vinculo' }}">
                 {% if item.photo_url %}
                 <button class="asset-thumb-button js-photo-preview" type="button" data-photo-src="{{ item.photo_url }}" data-photo-title="{{ item.equipment_id }} • {{ item.equipment_type }}">
                   <img class="asset-thumb" src="{{ item.photo_url }}" alt="Foto de {{ item.equipment_id }}">
@@ -5928,18 +6172,20 @@
                     <button class="btn btn-sm btn-outline-primary rounded-pill" type="submit" data-confirm-message="Liberar este equipamento como disponível?">Liberar disponível</button>
                   </form>
                   {% endif %}
-                  <details class="small">
-                    <summary class="btn btn-sm btn-outline-warning rounded-pill">Enviar manutenção</summary>
-                    <form class="entity-card p-2 mt-2 d-grid gap-2" method="post" action="{{ url_for('send_equipment_to_maintenance', equipment_id=item.equipment_id) }}">
-                      <input class="form-control form-control-sm" name="maintenance_reason" type="text" placeholder="Motivo" value="{{ item.maintenance_reason }}">
-                      <input class="form-control form-control-sm" name="maintenance_expected_release" type="date" value="{{ item.maintenance_expected_release }}">
-                      <input class="form-control form-control-sm" name="maintenance_cost" type="number" min="0" step="0.01" placeholder="Custo" value="{{ item.maintenance_cost or 0 }}">
-                      <button class="btn btn-sm btn-warning rounded-pill" type="submit">Registrar manutenção</button>
-                    </form>
+                  <details class="row-more-actions">
+                    <summary class="btn btn-sm btn-outline-secondary rounded-pill">Mais ações</summary>
+                    <div class="d-grid gap-1 mt-2">
+                      <form class="entity-card p-2 d-grid gap-2" method="post" action="{{ url_for('send_equipment_to_maintenance', equipment_id=item.equipment_id) }}">
+                        <input class="form-control form-control-sm" name="maintenance_reason" type="text" placeholder="Motivo" value="{{ item.maintenance_reason }}">
+                        <input class="form-control form-control-sm" name="maintenance_expected_release" type="date" value="{{ item.maintenance_expected_release }}">
+                        <input class="form-control form-control-sm" name="maintenance_cost" type="number" min="0" step="0.01" placeholder="Custo" value="{{ item.maintenance_cost or 0 }}">
+                        <button class="btn btn-sm btn-warning rounded-pill" type="submit">Enviar manutenção</button>
+                      </form>
+                      <form method="post" action="{{ url_for('delete_equipment', equipment_id=item.equipment_id) }}">
+                        <button class="btn btn-sm btn-outline-danger rounded-pill" type="submit" data-confirm-message="Excluir este equipamento?">Excluir</button>
+                      </form>
+                    </div>
                   </details>
-                  <form method="post" action="{{ url_for('delete_equipment', equipment_id=item.equipment_id) }}">
-                    <button class="btn btn-sm btn-outline-danger rounded-pill" type="submit" data-confirm-message="Excluir este equipamento?">Excluir</button>
-                  </form>
                 </div>
               </div>
               {% endfor %}
@@ -7429,6 +7675,7 @@
       const select = document.getElementById("global-search-module");
       if (input) {
         input.value = button.dataset.commandQuery || "";
+        syncGlobalSearchInputs(input.value, input);
         saveFilterState(input);
       }
       if (select) {
@@ -7438,6 +7685,84 @@
       applyFiltersForTarget(".global-search-item");
       openGuidedTarget(button.dataset.tabTarget || "summary-tab", button.dataset.targetHref || "#global-search-panel", "#global-search-panel");
       showMotionToast("Busca com comando aplicada.");
+    }
+
+    function syncGlobalSearchInputs(value, source) {
+      document.querySelectorAll("[data-global-search-input='true']").forEach((input) => {
+        if (input === source) return;
+        input.value = value || "";
+        saveFilterState(input);
+      });
+    }
+
+    function syncCompactPreference() {
+      const stored = localStorage.getItem("compact-density-v1");
+      if (stored === "comfortable") {
+        document.body.classList.remove("compact-density");
+      }
+      const button = document.getElementById("compact-density-toggle");
+      if (button) {
+        button.textContent = document.body.classList.contains("compact-density") ? "Modo compacto" : "Modo confortável";
+      }
+    }
+
+    function applyCompactPeriodFilter(period) {
+      const today = "{{ compact_system.today_iso if is_authenticated else '' }}";
+      const weekEnd = "{{ compact_system.week_end_iso if is_authenticated else '' }}";
+      document.querySelectorAll(".event-list-item").forEach((item) => {
+        const start = item.dataset.eventStart || "";
+        const end = item.dataset.eventEnd || start;
+        let visible = true;
+        if (period === "today") {
+          visible = (!start || start <= today) && (!end || end >= today);
+        } else if (period === "week") {
+          visible = (!start || start <= weekEnd) && (!end || end >= today);
+        }
+        item.classList.toggle("hidden-by-compact-period", !visible);
+      });
+    }
+
+    function clearCompactPeriodFilter() {
+      document.querySelectorAll(".event-list-item.hidden-by-compact-period").forEach((item) => {
+        item.classList.remove("hidden-by-compact-period");
+      });
+    }
+
+    function applyCompactFilter(button) {
+      const period = button.dataset.period || "";
+      if (period) {
+        activateTab("events-tab");
+        clearFiltersForTarget(".event-list-item");
+        applyCompactPeriodFilter(period);
+        document.getElementById("events-pane")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        showMotionToast("Filtro rápido aplicado.");
+        return;
+      }
+      clearCompactPeriodFilter();
+      const input = button.dataset.inputTarget ? document.getElementById(button.dataset.inputTarget) : null;
+      const select = button.dataset.selectTarget ? document.getElementById(button.dataset.selectTarget) : null;
+      if (input) {
+        input.value = button.dataset.query || "";
+        if (input.dataset.globalSearchInput) syncGlobalSearchInputs(input.value, input);
+        saveFilterState(input);
+        applyFiltersForTarget(input.dataset.filterTarget);
+      }
+      if (select) {
+        select.value = button.dataset.value || "";
+        saveFilterState(select);
+        applyFiltersForTarget(select.dataset.filterTarget);
+      }
+      if (select?.id?.startsWith("event") || input?.id?.startsWith("event")) {
+        activateTab("events-tab");
+        document.getElementById("events-pane")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else if (select?.id?.startsWith("equipment") || input?.id?.startsWith("equipment")) {
+        activateTab("fleet-tab");
+        document.getElementById("fleet-pane")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else {
+        activateTab("summary-tab");
+        document.getElementById("global-search-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      showMotionToast("Filtro rápido aplicado.");
     }
 
     function showMotionToast(message, tone = "info") {
@@ -7733,6 +8058,8 @@
     document.querySelectorAll(".js-filter-input").forEach((input) => {
       restoreFilterState(input);
       input.addEventListener("input", () => {
+        if (input.dataset.globalSearchInput) syncGlobalSearchInputs(input.value, input);
+        if (input.dataset.filterTarget === ".event-list-item") clearCompactPeriodFilter();
         saveFilterState(input);
         applyFiltersForTarget(input.dataset.filterTarget);
       });
@@ -7742,6 +8069,7 @@
     document.querySelectorAll(".js-filter-select").forEach((select) => {
       restoreFilterState(select);
       select.addEventListener("change", () => {
+        if (select.dataset.filterTarget === ".event-list-item") clearCompactPeriodFilter();
         saveFilterState(select);
         applyFiltersForTarget(select.dataset.filterTarget);
       });
@@ -7763,8 +8091,27 @@
       button.addEventListener("click", () => applyCommandSearch(button));
     });
 
+    syncCompactPreference();
+    document.getElementById("compact-density-toggle")?.addEventListener("click", () => {
+      const compact = !document.body.classList.contains("compact-density");
+      document.body.classList.toggle("compact-density", compact);
+      localStorage.setItem("compact-density-v1", compact ? "compact" : "comfortable");
+      syncCompactPreference();
+      showMotionToast(compact ? "Modo compacto ativado." : "Modo confortável ativado.");
+    });
+
+    document.getElementById("compact-list-toggle")?.addEventListener("click", () => {
+      document.body.classList.toggle("compact-list-mode");
+      showMotionToast(document.body.classList.contains("compact-list-mode") ? "Listas compactas ativadas." : "Listas completas ativadas.");
+    });
+
+    document.querySelectorAll(".js-compact-filter").forEach((button) => {
+      button.addEventListener("click", () => applyCompactFilter(button));
+    });
+
     document.querySelectorAll(".js-clear-filters").forEach((button) => {
       button.addEventListener("click", () => {
+        clearCompactPeriodFilter();
         clearFiltersForTarget(button.dataset.filterTarget);
         showMotionToast("Filtros limpos.");
       });
@@ -7814,6 +8161,8 @@
         activateTab("clients-tab");
         const client = JSON.parse(button.dataset.client);
         showCreatePanel("manual-client-form");
+        document.getElementById("client-advanced-fields")?.setAttribute("open", "");
+        document.getElementById("client-billing-advanced-fields")?.setAttribute("open", "");
         fillFields(clientFields, client, { address: "address", lat: "lat", lng: "lng" });
         syncInvoiceNumberField();
         saveClientButton.textContent = `Salvar alterações de ${client.customer_name || client.client_id}`;
@@ -7918,6 +8267,7 @@
         activateTab("events-tab");
         const event = JSON.parse(button.dataset.event);
         showCreatePanel("event-create-panel");
+        document.getElementById("event-advanced-fields")?.setAttribute("open", "");
         fillFields(eventFields, event);
         [...document.getElementById("event_client_ids").options].forEach((option) => {
           option.selected = (event.client_ids || []).includes(option.value);
