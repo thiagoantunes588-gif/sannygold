@@ -7120,6 +7120,9 @@ def build_compact_system_dashboard(
     warehouse_counts = warehouse_dashboard.get("counts") or {}
     overdue_count = len(financial_management.get("overdue", [])) if can_view_finance else 0
     open_alerts = int(attention_center.get("open_total") or 0)
+    stock_attention_count = int(warehouse_counts.get("low") or 0) + int(warehouse_counts.get("zero") or 0)
+    quick_finance_href = "#receivables-panel" if can_view_finance else "#system-readiness-panel"
+    quick_finance_detail = f"{overdue_count} cobrança(s) vencida(s)" if can_view_finance else "Financeiro protegido por permissão"
 
     nav_groups = [
         {
@@ -7199,6 +7202,16 @@ def build_compact_system_dashboard(
     if can_view_finance:
         primary_actions.append({"label": "Baixar pagamento", "href": "#receivables-panel", "tab": "summary-tab", "create": ""})
 
+    sticky_actions = [
+        {"label": "Novo cliente", "href": "#clients-pane", "tab": "clients-tab", "create": "manual-client-form"},
+        {"label": "Novo orçamento", "href": "#contracts-quotes-panel", "tab": "clients-tab", "create": ""},
+        {"label": "Novo evento", "href": "#events-pane", "tab": "events-tab", "create": "event-create-panel"},
+        {"label": "Gerar PDF", "href": "#operations-pane", "tab": "operations-tab", "create": ""},
+        {"label": "Buscar", "href": "#global-search-panel", "tab": "summary-tab", "create": ""},
+    ]
+    if can_view_finance:
+        sticky_actions.append({"label": "Pagamento", "href": "#receivables-panel", "tab": "summary-tab", "create": ""})
+
     more_actions = [
         {"label": "Frota e equipamentos", "href": "#fleet-pane", "tab": "fleet-tab"},
         {"label": "Almoxarifado", "href": "#warehouse-pane", "tab": "warehouse-tab"},
@@ -7237,10 +7250,92 @@ def build_compact_system_dashboard(
         {"label": "Apoio", "target": "equipment-filter", "query": "", "select": "equipment-family-filter", "value": "apoio", "period": ""},
     ]
 
+    priority_groups = [
+        {
+            "label": "Agora",
+            "tone": "danger" if open_alerts or overdue_count or warehouse_counts.get("zero") else "ready",
+            "detail": f"{open_alerts + overdue_count + int(warehouse_counts.get('zero') or 0)} ponto(s) para resolver antes do restante.",
+            "actions": [
+                {"label": "Pendências", "href": "#attention-now-panel", "tab": "summary-tab"},
+                {"label": "Cobranças", "href": quick_finance_href, "tab": "summary-tab"},
+                {"label": "Estoque crítico", "href": "#warehouse-pane", "tab": "warehouse-tab"},
+            ],
+        },
+        {
+            "label": "Hoje",
+            "tone": "primary",
+            "detail": f"{len(today_events)} evento(s) hoje e {len(week_events)} na semana.",
+            "actions": [
+                {"label": "Foco do dia", "href": "#day-focus-panel", "tab": "summary-tab"},
+                {"label": "Criar locação", "href": "#quick-rental-panel", "tab": "summary-tab"},
+                {"label": "Gerar rota/PDF", "href": "#operations-pane", "tab": "operations-tab"},
+            ],
+        },
+        {
+            "label": "Depois",
+            "tone": "default",
+            "detail": "Consulta, histórico e relatórios ficam recolhidos para não poluir a rotina.",
+            "actions": [
+                {"label": "Agenda", "href": "#agenda-pane", "tab": "agenda-tab"},
+                {"label": "Histórico", "href": "#history-pane", "tab": "history-tab"},
+                {"label": "Relatórios", "href": "#reports-panel", "tab": "summary-tab"},
+            ],
+        },
+    ]
+    if can_manage_access:
+        priority_groups.append(
+            {
+                "label": "Admin",
+                "tone": "admin",
+                "detail": "Acessos e homologação ficam visíveis, mas fora do caminho principal.",
+                "actions": [
+                    {"label": "Acessos", "href": "#access-management-panel", "tab": "access-tab"},
+                    {"label": "Homologação", "href": "#homologation-pane", "tab": "homologation-tab"},
+                    {"label": "Backup", "href": url_for("download_system_backup"), "tab": ""},
+                ],
+            }
+        )
+
+    day_focus = {
+        "summary": "Modo foco do dia: abrir só o que precisa de ação, gerar PDF e deixar o restante recolhido.",
+        "metrics": [
+            {"label": "Eventos hoje", "value": len(today_events), "level": "primary"},
+            {"label": "Alertas", "value": open_alerts, "level": "danger" if open_alerts else "ready"},
+            {"label": "Vencidas", "value": overdue_count if can_view_finance else "-", "level": "danger" if overdue_count else "ready"},
+            {"label": "Estoque", "value": stock_attention_count, "level": "warning" if stock_attention_count else "ready"},
+        ],
+        "actions": [
+            {"label": "Resolver pendências", "detail": "Comece pelo que pode travar a rotina.", "href": "#attention-now-panel", "tab": "summary-tab"},
+            {"label": "Eventos de hoje", "detail": f"{len(today_events)} evento(s) no dia.", "href": "#daily-command-center", "tab": "summary-tab"},
+            {"label": "Gerar rota/PDF", "detail": "Preparar material impresso e links.", "href": "#operations-pane", "tab": "operations-tab"},
+            {"label": "Cobranças", "detail": quick_finance_detail, "href": quick_finance_href, "tab": "summary-tab"},
+        ],
+    }
+
+    quick_drawer_actions = [
+        {"label": "Editar cliente", "detail": "Abre cadastro compacto com campos principais primeiro.", "href": "#clients-pane", "tab": "clients-tab", "create": "manual-client-form"},
+        {"label": "Editar evento", "detail": "Abre criação/edição com checklist e financeiro recolhidos.", "href": "#events-pane", "tab": "events-tab", "create": "event-create-panel"},
+        {"label": "Editar banheiro/equipamento", "detail": "Abre cadastro com placa opcional e status operacional.", "href": "#fleet-pane", "tab": "fleet-tab", "create": "equipment-create-panel"},
+        {"label": "Novo orçamento", "detail": "Registra pedido comercial sem sair da rotina.", "href": "#contracts-quotes-panel", "tab": "clients-tab", "create": ""},
+        {"label": "Pagamento rápido", "detail": quick_finance_detail, "href": quick_finance_href, "tab": "summary-tab", "create": ""},
+    ]
+
+    collapsible_panels = [
+        {"label": "Anexos", "href": "#attachments-panel", "tab": "clients-tab"},
+        {"label": "Histórico de clientes", "href": "#customer-history", "tab": "clients-tab"},
+        {"label": "Histórico de equipamentos", "href": "#equipment-history-panel", "tab": "fleet-tab"},
+        {"label": "Busca completa", "href": "#global-search-panel", "tab": "summary-tab"},
+    ]
+
     return {
         "nav_groups": nav_groups,
         "primary_actions": primary_actions,
+        "sticky_actions": sticky_actions,
         "more_actions": more_actions,
+        "priority_groups": priority_groups,
+        "day_focus": day_focus,
+        "quick_drawer_actions": quick_drawer_actions,
+        "collapsible_panels": collapsible_panels,
         "search_shortcuts": search_shortcuts,
         "list_filters": list_filters,
         "today_iso": today_text,

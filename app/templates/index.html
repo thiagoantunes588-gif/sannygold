@@ -704,6 +704,204 @@
     .compact-list-mode .equipment-list-item .asset-thumb-fallback {
       display: none;
     }
+    .sticky-action-cluster {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      align-items: center;
+    }
+    .quick-search-status {
+      min-width: max-content;
+      color: var(--muted);
+      font-size: 0.76rem;
+      font-weight: 800;
+    }
+    .quick-edit-drawer {
+      position: fixed;
+      top: 5.4rem;
+      right: 1rem;
+      z-index: 1090;
+      width: min(390px, calc(100vw - 2rem));
+      max-height: calc(100vh - 7rem);
+      overflow: auto;
+      border: 1px solid rgba(53, 191, 210, 0.24);
+      border-radius: 16px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(246,252,253,0.98));
+      box-shadow: 0 28px 80px rgba(25, 38, 45, 0.24);
+      transform: translateX(calc(100% + 2rem));
+      opacity: 0;
+      pointer-events: none;
+    }
+    .quick-edit-drawer.is-open {
+      transform: translateX(0);
+      opacity: 1;
+      pointer-events: auto;
+      animation: quickDrawerSlideIn 0.28s cubic-bezier(.2,.8,.2,1) both;
+    }
+    .quick-edit-drawer-header,
+    .quick-edit-drawer-footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      align-items: start;
+    }
+    .quick-edit-drawer-actions {
+      display: grid;
+      gap: 0.55rem;
+    }
+    .quick-drawer-card {
+      display: grid;
+      gap: 0.2rem;
+      padding: 0.72rem;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.78);
+      color: var(--ink);
+      text-align: left;
+      text-decoration: none;
+    }
+    .quick-drawer-card strong {
+      font-size: 0.92rem;
+    }
+    .quick-drawer-card span {
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.25;
+    }
+    .quick-drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 1085;
+      background: rgba(25, 38, 45, 0.12);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.18s ease;
+    }
+    .quick-drawer-backdrop.is-open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .priority-menu-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 0.65rem;
+    }
+    .priority-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.78);
+      padding: 0.78rem;
+    }
+    .priority-card.is-danger {
+      border-color: rgba(201, 58, 58, 0.24);
+      background: var(--crit-block-bg);
+    }
+    .priority-card.is-primary {
+      border-color: rgba(53, 191, 210, 0.28);
+      background: rgba(246,252,253,0.95);
+    }
+    .priority-card.is-admin {
+      border-color: rgba(77, 82, 91, 0.18);
+      background: rgba(248,249,250,0.92);
+    }
+    .priority-card.is-ready {
+      border-color: rgba(39, 151, 102, 0.22);
+      background: var(--crit-ready-bg);
+    }
+    .day-focus-panel {
+      border: 1px solid rgba(53, 191, 210, 0.26);
+      border-radius: 14px;
+      background:
+        linear-gradient(135deg, rgba(246,252,253,0.98), rgba(255,251,244,0.98));
+      padding: 0.9rem;
+    }
+    .day-focus-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
+      gap: 0.5rem;
+    }
+    .day-focus-metric {
+      border: 1px solid rgba(53, 191, 210, 0.16);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.74);
+      padding: 0.55rem;
+    }
+    .day-focus-metric strong {
+      display: block;
+      font-size: 1.15rem;
+      line-height: 1.1;
+    }
+    .day-focus-action {
+      display: block;
+      height: 100%;
+      padding: 0.7rem;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.72);
+      color: var(--ink);
+      text-decoration: none;
+    }
+    .compact-panel-tools {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.42rem;
+      align-items: center;
+    }
+    .compact-strong-mode .glass {
+      padding: 1rem !important;
+    }
+    .compact-strong-mode .hero-title {
+      font-size: clamp(1.9rem, 4vw, 3rem);
+    }
+    .compact-strong-mode .lead,
+    .compact-strong-mode .form-helper,
+    .compact-strong-mode .single-search-hint {
+      display: none;
+    }
+    .compact-strong-mode .client-list-item,
+    .compact-strong-mode .equipment-list-item,
+    .compact-strong-mode .event-list-item,
+    .compact-strong-mode .warehouse-list-item.entity-card,
+    .compact-strong-mode .history-item {
+      padding: 0.58rem !important;
+      gap: 0.6rem !important;
+    }
+    .compact-strong-mode .route-badges {
+      margin-top: 0.25rem;
+    }
+    .compact-strong-mode .client-list-item .route-badge:nth-child(n+6),
+    .compact-strong-mode .equipment-list-item .route-badge:nth-child(n+6),
+    .compact-strong-mode .event-list-item .route-badge:nth-child(n+6) {
+      display: none;
+    }
+    .compact-strong-mode .entity-actions {
+      gap: 0.32rem;
+    }
+    .compact-strong-mode .asset-thumb-button,
+    .compact-strong-mode .asset-thumb-fallback,
+    .compact-strong-mode .warehouse-thumb {
+      display: none;
+    }
+    .copy-minimal-mode .compact-helper-text,
+    .copy-minimal-mode .single-search-hint,
+    .copy-minimal-mode .form-helper,
+    .copy-minimal-mode .module-toolbar .text-secondary.small,
+    .copy-minimal-mode .glass > .text-secondary.small {
+      display: none !important;
+    }
+    .compact-collapsed-panels .compact-auto-collapse {
+      display: none !important;
+    }
+    .compact-collapsed-panels .compact-collapsible-panel {
+      padding-bottom: 1rem !important;
+    }
+    .day-focus-active #day-focus-panel {
+      animation: dayFocusGlow 1.5s ease both;
+    }
+    .quick-action-flash,
+    .row-updated-pulse {
+      animation: rowUpdatePulse 1.1s ease both;
+    }
     .single-search-hint {
       border-left: 4px solid rgba(53, 191, 210, 0.42);
       padding-left: 0.7rem;
@@ -935,6 +1133,19 @@
       0% { transform: scaleX(0); opacity: 0.75; }
       50% { transform: scaleX(0.68); opacity: 1; }
       100% { transform: scaleX(1); opacity: 0; }
+    }
+    @keyframes quickDrawerSlideIn {
+      from { opacity: 0; transform: translateX(1.2rem) scale(0.98); }
+      to { opacity: 1; transform: translateX(0) scale(1); }
+    }
+    @keyframes rowUpdatePulse {
+      0% { box-shadow: 0 0 0 0 rgba(53, 191, 210, 0.38); }
+      58% { box-shadow: 0 0 0 10px rgba(53, 191, 210, 0.08); }
+      100% { box-shadow: 0 0 0 0 rgba(53, 191, 210, 0); }
+    }
+    @keyframes dayFocusGlow {
+      0% { box-shadow: 0 0 0 0 rgba(53, 191, 210, 0.34); }
+      100% { box-shadow: 0 18px 44px rgba(53, 191, 210, 0.12); }
     }
     @keyframes currentStepPulse {
       0%, 100% { box-shadow: 0 0 0 rgba(185, 129, 33, 0); }
@@ -1755,13 +1966,40 @@
       <div class="d-flex flex-wrap align-items-center gap-2">
         <label class="fw-semibold small mb-0" for="sticky-global-search-input">Buscar no sistema</label>
         <input class="form-control form-control-sm js-filter-input flex-grow-1" id="sticky-global-search-input" type="search" placeholder="Cliente, evento, banheiro, placa, NF, material ou cobrança..." autocomplete="off" data-filter-target=".global-search-item" data-global-search-input="true">
-        <a class="btn btn-sm btn-outline-secondary" href="#global-search-panel">Ver resultados</a>
-        <a class="btn btn-sm btn-dark js-tab-link" href="#quick-rental-panel" data-tab-target="summary-tab">Criar locação</a>
-        <a class="btn btn-sm btn-outline-secondary js-tab-link" href="#events-pane" data-tab-target="events-tab">Eventos</a>
-        <a class="btn btn-sm btn-outline-secondary js-tab-link" href="#operations-pane" data-tab-target="operations-tab">Operação</a>
+        <span class="quick-search-status" id="sticky-search-count">{{ global_search_items|length }} itens</span>
+        <div class="sticky-action-cluster">
+          {% for action in compact_system.sticky_actions %}
+          <a class="btn btn-sm {{ 'btn-dark' if loop.index <= 2 else 'btn-outline-secondary' }} js-tab-link" href="{{ action.href }}" data-tab-target="{{ action.tab }}"{% if action.create %} data-open-create="{{ action.create }}"{% endif %}>{{ action.label }}</a>
+          {% endfor %}
+        </div>
+        <button class="btn btn-sm btn-outline-secondary" type="button" id="quick-edit-drawer-toggle" aria-controls="quick-edit-drawer" aria-expanded="false">Painel rápido</button>
+        <button class="btn btn-sm btn-outline-secondary" type="button" id="day-focus-toggle">Foco do dia</button>
         <button class="btn btn-sm btn-outline-secondary" type="button" id="compact-density-toggle">Modo compacto</button>
       </div>
     </section>
+    <div class="quick-drawer-backdrop" id="quick-drawer-backdrop" hidden></div>
+    <aside class="quick-edit-drawer p-3" id="quick-edit-drawer" aria-label="Edição rápida lateral" hidden>
+      <div class="quick-edit-drawer-header mb-3">
+        <div>
+          <div class="eyebrow mb-2">Edição rápida lateral</div>
+          <h2 class="h6 mb-1">Abrir sem procurar módulo</h2>
+          <p class="compact-helper-text mb-0">Use atalhos para editar cliente, evento, banheiro/equipamento, orçamento ou pagamento sem rolar a tela inteira.</p>
+        </div>
+        <button class="btn btn-sm btn-outline-secondary" type="button" id="quick-edit-drawer-close">Fechar</button>
+      </div>
+      <div class="quick-edit-drawer-actions">
+        {% for action in compact_system.quick_drawer_actions %}
+        <a class="quick-drawer-card js-quick-drawer-action js-tab-link" href="{{ action.href }}" data-tab-target="{{ action.tab }}"{% if action.create %} data-open-create="{{ action.create }}"{% endif %}>
+          <strong>{{ action.label }}</strong>
+          <span>{{ action.detail }}</span>
+        </a>
+        {% endfor %}
+      </div>
+      <div class="quick-edit-drawer-footer mt-3">
+        <span class="compact-helper-text">Painel lateral pequeno para ações frequentes.</span>
+        <button class="btn btn-sm btn-dark" type="button" id="quick-edit-drawer-done">Pronto</button>
+      </div>
+    </aside>
     {% endif %}
     <section class="glass p-4 p-lg-5 mb-4">
       <div class="row g-4 align-items-center">
@@ -3163,12 +3401,72 @@
 
       <div class="compact-nav-grid mb-3" id="compact-area-menu">
         {% for item in compact_system.nav_groups %}
-        <a class="compact-nav-link {{ 'is-primary' if item.tone == 'primary' else 'is-danger' if item.tone == 'danger' else 'is-warning' if item.tone == 'warning' else '' }} js-tab-link" href="{{ item.href }}" data-tab-target="{{ item.tab }}">
+        <a class="compact-nav-link {{ 'is-primary' if item.tone == 'primary' else 'is-danger' if item.tone == 'danger' else 'is-warning' if item.tone == 'warning' else 'is-admin' if item.tone == 'admin' else '' }} js-tab-link" href="{{ item.href }}" data-tab-target="{{ item.tab }}">
           <span class="compact-nav-title">{{ item.label }} <span class="route-badge badge-fixed">{{ item.count }}</span></span>
           <span class="compact-nav-detail">{{ item.detail }}</span>
         </a>
         {% endfor %}
       </div>
+
+      <section class="day-focus-panel mb-3" id="day-focus-panel" aria-label="Modo foco do dia">
+        <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+          <div>
+            <div class="eyebrow mb-2">Modo foco do dia</div>
+            <h3 class="h6 mb-1">Só o que precisa de ação agora</h3>
+            <p class="compact-helper-text mb-0">{{ compact_system.day_focus.summary }}</p>
+          </div>
+          <div class="compact-panel-tools">
+            <button class="btn btn-sm btn-dark" type="button" id="day-focus-panel-toggle">Ativar foco</button>
+            <button class="btn btn-sm btn-outline-secondary" type="button" id="compact-strong-toggle">Mais compacto</button>
+            <button class="btn btn-sm btn-outline-secondary" type="button" id="copy-density-toggle">Menos texto</button>
+            <button class="btn btn-sm btn-outline-secondary" type="button" id="compact-collapse-toggle">Recolher painéis</button>
+          </div>
+        </div>
+        <div class="day-focus-grid mb-3">
+          {% for metric in compact_system.day_focus.metrics %}
+          <div class="day-focus-metric">
+            <strong>{{ metric.value }}</strong>
+            <span class="small text-secondary">{{ metric.label }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="row g-2">
+          {% for action in compact_system.day_focus.actions %}
+          <div class="col-md-3">
+            <a class="day-focus-action js-tab-link" href="{{ action.href }}" data-tab-target="{{ action.tab }}">
+              <span class="fw-semibold d-block">{{ action.label }}</span>
+              <span class="compact-helper-text">{{ action.detail }}</span>
+            </a>
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="mb-3" id="priority-menu-panel" aria-label="Menu por prioridade">
+        <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-2">
+          <div>
+            <div class="fw-semibold">Menu por prioridade</div>
+            <div class="compact-helper-text">Primeiro resolver, depois rotina, depois consulta e administração.</div>
+          </div>
+          <span class="route-badge badge-fixed">menos cliques</span>
+        </div>
+        <div class="priority-menu-grid">
+          {% for group in compact_system.priority_groups %}
+          <div class="priority-card {{ 'is-danger' if group.tone == 'danger' else 'is-primary' if group.tone == 'primary' else 'is-admin' if group.tone == 'admin' else 'is-ready' if group.tone == 'ready' else '' }}">
+            <div class="d-flex justify-content-between align-items-center gap-2 mb-1">
+              <span class="fw-semibold">{{ group.label }}</span>
+              <span class="route-badge {{ 'badge-danger' if group.tone == 'danger' else 'badge-success' if group.tone == 'ready' else 'badge-fixed' }}">{{ group.actions|length }}</span>
+            </div>
+            <div class="compact-helper-text mb-2">{{ group.detail }}</div>
+            <div class="compact-action-row">
+              {% for action in group.actions %}
+              <a class="btn btn-sm btn-outline-secondary {% if action.tab %}js-tab-link{% endif %}" href="{{ action.href }}"{% if action.tab %} data-tab-target="{{ action.tab }}"{% endif %}>{{ action.label }}</a>
+              {% endfor %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </section>
 
       <div class="row g-3">
         <div class="col-lg-5">
@@ -3223,6 +3521,12 @@
         <button class="btn btn-sm btn-outline-secondary js-compact-filter" type="button" data-input-target="{{ item.target }}" data-query="{{ item.query }}" data-select-target="{{ item.select }}" data-value="{{ item.value }}" data-period="{{ item.period }}">{{ item.label }}</button>
         {% endfor %}
         <button class="btn btn-sm btn-outline-secondary" type="button" id="compact-list-toggle">Listas compactas</button>
+      </div>
+      <div class="compact-filter-row mt-2" id="compact-panel-shortcuts" aria-label="Painéis recolhíveis">
+        <span class="compact-helper-text fw-semibold">Painéis recolhíveis:</span>
+        {% for panel in compact_system.collapsible_panels %}
+        <a class="btn btn-sm btn-outline-secondary js-tab-link" href="{{ panel.href }}" data-tab-target="{{ panel.tab }}">{{ panel.label }}</a>
+        {% endfor %}
       </div>
     </section>
     {% endif %}
@@ -3289,7 +3593,7 @@
     </section>
 
     {% if is_authenticated %}
-    <section class="glass p-4 mb-4" id="global-search-panel">
+    <section class="glass p-4 mb-4 compact-collapsible-panel" id="global-search-panel">
       <div class="module-toolbar mb-3">
         <div>
           <div class="eyebrow mb-2">Busca global</div>
@@ -3297,7 +3601,7 @@
           <p class="text-secondary small mb-0">Busque por texto e navegue por módulo sem precisar lembrar em qual aba cada item fica.</p>
         </div>
       </div>
-      <div class="d-flex gap-2 mb-3">
+      <div class="d-flex gap-2 mb-3 compact-auto-collapse">
         <input class="form-control js-filter-input" id="global-search" type="search" placeholder="Digite cliente, evento, banheiro, placa, NF, material ou cobrança..." autocomplete="off" data-filter-target=".global-search-item" data-global-search-input="true">
         <select class="form-select js-filter-select" id="global-search-module" data-filter-target=".global-search-item" data-filter-attribute="module">
           <option value="">Todos os módulos</option>
@@ -3313,7 +3617,7 @@
 	        </select>
         <button class="btn btn-outline-secondary js-clear-filters" type="button" data-filter-target=".global-search-item">Limpar filtros</button>
       </div>
-      <div class="entity-card p-3 mb-3" id="command-search-panel">
+      <div class="entity-card p-3 mb-3 compact-auto-collapse" id="command-search-panel">
         <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-2">
           <div>
             <div class="fw-semibold">Busca com comandos</div>
@@ -3329,20 +3633,20 @@
           {% endfor %}
         </div>
       </div>
-      <div class="quick-filter-row mb-3">
+      <div class="quick-filter-row mb-3 compact-auto-collapse">
         {% for module in search_module_counts %}
         <button class="btn btn-sm btn-outline-secondary js-set-filter" type="button" data-select-target="global-search-module" data-value="{{ module.key }}">
           {{ module.label }} <span class="route-badge badge-fixed">{{ module.count }}</span>
         </button>
         {% endfor %}
       </div>
-      <div class="quick-filter-row mb-3">
+      <div class="quick-filter-row mb-3 compact-auto-collapse">
         <a class="btn btn-sm btn-outline-secondary js-tab-link" href="#events-pane" data-tab-target="events-tab">Abrir eventos</a>
         <a class="btn btn-sm btn-outline-secondary js-tab-link" href="#clients-pane" data-tab-target="clients-tab">Abrir clientes</a>
         <a class="btn btn-sm btn-outline-secondary js-tab-link" href="#operations-pane" data-tab-target="operations-tab">Abrir operação</a>
         <a class="btn btn-sm btn-outline-secondary js-tab-link" href="#fleet-pane" data-tab-target="fleet-tab">Abrir frota</a>
       </div>
-      <div class="global-search-grid">
+      <div class="global-search-grid compact-auto-collapse">
         {% for item in global_search_items %}
         <a class="entity-card p-3 text-decoration-none text-reset global-search-item js-tab-link" href="{{ item.target_href }}" data-tab-target="{{ item.target_tab }}" data-filter-text="{{ item.text }} {{ item.title }} {{ item.detail }} {{ item.module }}" data-module="{{ item.module_key }}">
           <div class="d-flex justify-content-between gap-2 mb-1">
@@ -5755,14 +6059,14 @@
             </div>
 
             <div class="col-12">
-              <section class="glass p-4" id="attachments-panel">
+              <section class="glass p-4 compact-collapsible-panel" id="attachments-panel">
                 <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
                   <div>
                     <h2 class="h4 mb-1">Anexos por cliente e evento</h2>
                     <p class="text-secondary mb-0 small">Contratos, comprovantes, fotos do local, notas fiscais e autorizações ficam visíveis para a operação.</p>
                   </div>
                 </div>
-                <form class="row g-2 mb-3" method="post" action="{{ url_for('save_attachment') }}" enctype="multipart/form-data">
+                <form class="row g-2 mb-3 compact-auto-collapse" method="post" action="{{ url_for('save_attachment') }}" enctype="multipart/form-data">
                   <div class="col-md-2">
                     <select class="form-select form-select-sm" name="scope">
                       <option value="cliente">cliente</option>
@@ -5778,7 +6082,7 @@
                   <div class="col-md-10"><input class="form-control form-control-sm" name="notes" placeholder="Observação"></div>
                   <div class="col-md-2"><button class="btn btn-sm btn-dark rounded-pill w-100" type="submit">Salvar anexo</button></div>
                 </form>
-                <div class="row g-2 small">
+                <div class="row g-2 small compact-auto-collapse">
                   {% for item in attachments %}
                   <div class="col-md-4">
                     <a class="entity-card p-2 d-block text-reset text-decoration-none h-100" href="{{ item.attachment_url }}" target="_blank" rel="noreferrer">
@@ -5795,14 +6099,14 @@
             </div>
 
             <div class="col-12">
-              <section class="glass p-4" id="customer-history">
+              <section class="glass p-4 compact-collapsible-panel" id="customer-history">
                 <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
                   <div>
                     <h2 class="h4 mb-1">Histórico por cliente</h2>
                     <p class="text-secondary mb-0 small">Linha do tempo do cliente com eventos, rotas, confirmações e resultado acumulado por cadastro.</p>
                   </div>
                 </div>
-                <div class="d-grid gap-2">
+                <div class="d-grid gap-2 compact-auto-collapse">
                   {% for item in customer_history %}
                   <div class="entity-card p-3">
                     <div class="d-flex flex-wrap justify-content-between gap-3">
@@ -6098,9 +6402,9 @@
             <div class="col-sm-3"><div class="stat-card p-3"><div class="fs-3 fw-bold">{{ inventory_counts.in_route }}</div><div class="small text-secondary">Em rota</div></div></div>
             <div class="col-sm-3"><div class="stat-card p-3"><div class="fs-3 fw-bold">{{ inventory_counts.maintenance }}</div><div class="small text-secondary">Manutenção</div></div></div>
           </div>
-          <div class="entity-card p-3 mb-3" id="equipment-history-panel">
+          <div class="entity-card p-3 mb-3 compact-collapsible-panel" id="equipment-history-panel">
             <div class="fw-semibold mb-2">Histórico por equipamento</div>
-            <div class="row g-2">
+            <div class="row g-2 compact-auto-collapse">
               {% for item in equipment_history[:6] %}
               <div class="col-lg-4">
                 <div class="p-2 rounded-3 bg-white border h-100 small">
@@ -7706,6 +8010,59 @@
       }
     }
 
+    function updateDensityControlLabels() {
+      const strongButton = document.getElementById("compact-strong-toggle");
+      const copyButton = document.getElementById("copy-density-toggle");
+      const collapseButton = document.getElementById("compact-collapse-toggle");
+      const focusButton = document.getElementById("day-focus-panel-toggle");
+      if (strongButton) strongButton.textContent = document.body.classList.contains("compact-strong-mode") ? "Compacto forte ativo" : "Mais compacto";
+      if (copyButton) copyButton.textContent = document.body.classList.contains("copy-minimal-mode") ? "Texto mínimo ativo" : "Menos texto";
+      if (collapseButton) collapseButton.textContent = document.body.classList.contains("compact-collapsed-panels") ? "Painéis recolhidos" : "Recolher painéis";
+      if (focusButton) focusButton.textContent = document.body.classList.contains("day-focus-active") ? "Foco ativo" : "Ativar foco";
+    }
+
+    function syncAdvancedCompactPreferences() {
+      [
+        ["compact-strong-mode-v1", "compact-strong-mode"],
+        ["copy-minimal-mode-v1", "copy-minimal-mode"],
+        ["compact-collapsed-panels-v1", "compact-collapsed-panels"],
+      ].forEach(([storageKey, className]) => {
+        document.body.classList.toggle(className, localStorage.getItem(storageKey) === "on");
+      });
+      updateDensityControlLabels();
+    }
+
+    function toggleStoredBodyClass(storageKey, className, messageOn, messageOff) {
+      const enabled = !document.body.classList.contains(className);
+      document.body.classList.toggle(className, enabled);
+      localStorage.setItem(storageKey, enabled ? "on" : "off");
+      updateDensityControlLabels();
+      showMotionToast(enabled ? messageOn : messageOff);
+    }
+
+    function updateStickySearchCount() {
+      const status = document.getElementById("sticky-search-count");
+      if (!status) return;
+      const items = [...document.querySelectorAll(".global-search-item")];
+      const visible = items.filter((item) => !item.classList.contains("hidden-by-filter")).length;
+      status.textContent = `${visible}/${items.length} itens`;
+    }
+
+    function setQuickDrawerOpen(open) {
+      const drawer = document.getElementById("quick-edit-drawer");
+      const backdrop = document.getElementById("quick-drawer-backdrop");
+      const toggle = document.getElementById("quick-edit-drawer-toggle");
+      if (!drawer || !backdrop) return;
+      drawer.hidden = !open;
+      backdrop.hidden = !open;
+      drawer.classList.toggle("is-open", open);
+      backdrop.classList.toggle("is-open", open);
+      toggle?.setAttribute("aria-expanded", open ? "true" : "false");
+      if (open) {
+        drawer.querySelector("a, button")?.focus?.({ preventScroll: true });
+      }
+    }
+
     function applyCompactPeriodFilter(period) {
       const today = "{{ compact_system.today_iso if is_authenticated else '' }}";
       const weekEnd = "{{ compact_system.week_end_iso if is_authenticated else '' }}";
@@ -7917,6 +8274,9 @@
           item.classList.remove("filter-just-matched");
         }
       });
+      if (targetSelector === ".global-search-item") {
+        updateStickySearchCount();
+      }
     }
 
     const filterStoragePrefix = "filters-v1";
@@ -8092,12 +8452,58 @@
     });
 
     syncCompactPreference();
+    syncAdvancedCompactPreferences();
+    updateStickySearchCount();
     document.getElementById("compact-density-toggle")?.addEventListener("click", () => {
       const compact = !document.body.classList.contains("compact-density");
       document.body.classList.toggle("compact-density", compact);
       localStorage.setItem("compact-density-v1", compact ? "compact" : "comfortable");
       syncCompactPreference();
       showMotionToast(compact ? "Modo compacto ativado." : "Modo confortável ativado.");
+    });
+
+    document.getElementById("compact-strong-toggle")?.addEventListener("click", () => {
+      toggleStoredBodyClass("compact-strong-mode-v1", "compact-strong-mode", "Modo mais compacto ativado.", "Modo compacto forte desativado.");
+      document.getElementById("compact-system-panel")?.classList.add("quick-action-flash");
+      window.setTimeout(() => document.getElementById("compact-system-panel")?.classList.remove("quick-action-flash"), 1200);
+    });
+
+    document.getElementById("copy-density-toggle")?.addEventListener("click", () => {
+      toggleStoredBodyClass("copy-minimal-mode-v1", "copy-minimal-mode", "Textos repetidos ocultos.", "Textos auxiliares reativados.");
+    });
+
+    document.getElementById("compact-collapse-toggle")?.addEventListener("click", () => {
+      toggleStoredBodyClass("compact-collapsed-panels-v1", "compact-collapsed-panels", "Painéis longos recolhidos.", "Painéis longos abertos.");
+    });
+
+    document.getElementById("day-focus-toggle")?.addEventListener("click", () => {
+      document.body.classList.add("day-focus-active");
+      updateDensityControlLabels();
+      document.getElementById("day-focus-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      showMotionToast("Modo foco do dia aberto.");
+    });
+
+    document.getElementById("day-focus-panel-toggle")?.addEventListener("click", () => {
+      const active = !document.body.classList.contains("day-focus-active");
+      document.body.classList.toggle("day-focus-active", active);
+      updateDensityControlLabels();
+      showMotionToast(active ? "Foco do dia ativado." : "Foco do dia desativado.");
+    });
+
+    document.getElementById("quick-edit-drawer-toggle")?.addEventListener("click", () => {
+      setQuickDrawerOpen(true);
+      showMotionToast("Painel rápido aberto.");
+    });
+    document.getElementById("quick-edit-drawer-close")?.addEventListener("click", () => setQuickDrawerOpen(false));
+    document.getElementById("quick-edit-drawer-done")?.addEventListener("click", () => setQuickDrawerOpen(false));
+    document.getElementById("quick-drawer-backdrop")?.addEventListener("click", () => setQuickDrawerOpen(false));
+    document.querySelectorAll(".js-quick-drawer-action").forEach((link) => {
+      link.addEventListener("click", () => {
+        link.classList.add("quick-action-flash");
+        window.setTimeout(() => link.classList.remove("quick-action-flash"), 1000);
+        setQuickDrawerOpen(false);
+        showMotionToast("Ação rápida aberta.");
+      });
     });
 
     document.getElementById("compact-list-toggle")?.addEventListener("click", () => {
