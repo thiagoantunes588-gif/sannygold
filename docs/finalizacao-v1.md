@@ -72,6 +72,6 @@ Antes de publicar, confirme no Render:
 - Rotas protegidas não abrem por URL sem login.
 - PDFs e Excels são baixados corretamente.
 - Backup inclui dados operacionais e financeiros.
-- O manual rápido da equipe está disponível em PDF.
+- O Assistente Operacional está disponível no próprio sistema para orientar a equipe.
 - O endpoint `/health` responde corretamente para deploy e monitoramento.
 - O painel mostra versão, ambiente e status geral do sistema.

@@ -617,6 +617,62 @@
         linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,248,237,0.96));
       box-shadow: 0 16px 36px rgba(69, 49, 18, 0.09);
     }
+    .ultra-compact-role-strip {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem;
+      border: 1px solid rgba(53, 191, 210, 0.22);
+      border-radius: 12px;
+      background: rgba(246, 252, 253, 0.78);
+    }
+    .ultra-role-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.42rem;
+      justify-content: flex-end;
+      align-items: center;
+    }
+    .ultra-compact-mode .glass,
+    .ultra-compact-mode .entity-card,
+    .ultra-compact-mode .event-card,
+    .ultra-compact-mode .ops-card,
+    .ultra-compact-mode .stat-card,
+    .ultra-compact-mode .compact-system-panel {
+      border-radius: 12px;
+      box-shadow: none;
+    }
+    .ultra-compact-mode .tab-pane-stack > * + * {
+      margin-top: 0.75rem;
+    }
+    .ultra-compact-mode .compact-nav-link {
+      min-height: 58px;
+      padding: 0.55rem;
+    }
+    .ultra-compact-mode .quick-command-card,
+    .ultra-compact-mode .priority-card,
+    .ultra-compact-mode .day-focus-action,
+    .ultra-compact-mode .day-focus-metric {
+      padding: 0.5rem 0.55rem;
+    }
+    .ultra-compact-mode .compact-helper-text,
+    .ultra-compact-mode .compact-nav-detail,
+    .ultra-compact-mode .quick-drawer-card span {
+      line-height: 1.18;
+    }
+    .ultra-compact-mode .compact-hide-on-ultra,
+    .ultra-compact-mode .single-search-hint {
+      display: none !important;
+    }
+    .ultra-compact-mode .route-badges {
+      gap: 0.25rem;
+      margin-top: 0.25rem;
+    }
+    .ultra-compact-mode .route-badge {
+      padding: 0.22rem 0.48rem;
+      line-height: 1.1;
+    }
     .compact-nav-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(138px, 1fr));
@@ -670,6 +726,167 @@
       flex-wrap: wrap;
       gap: 0.45rem;
       align-items: center;
+    }
+    .quick-command-center,
+    .role-screen-panel,
+    .batch-action-panel,
+    .smart-form-panel {
+      border: 1px solid rgba(53, 191, 210, 0.18);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.76);
+      padding: 0.8rem;
+    }
+    .quick-command-layout {
+      display: grid;
+      grid-template-columns: minmax(240px, 1fr) minmax(220px, 0.8fr);
+      gap: 0.75rem;
+      align-items: start;
+    }
+    .quick-command-input-row {
+      display: flex;
+      gap: 0.45rem;
+      align-items: center;
+    }
+    .quick-command-input-row .form-control {
+      min-height: 38px;
+    }
+    .quick-command-results {
+      display: grid;
+      gap: 0.4rem;
+      max-height: 250px;
+      overflow: auto;
+      padding-right: 0.15rem;
+    }
+    .quick-command-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 0.5rem;
+      align-items: center;
+      width: 100%;
+      padding: 0.6rem 0.65rem;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.86);
+      color: var(--ink);
+      text-align: left;
+    }
+    .quick-command-card:hover,
+    .quick-command-card:focus-visible,
+    .quick-command-card.is-command-match {
+      border-color: rgba(53, 191, 210, 0.38);
+      background: rgba(246,252,253,0.98);
+    }
+    .quick-command-card.is-command-match {
+      animation: commandMatchPulse 0.36s ease both;
+    }
+    .quick-command-card.is-command-hidden {
+      display: none;
+    }
+    .quick-command-kind {
+      color: var(--muted);
+      font-size: 0.68rem;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    .role-screen-actions,
+    .batch-toolbar,
+    .smart-form-mode-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.42rem;
+      align-items: center;
+    }
+    .batch-toolbar {
+      justify-content: space-between;
+    }
+    .batch-action-panel {
+      position: sticky;
+      top: 4.5rem;
+      z-index: 19;
+      box-shadow: 0 14px 30px rgba(69, 49, 18, 0.08);
+    }
+    .batch-select-cell {
+      align-self: start;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.4rem;
+      min-width: 1.4rem;
+      min-height: 1.4rem;
+      margin-top: 0.2rem;
+    }
+    .batch-select-cell input {
+      width: 1rem;
+      height: 1rem;
+      accent-color: var(--aqua-deep);
+    }
+    .batch-selected {
+      border-color: rgba(53, 191, 210, 0.44) !important;
+      background: rgba(246,252,253,0.98) !important;
+      animation: batchSelectedPulse 0.42s ease both;
+    }
+    .dense-list-mode .event-list-item,
+    .dense-list-mode .client-list-item,
+    .dense-list-mode .equipment-list-item,
+    .dense-list-mode .global-search-item,
+    .dense-list-mode .financial-list-item {
+      padding: 0.54rem 0.62rem !important;
+      border-radius: 8px !important;
+    }
+    .dense-list-mode .event-list-item > .d-flex,
+    .dense-list-mode .client-list-item,
+    .dense-list-mode .equipment-list-item {
+      align-items: start !important;
+      gap: 0.55rem !important;
+    }
+    .dense-list-mode .event-list-item .small.text-secondary.mt-1,
+    .dense-list-mode .event-list-item .event-progress,
+    .dense-list-mode .event-list-item .completion-actions,
+    .dense-list-mode .client-list-item details,
+    .dense-list-mode .equipment-list-item .asset-thumb-button,
+    .dense-list-mode .equipment-list-item .asset-thumb-fallback {
+      display: none !important;
+    }
+    .dense-list-mode .route-index {
+      width: 2rem;
+      height: 2rem;
+      min-width: 2rem;
+      font-size: 0.72rem;
+    }
+    .dense-list-mode .route-badges {
+      gap: 0.24rem;
+      margin-top: 0.25rem;
+    }
+    .dense-list-mode .route-badge:nth-child(n+5) {
+      display: none;
+    }
+    .compact-hide-archived .is-compact-archived {
+      display: none !important;
+    }
+    .archived-toggle-active .is-compact-archived {
+      animation: archiveReveal 0.28s ease both;
+    }
+    .smart-forms-enabled .compact-advanced-fields:not([open]) {
+      max-height: 3.25rem;
+      overflow: hidden;
+    }
+    .smart-form-status {
+      display: grid;
+      gap: 0.2rem;
+      padding: 0.62rem;
+      border: 1px dashed rgba(185, 129, 33, 0.28);
+      border-radius: 10px;
+      background: rgba(255, 250, 241, 0.68);
+    }
+    .quick-fix-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      align-items: center;
+    }
+    .quick-fix-card {
+      border-color: rgba(53, 191, 210, 0.28) !important;
+      background: rgba(246,252,253,0.96) !important;
     }
     .compact-more-options summary,
     .compact-advanced-fields summary,
@@ -987,6 +1204,177 @@
     .feedback-toast {
       animation: toastSlideIn 0.32s cubic-bezier(.2,.8,.2,1) both;
     }
+    .help-assistant-button {
+      position: fixed;
+      right: 1.1rem;
+      bottom: calc(1.1rem + env(safe-area-inset-bottom));
+      z-index: 1070;
+      min-width: 118px;
+      min-height: 52px;
+      border: 0;
+      border-radius: 999px;
+      background: linear-gradient(135deg, var(--ink), #3b302b);
+      color: #fff;
+      font-weight: 800;
+      box-shadow: 0 18px 42px rgba(35, 27, 23, 0.24);
+    }
+    .help-assistant-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 1071;
+      background: rgba(35, 27, 23, 0.22);
+      backdrop-filter: blur(2px);
+    }
+    .help-assistant-panel {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      bottom: 1rem;
+      z-index: 1072;
+      width: min(460px, calc(100vw - 2rem));
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      border: 1px solid rgba(185, 133, 45, 0.2);
+      border-radius: 24px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,250,243,0.98));
+      box-shadow: 0 28px 70px rgba(35, 27, 23, 0.22);
+      overflow: hidden;
+    }
+    .help-assistant-header,
+    .help-assistant-footer {
+      padding: 1rem;
+      border-color: rgba(185, 133, 45, 0.14);
+    }
+    .help-assistant-header {
+      border-bottom: 1px solid rgba(185, 133, 45, 0.14);
+    }
+    .help-assistant-body {
+      padding: 1rem;
+      overflow: auto;
+      display: grid;
+      gap: 0.85rem;
+      align-content: start;
+    }
+    .help-assistant-footer {
+      border-top: 1px solid rgba(185, 133, 45, 0.14);
+      background: rgba(255, 253, 248, 0.86);
+    }
+    .help-assistant-message {
+      padding: 0.8rem 0.9rem;
+      border-radius: 16px;
+      border: 1px solid rgba(185, 133, 45, 0.16);
+      background: rgba(255, 253, 248, 0.94);
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+    .help-assistant-message.user {
+      margin-left: 2.5rem;
+      background: rgba(215, 247, 251, 0.72);
+      border-color: rgba(53, 191, 210, 0.2);
+    }
+    .help-assistant-message.system {
+      margin-right: 1.5rem;
+    }
+    .help-assistant-state {
+      border: 1px solid rgba(185, 133, 45, 0.16);
+      border-radius: 14px;
+      padding: 0.7rem 0.85rem;
+      font-size: 0.88rem;
+      font-weight: 700;
+      background: rgba(255, 250, 241, 0.94);
+      color: var(--gold-shadow);
+    }
+    .help-assistant-state.loading {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+    }
+    .help-assistant-state.loading::before {
+      content: "";
+      width: 0.9rem;
+      height: 0.9rem;
+      border: 2px solid currentColor;
+      border-right-color: transparent;
+      border-radius: 999px;
+      animation: spinAction 0.72s linear infinite;
+    }
+    .help-assistant-state.empty {
+      background: rgba(226, 177, 74, 0.14);
+    }
+    .help-assistant-state.success {
+      background: rgba(53, 191, 210, 0.12);
+      color: var(--aqua-deep);
+      border-color: rgba(53, 191, 210, 0.2);
+    }
+    .help-steps {
+      margin: 0.65rem 0 0;
+      padding-left: 1.25rem;
+      display: grid;
+      gap: 0.35rem;
+    }
+    .help-assistant-options {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+    }
+    .help-assistant-context {
+      padding: 0.78rem;
+      border: 1px solid rgba(53, 191, 210, 0.18);
+      border-radius: 14px;
+      background: rgba(246, 252, 253, 0.78);
+    }
+    .help-assistant-context-options {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.45rem;
+      margin-top: 0.55rem;
+    }
+    .help-option-button {
+      min-height: 44px;
+      border: 1px solid rgba(185, 133, 45, 0.18);
+      border-radius: 14px;
+      background: rgba(255, 250, 241, 0.96);
+      color: var(--ink);
+      font-weight: 700;
+      text-align: left;
+      padding: 0.7rem 0.8rem;
+    }
+    .help-context-button {
+      min-height: 40px;
+      border: 1px solid rgba(53, 191, 210, 0.18);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.82);
+      color: var(--ink);
+      font-weight: 700;
+      text-align: left;
+      padding: 0.58rem 0.65rem;
+    }
+    .help-result-actions,
+    .help-support-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.45rem;
+      margin-top: 0.75rem;
+    }
+    .help-result-actions .btn,
+    .help-support-actions .btn {
+      min-height: 42px;
+      white-space: normal;
+    }
+    .help-admin-grid {
+      display: grid;
+      grid-template-columns: minmax(280px, 0.75fr) minmax(320px, 1.25fr);
+      gap: 1rem;
+    }
+    .help-admin-list {
+      max-height: 430px;
+      overflow: auto;
+    }
+    .help-metric-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.75rem;
+    }
     .motion-toast-region {
       position: fixed;
       right: 1rem;
@@ -1146,6 +1534,19 @@
     @keyframes dayFocusGlow {
       0% { box-shadow: 0 0 0 0 rgba(53, 191, 210, 0.34); }
       100% { box-shadow: 0 18px 44px rgba(53, 191, 210, 0.12); }
+    }
+    @keyframes commandMatchPulse {
+      0% { transform: translateY(0); box-shadow: 0 0 0 rgba(53, 191, 210, 0); }
+      45% { transform: translateY(-1px); box-shadow: 0 12px 24px rgba(53, 191, 210, 0.12); }
+      100% { transform: translateY(0); box-shadow: 0 0 0 rgba(53, 191, 210, 0); }
+    }
+    @keyframes batchSelectedPulse {
+      0% { box-shadow: 0 0 0 0 rgba(53, 191, 210, 0.34); }
+      100% { box-shadow: 0 0 0 6px rgba(53, 191, 210, 0); }
+    }
+    @keyframes archiveReveal {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
     }
     @keyframes currentStepPulse {
       0%, 100% { box-shadow: 0 0 0 rgba(185, 129, 33, 0); }
@@ -1745,6 +2146,47 @@
         min-height: 40px;
         padding: 0.45rem 0.75rem;
       }
+      .help-assistant-button {
+        right: 0.75rem;
+        bottom: calc(0.75rem + env(safe-area-inset-bottom));
+        min-width: 104px;
+      }
+      .help-assistant-panel {
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 100vw;
+        border-radius: 0;
+      }
+      .help-assistant-options,
+      .help-assistant-context-options,
+      .help-result-actions,
+      .help-support-actions,
+      .help-admin-grid,
+      .help-metric-grid {
+        grid-template-columns: 1fr;
+      }
+      .help-assistant-header,
+      .help-assistant-footer {
+        padding: 0.85rem;
+      }
+      .help-assistant-body {
+        padding: 0.85rem;
+      }
+      .help-assistant-message.user,
+      .help-assistant-message.system {
+        margin-left: 0;
+        margin-right: 0;
+      }
+      .help-assistant-footer .input-group {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+      }
+      .help-assistant-footer .input-group > * {
+        width: 100%;
+        border-radius: 999px !important;
+      }
       .module-toolbar,
       .entity-actions {
         align-items: stretch;
@@ -1798,6 +2240,28 @@
         position: sticky;
         top: 0.35rem;
         border-radius: 14px;
+      }
+      .quick-command-layout {
+        grid-template-columns: 1fr;
+      }
+      .ultra-compact-role-strip,
+      .quick-command-input-row,
+      .batch-toolbar {
+        align-items: stretch;
+        flex-direction: column;
+      }
+      .ultra-role-actions {
+        justify-content: stretch;
+      }
+      .ultra-role-actions .btn {
+        width: 100%;
+      }
+      .quick-command-input-row .btn,
+      .batch-toolbar .btn {
+        width: 100%;
+      }
+      .batch-action-panel {
+        top: 3.8rem;
       }
       .mobile-control-center {
         display: block;
@@ -1868,7 +2332,7 @@
     }
   </style>
 </head>
-<body class="{{ 'work-mode compact-density' if is_authenticated else 'public-mode' }}">
+<body class="{{ 'work-mode compact-density compact-hide-archived smart-forms-enabled' if is_authenticated else 'public-mode' }}">
   <a class="btn btn-dark sr-only-focusable" href="#operationsTabs">Ir para operacao</a>
   <main class="container py-4 shell">
     <div class="top-auth-bar" aria-label="Conta e configurações">
@@ -2247,9 +2711,9 @@
               <div>
                 <div class="eyebrow mb-2">Facilitação de uso</div>
                 <h2 class="h5 mb-1">Como operar sem se perder</h2>
-                <p class="text-secondary small mb-0">Siga esta ordem quando abrir o sistema durante a rotina.</p>
+                <p class="text-secondary small mb-0">Siga esta ordem quando abrir o sistema durante a rotina. Para dúvidas, use o Assistente Operacional.</p>
               </div>
-              <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('download_user_manual') }}">Manual PDF</a>
+              <button class="btn btn-sm btn-outline-secondary" type="button" data-open-help-assistant="true">Abrir assistente</button>
             </div>
             <div class="row g-3">
               <div class="col-md">
@@ -2318,7 +2782,7 @@
           <p class="text-secondary small mb-0">Um mapa curto para cada pessoa saber onde começar, quais campos não podem faltar e qual material entregar em PDF, impresso ou link.</p>
         </div>
         <div class="d-flex flex-wrap gap-2">
-          <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('download_user_manual') }}">Manual PDF</a>
+          <button class="btn btn-sm btn-outline-secondary" type="button" data-open-help-assistant="true">Assistente Operacional</button>
           <a class="btn btn-sm btn-outline-secondary js-tab-link" href="#attention-now-panel" data-tab-target="summary-tab">Pendências</a>
           {% if '*' in current_user.permissions or 'settings.manage' in current_user.permissions %}
           <a class="btn btn-sm btn-outline-secondary js-tab-link" href="#access-management-panel" data-tab-target="access-tab">Acessos</a>
@@ -3399,6 +3863,94 @@
         </div>
       </div>
 
+      <section class="ultra-compact-role-strip mb-3" id="ultra-compact-role-strip" aria-label="Modo ultra compacto por função">
+        <div>
+          <div class="fw-semibold">Modo ultra compacto por função</div>
+          <div class="compact-helper-text compact-hide-on-ultra">Mostra primeiro o que {{ compact_system.role_view.label|lower }} usa no dia a dia e reduz textos repetidos.</div>
+        </div>
+        <div class="ultra-role-actions">
+          {% for action in compact_system.role_view.actions[:3] %}
+          <a class="btn btn-sm btn-outline-secondary {% if action.tab %}js-tab-link{% endif %}" href="{{ action.href }}"{% if action.tab %} data-tab-target="{{ action.tab }}"{% endif %}>{{ action.label }}</a>
+          {% endfor %}
+          <button class="btn btn-sm btn-dark js-ultra-compact-toggle" type="button" id="ultra-compact-toggle">Ultra compacto</button>
+        </div>
+      </section>
+
+      <section class="quick-command-center mb-3" id="quick-command-center" aria-label="Comando rápido único">
+        <div class="quick-command-layout">
+          <div>
+            <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-2">
+              <div>
+                <div class="fw-semibold">Comando rápido</div>
+                <div class="compact-helper-text">Digite uma ação, cliente, evento, banheiro, placa, cobrança ou PDF.</div>
+              </div>
+              <span class="route-badge badge-fixed" id="quick-command-status">{{ compact_system.command_palette|length }} comandos</span>
+            </div>
+            <div class="quick-command-input-row">
+              <input class="form-control" id="quick-command-input" type="search" placeholder="Ex.: criar locação, placa, vencido, gerar PDF..." autocomplete="off" aria-controls="quick-command-results">
+              <button class="btn btn-dark btn-sm" type="button" id="quick-command-submit">Abrir</button>
+              <button class="btn btn-outline-secondary btn-sm" type="button" id="quick-command-clear">Limpar</button>
+            </div>
+          </div>
+          <div class="quick-command-results" id="quick-command-results">
+            {% for command in compact_system.command_palette %}
+            <button class="quick-command-card js-quick-command" type="button" data-command-label="{{ command.label }}" data-command-keywords="{{ command.keywords }}" data-command-kind="{{ command.kind }}" data-target-href="{{ command.href }}" data-tab-target="{{ command.tab }}" data-open-create="{{ command.create }}" data-command-query="{{ command.query }}" data-command-module="{{ command.module }}">
+              <span>
+                <strong>{{ command.label }}</strong>
+                <span class="compact-helper-text d-block">{{ command.keywords.split(' ')[:4]|join(', ') }}</span>
+              </span>
+              <span class="quick-command-kind">{{ command.kind }}</span>
+            </button>
+            {% endfor %}
+          </div>
+        </div>
+      </section>
+
+      <section class="role-screen-panel mb-3" id="role-screen-panel" aria-label="Tela por função">
+        <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+          <div>
+            <div class="fw-semibold">Tela por função: {{ compact_system.role_view.label }}</div>
+            <div class="compact-helper-text">{{ compact_system.role_view.summary }}</div>
+          </div>
+          <div class="role-screen-actions">
+            {% for action in compact_system.role_view.actions %}
+            <a class="btn btn-sm btn-outline-secondary {% if action.tab %}js-tab-link{% endif %}" href="{{ action.href }}"{% if action.tab %} data-tab-target="{{ action.tab }}"{% endif %}>{{ action.label }}</a>
+            {% endfor %}
+          </div>
+        </div>
+      </section>
+
+      <section class="batch-action-panel mb-3" id="batch-action-panel" aria-label="Ações em lote">
+        <div class="batch-toolbar">
+          <div>
+            <div class="fw-semibold">Ações em lote</div>
+            <div class="compact-helper-text"><span id="batch-selection-count">0 selecionados</span> em eventos, clientes, banheiros/equipamentos e cobranças.</div>
+          </div>
+          <div class="compact-action-row">
+            {% for action in compact_system.batch_actions %}
+            <button class="btn btn-sm btn-outline-secondary js-batch-action" type="button" data-batch-action="{{ action.action }}">{{ action.label }}</button>
+            {% endfor %}
+            <button class="btn btn-sm btn-outline-secondary" type="button" id="dense-list-toggle">Linhas densas</button>
+            <button class="btn btn-sm btn-outline-secondary" type="button" id="archive-visibility-toggle">Mostrar arquivados</button>
+            <button class="btn btn-sm btn-outline-secondary" type="button" id="smart-form-toggle">Formulário inteligente</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="smart-form-panel mb-3" id="smart-form-panel" aria-label="Formulários inteligentes">
+        <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+          <div>
+            <div class="fw-semibold">Campos essenciais primeiro</div>
+            <div class="compact-helper-text" id="smart-form-status-text">Locação rápida prioriza cliente, endereço, data, banheiro, quantidade e valor.</div>
+          </div>
+          <div class="smart-form-mode-grid">
+            {% for mode in compact_system.smart_form_modes %}
+            <span class="route-badge badge-fixed" title="{{ mode.detail }}">{{ mode.label }}</span>
+            {% endfor %}
+          </div>
+        </div>
+      </section>
+
       <div class="compact-nav-grid mb-3" id="compact-area-menu">
         {% for item in compact_system.nav_groups %}
         <a class="compact-nav-link {{ 'is-primary' if item.tone == 'primary' else 'is-danger' if item.tone == 'danger' else 'is-warning' if item.tone == 'warning' else 'is-admin' if item.tone == 'admin' else '' }} js-tab-link" href="{{ item.href }}" data-tab-target="{{ item.tab }}">
@@ -3417,6 +3969,7 @@
           </div>
           <div class="compact-panel-tools">
             <button class="btn btn-sm btn-dark" type="button" id="day-focus-panel-toggle">Ativar foco</button>
+            <button class="btn btn-sm btn-outline-secondary js-ultra-compact-toggle" type="button">Ultra compacto</button>
             <button class="btn btn-sm btn-outline-secondary" type="button" id="compact-strong-toggle">Mais compacto</button>
             <button class="btn btn-sm btn-outline-secondary" type="button" id="copy-density-toggle">Menos texto</button>
             <button class="btn btn-sm btn-outline-secondary" type="button" id="compact-collapse-toggle">Recolher painéis</button>
@@ -3850,12 +4403,16 @@
                 </div>
                 <div class="attention-center-grid">
                   {% for item in attention_center["items"] %}
-                  <div class="action-card">
+                  <div class="action-card quick-fix-card">
                     <div class="d-flex justify-content-between gap-2 mb-2">
                       <div class="fw-semibold">{{ item.title }}</div>
                       <span class="route-badge {{ 'badge-danger' if item.level == 'danger' else 'badge-avulso' }}">{{ item.level }}</span>
                     </div>
                     <div class="small text-secondary mb-2">{{ item.detail }}</div>
+                    <div class="quick-fix-row mb-2">
+                      <span class="route-badge badge-fixed">resolver agora</span>
+                      <button class="route-badge badge-avulso border-0 js-mark-review" type="button">marcar revisão</button>
+                    </div>
                     {% if item.target_href.startswith('#') and item.target_tab %}
                     <a class="btn btn-sm btn-outline-secondary rounded-pill js-tab-link" href="{{ item.target_href }}" data-tab-target="{{ item.target_tab }}">{{ item.action }}</a>
                     {% else %}
@@ -3886,6 +4443,10 @@
                       <span data-wizard-step="banheiros">3. Banheiro/equipamento</span>
                       <span data-wizard-step="cobranca">4. Cobrança</span>
                     </div>
+                  </div>
+                  <div class="span-6 smart-form-status" id="quick-smart-form-status">
+                    <strong>Essenciais abertos</strong>
+                    <span class="compact-helper-text">Cliente, endereço, data, banheiro, quantidade e valor ficam no primeiro bloco. Mensal ajusta cobrança e limpeza automaticamente.</span>
                   </div>
                   <div class="span-2">
                     <label class="form-label fw-semibold" for="quick_customer_name">Cliente</label>
@@ -4591,7 +5152,10 @@
                         <div class="fw-semibold text-danger mb-1">Vencidas</div>
                         <div class="d-grid gap-1">
                           {% for item in financial_management.receivables_overdue %}
-                          <div>
+                          <div class="financial-list-item" data-batch-label="{{ item.id }} - {{ item.client_name }}" data-batch-type="cobrança">
+                            <label class="batch-select-cell d-inline-flex" title="Selecionar cobrança">
+                              <input class="js-batch-select" type="checkbox" aria-label="Selecionar cobrança {{ item.id }}" data-batch-target="receivable-overdue-{{ item.id }}">
+                            </label>
                             <span class="route-badge badge-danger">{{ item.open_amount|currency_br }}</span> {{ item.client_name }} • {{ item.due_date }}
                             <form class="d-inline" method="post" action="{{ url_for('update_receivable_payment', receivable_id=item.id) }}">
                               <input type="hidden" name="action" value="paid">
@@ -4610,7 +5174,10 @@
                         <div class="fw-semibold mb-1">Vencem em breve</div>
                         <div class="d-grid gap-1">
                           {% for item in financial_management.receivables_due_soon %}
-                          <div>
+                          <div class="financial-list-item" data-batch-label="{{ item.id }} - {{ item.client_name }}" data-batch-type="cobrança">
+                            <label class="batch-select-cell d-inline-flex" title="Selecionar cobrança">
+                              <input class="js-batch-select" type="checkbox" aria-label="Selecionar cobrança {{ item.id }}" data-batch-target="receivable-due-{{ item.id }}">
+                            </label>
                             <span class="route-badge badge-avulso">{{ item.amount|currency_br }}</span> {{ item.client_name }} • {{ item.due_date }}
                             <form class="d-inline" method="post" action="{{ url_for('update_receivable_payment', receivable_id=item.id) }}">
                               <input type="hidden" name="action" value="paid">
@@ -4626,7 +5193,12 @@
                         <div class="fw-semibold text-success mb-1">Pagas</div>
                         <div class="d-grid gap-1">
                           {% for item in financial_management.receivables_paid %}
-                          <div><span class="route-badge badge-success">{{ item.amount|currency_br }}</span> {{ item.client_name }} <a class="route-badge badge-avulso text-decoration-none" href="{{ url_for('download_receivable_receipt', receivable_id=item.id) }}">recibo</a>{% if item.attachment_url %} <a class="route-badge badge-avulso text-decoration-none" href="{{ item.attachment_url }}" target="_blank" rel="noreferrer">anexo</a>{% endif %}</div>
+                          <div class="financial-list-item is-compact-archived" data-archived="true" data-batch-label="{{ item.id }} - {{ item.client_name }}" data-batch-type="cobrança">
+                            <label class="batch-select-cell d-inline-flex" title="Selecionar cobrança paga">
+                              <input class="js-batch-select" type="checkbox" aria-label="Selecionar cobrança paga {{ item.id }}" data-batch-target="receivable-paid-{{ item.id }}">
+                            </label>
+                            <span class="route-badge badge-success">{{ item.amount|currency_br }}</span> {{ item.client_name }} <a class="route-badge badge-avulso text-decoration-none" href="{{ url_for('download_receivable_receipt', receivable_id=item.id) }}">recibo</a>{% if item.attachment_url %} <a class="route-badge badge-avulso text-decoration-none" href="{{ item.attachment_url }}" target="_blank" rel="noreferrer">anexo</a>{% endif %}
+                          </div>
                           {% else %}
                           <div class="empty-state small">Nenhuma paga registrada. Quando receber, baixe no financeiro para manter o caixa atualizado.<br><a class="btn btn-sm btn-outline-secondary rounded-pill js-tab-link" href="#receivables-panel" data-tab-target="summary-tab">Abrir financeiro</a></div>
                           {% endfor %}
@@ -5237,9 +5809,14 @@
                   {% if events %}
                     {% for event in events %}
                     {% set normalized_event_status = event.status if event.status in event_status_labels else {'planejado':'confirmado','em_execucao':'em_andamento','novo':'orcamento'}.get(event.status, event.status) %}
-                    <div class="event-card p-3 event-list-item" id="event-{{ event.event_id }}" data-filter-text="{{ event.event_id }} {{ event.title }} {{ event_status_labels.get(normalized_event_status, event.status) }} {{ event.event_date }} {{ event.event_end_date }} {{ event.event_period_label }}" data-event-start="{{ event.event_date }}" data-event-end="{{ event.event_end_date or event.event_date }}" data-status="{{ normalized_event_status }}" data-recurring="{{ 'true' if event.recurrence_enabled == 'true' else 'false' }}">
+                    {% set event_end_key = event.event_end_date or event.event_date %}
+                    {% set event_archived = normalized_event_status in ['pago', 'finalizado', 'cancelado'] and event_end_key and event_end_key < compact_system.today_iso %}
+                    <div class="event-card p-3 event-list-item {% if event_archived %}is-compact-archived{% endif %}" id="event-{{ event.event_id }}" data-filter-text="{{ event.event_id }} {{ event.title }} {{ event_status_labels.get(normalized_event_status, event.status) }} {{ event.event_date }} {{ event.event_end_date }} {{ event.event_period_label }}" data-event-start="{{ event.event_date }}" data-event-end="{{ event.event_end_date or event.event_date }}" data-status="{{ normalized_event_status }}" data-recurring="{{ 'true' if event.recurrence_enabled == 'true' else 'false' }}" data-archived="{{ 'true' if event_archived else 'false' }}" data-batch-label="{{ event.event_id }} - {{ event.title }}" data-batch-type="evento">
                       <div class="d-flex justify-content-between gap-3">
-                        <div>
+                        <label class="batch-select-cell" title="Selecionar evento">
+                          <input class="js-batch-select" type="checkbox" aria-label="Selecionar {{ event.event_id }}" data-batch-target="event-{{ event.event_id }}">
+                        </label>
+                        <div class="flex-grow-1">
                           <div class="fw-semibold">{{ event.event_id }} • {{ event.title }}</div>
                           <div class="small text-secondary">{{ event.event_date|date_br }}{% if event.event_end_date and event.event_end_date != event.event_date %} até {{ event.event_end_date|date_br }}{% endif %} • status {{ event_status_labels.get(normalized_event_status, event.status) }}</div>
                           <div class="route-badges">
@@ -5953,8 +6530,11 @@
                 {% if clients %}
                   {% for client in clients %}
                   {% set detail = client_details.get(client.client_id, {}) %}
-                  <div class="entity-card p-3 d-flex gap-3 align-items-center client-list-item" id="client-{{ client.client_id }}" data-filter-text="{{ client.client_id }} {{ client.customer_name }} {{ client.address }} {{ client.phone }} {{ client.equipment_number }} {{ client.equipment_type }} {{ client.billing_model }} {{ client.cleaning_frequency }} {{ client.service_profile }} {{ client.invoice_status }} {{ client.invoice_number }}" data-type="{{ client.client_type or 'fixo' }}" data-stock="{{ 'vinculado' if client.equipment_number else 'sem-vinculo' }}">
+                  <div class="entity-card p-3 d-flex gap-3 align-items-center client-list-item" id="client-{{ client.client_id }}" data-filter-text="{{ client.client_id }} {{ client.customer_name }} {{ client.address }} {{ client.phone }} {{ client.equipment_number }} {{ client.equipment_type }} {{ client.billing_model }} {{ client.cleaning_frequency }} {{ client.service_profile }} {{ client.invoice_status }} {{ client.invoice_number }}" data-type="{{ client.client_type or 'fixo' }}" data-stock="{{ 'vinculado' if client.equipment_number else 'sem-vinculo' }}" data-batch-label="{{ client.client_id }} - {{ client.customer_name }}" data-batch-type="cliente">
                     <div class="route-index">{{ client.client_id[:2].upper() }}</div>
+                    <label class="batch-select-cell" title="Selecionar cliente">
+                      <input class="js-batch-select" type="checkbox" aria-label="Selecionar {{ client.customer_name }}" data-batch-target="client-{{ client.client_id }}">
+                    </label>
                     <div class="flex-grow-1">
                       <div class="fw-semibold">{{ client.customer_name }}</div>
                       <div class="small text-secondary">{{ client.address }}</div>
@@ -6425,7 +7005,7 @@
           <div class="d-grid gap-2">
             {% if equipment_registry %}
               {% for item in equipment_registry %}
-              <div class="entity-card p-3 d-flex gap-3 align-items-center equipment-list-item" id="equipment-{{ item.equipment_id }}" data-filter-text="{{ item.equipment_id }} {{ item.equipment_type }} {{ item.equipment_family_label }} {{ item.plate }} {{ item.status }} {{ item.linked_client_name }} {{ item.linked_event_title }} {{ item.notes }}" data-status="{{ item.status }}" data-family="{{ 'banheiros' if item.equipment_family in ['banheiro_luxo', 'banheiro_quimico'] else 'apoio' }}" data-linked="{{ 'com-vinculo' if item.linked_client_name or item.linked_event_title else 'sem-vinculo' }}">
+              <div class="entity-card p-3 d-flex gap-3 align-items-center equipment-list-item" id="equipment-{{ item.equipment_id }}" data-filter-text="{{ item.equipment_id }} {{ item.equipment_type }} {{ item.equipment_family_label }} {{ item.plate }} {{ item.status }} {{ item.linked_client_name }} {{ item.linked_event_title }} {{ item.notes }}" data-status="{{ item.status }}" data-family="{{ 'banheiros' if item.equipment_family in ['banheiro_luxo', 'banheiro_quimico'] else 'apoio' }}" data-linked="{{ 'com-vinculo' if item.linked_client_name or item.linked_event_title else 'sem-vinculo' }}" data-batch-label="{{ item.equipment_id }} - {{ item.equipment_type }}" data-batch-type="equipamento">
                 {% if item.photo_url %}
                 <button class="asset-thumb-button js-photo-preview" type="button" data-photo-src="{{ item.photo_url }}" data-photo-title="{{ item.equipment_id }} • {{ item.equipment_type }}">
                   <img class="asset-thumb" src="{{ item.photo_url }}" alt="Foto de {{ item.equipment_id }}">
@@ -6433,6 +7013,9 @@
                 {% else %}
                 <div class="asset-thumb-fallback">Sem foto<br>{{ item.equipment_id[:2].upper() }}</div>
                 {% endif %}
+                <label class="batch-select-cell" title="Selecionar equipamento">
+                  <input class="js-batch-select" type="checkbox" aria-label="Selecionar {{ item.equipment_id }}" data-batch-target="equipment-{{ item.equipment_id }}">
+                </label>
                 <div class="flex-grow-1">
                   <div class="fw-semibold">{{ item.equipment_id }} • {{ item.equipment_type }}</div>
                   <div class="small text-secondary">Placa {{ item.plate or "n/d" }} • {{ "com foto" if item.photo_url else "sem foto" }} • {{ item.notes or "Sem observações" }}</div>
@@ -7349,6 +7932,178 @@
                 </div>
               </div>
 
+              {% if help_assistant.can_manage %}
+              <section class="entity-card p-3 mt-3 UnansweredQuestionsAdmin" id="help-admin-panel">
+                <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+                  <div>
+                    <div class="fw-semibold">Administração do Assistente Operacional</div>
+                    <div class="small text-secondary">Base controlada de orientação, dúvidas sem resposta, chamados e métricas de uso.</div>
+                  </div>
+                  <div class="route-badges">
+                    <span class="route-badge badge-success">{{ help_assistant.metrics.useful_total }} útil(eis)</span>
+                    <span class="route-badge badge-avulso">{{ help_assistant.metrics.unanswered_open }} dúvida(s)</span>
+                    <span class="route-badge badge-fixed">{{ help_assistant.metrics.support_clicks }} suporte</span>
+                  </div>
+                </div>
+
+                <div class="help-metric-grid mb-3">
+                  <div class="stat-card p-3">
+                    <div class="fs-5 fw-bold">{{ help_assistant.metrics.support_tickets_open }}</div>
+                    <div class="small text-secondary">Chamados abertos</div>
+                  </div>
+                  <div class="stat-card p-3">
+                    <div class="fs-5 fw-bold">{{ help_assistant.metrics.unanswered_total }}</div>
+                    <div class="small text-secondary">Dúvidas registradas</div>
+                  </div>
+                  <div class="stat-card p-3">
+                    <div class="fs-5 fw-bold">{{ help_assistant.metrics.not_useful_total }}</div>
+                    <div class="small text-secondary">Não resolveu</div>
+                  </div>
+                  <div class="stat-card p-3">
+                    <div class="fs-5 fw-bold">{{ help_assistant.knowledge_base|length }}</div>
+                    <div class="small text-secondary">Itens na base</div>
+                  </div>
+                </div>
+
+                <div class="help-admin-grid">
+                  <div>
+                    <div class="fw-semibold mb-2 KnowledgeBase">Base de conhecimento</div>
+                    <form method="post" action="{{ url_for('save_help_knowledge_entry') }}" class="d-grid gap-2 mb-3">
+                      <input class="form-control" name="entry_id" type="text" placeholder="ID: registrar-material-extra">
+                      <input class="form-control" name="titulo" type="text" placeholder="Título" required>
+                      <input class="form-control" name="categoria" type="text" placeholder="Categoria" value="Operacional">
+                      <input class="form-control" name="pergunta" type="text" placeholder="Pergunta" required>
+                      <textarea class="form-control" name="resposta" rows="4" placeholder="Resposta controlada do assistente" required></textarea>
+                      <textarea class="form-control" name="passos" rows="4" placeholder="Passos, um por linha. Ex.: Abra Eventos"></textarea>
+                      <input class="form-control" name="palavrasChave" type="text" placeholder="Palavras-chave separadas por vírgula">
+                      <div class="row g-2">
+                        <div class="col-sm-6">
+                          <input class="form-control" name="rotaRelacionada" type="text" placeholder="/#events-pane">
+                        </div>
+                        <div class="col-sm-6">
+                          <input class="form-control" name="targetTab" type="text" placeholder="events-tab">
+                        </div>
+                      </div>
+                      <div class="row g-2">
+                        <div class="col-sm-7">
+                          <input class="form-control" name="targetHref" type="text" placeholder="#events-pane">
+                        </div>
+                        <div class="col-sm-5">
+                          <select class="form-select" name="criticidade">
+                            <option value="baixo">Baixo</option>
+                            <option value="medio">Médio</option>
+                            <option value="alto">Alto</option>
+                          </select>
+                        </div>
+                      </div>
+                      <label class="small d-flex gap-2 align-items-center">
+                        <input class="form-check-input m-0" name="opcaoInicial" type="checkbox" value="true">
+                        Mostrar como opção inicial
+                      </label>
+                      <button class="btn btn-dark rounded-pill" type="submit">Salvar pergunta</button>
+                    </form>
+
+                    <div class="help-admin-list d-grid gap-2">
+                      {% for entry in help_assistant.knowledge_base %}
+                      <details class="small p-2 border rounded-3 bg-white">
+                        <summary class="fw-semibold">{{ entry.titulo }} <span class="text-secondary">• {{ entry.categoria }}</span></summary>
+                        <div class="text-secondary mt-2">{{ entry.pergunta }}</div>
+                        <div class="mt-2">{{ entry.resposta }}</div>
+                        {% if entry.passos %}
+                        <ol class="small mt-2 mb-0">
+                          {% for step in entry.passos %}
+                          <li>{{ step }}</li>
+                          {% endfor %}
+                        </ol>
+                        {% endif %}
+                        <div class="route-badges mt-2">
+                          <span class="route-badge badge-fixed">{{ entry.criticidade }}</span>
+                          <span class="route-badge badge-avulso">{{ entry.rotaRelacionada or "sem rota" }}</span>
+                        </div>
+                      </details>
+                      {% else %}
+                      <div class="small text-secondary">Nenhuma pergunta cadastrada ainda.</div>
+                      {% endfor %}
+                    </div>
+                  </div>
+
+                  <div class="d-grid gap-3">
+                    <div>
+                      <div class="fw-semibold mb-2">Dúvidas sem resposta</div>
+                      <div class="help-admin-list d-grid gap-2">
+                        {% for item in help_assistant.unanswered_questions %}
+                        <form method="post" action="{{ url_for('update_help_unanswered_question', question_id=item.id) }}" class="p-2 border rounded-3 bg-white">
+                          <div class="d-flex justify-content-between gap-2 flex-wrap">
+                            <div class="fw-semibold">{{ item.id }}</div>
+                            <span class="route-badge badge-avulso">{{ item.status }}</span>
+                          </div>
+                          <div class="small text-secondary">{{ item.created_at }} • {{ item.user_name or item.user_email or "usuário" }}</div>
+                          <div class="small my-2">{{ item.text or item.texto_duvida }}</div>
+                          <select class="form-select form-select-sm mb-2" name="status">
+                            <option value="nova" {% if item.status == 'nova' %}selected{% endif %}>Nova</option>
+                            <option value="em_analise" {% if item.status == 'em_analise' %}selected{% endif %}>Em análise</option>
+                            <option value="resolvida" {% if item.status == 'resolvida' %}selected{% endif %}>Resolvida</option>
+                          </select>
+                          <textarea class="form-control form-control-sm mb-2" name="support_note" rows="2" placeholder="Observação do suporte">{{ item.support_note or item.observacao_suporte }}</textarea>
+                          <button class="btn btn-sm btn-outline-secondary rounded-pill" type="submit">Atualizar dúvida</button>
+                        </form>
+                        {% else %}
+                        <div class="small text-secondary">Nenhuma dúvida sem resposta registrada.</div>
+                        {% endfor %}
+                      </div>
+                    </div>
+
+                    <div id="support-tickets-admin-panel">
+                      <div class="fw-semibold mb-2">Chamados de suporte</div>
+                      <div class="help-admin-list d-grid gap-2">
+                        {% for ticket in help_assistant.support_tickets %}
+                        <form method="post" action="{{ url_for('update_help_support_ticket', ticket_id=ticket.id) }}" class="p-2 border rounded-3 bg-white">
+                          <div class="d-flex justify-content-between gap-2 flex-wrap">
+                            <div class="fw-semibold">{{ ticket.id }}</div>
+                            <span class="route-badge {{ 'badge-danger' if ticket.priority == 'alta' else 'badge-avulso' }}">{{ ticket.priority }}</span>
+                          </div>
+                          <div class="small text-secondary">{{ ticket.created_at }} • {{ ticket.user_name or ticket.user_email or "usuário" }}</div>
+                          <div class="small my-2">{{ ticket.message or ticket.mensagem }}</div>
+                          <div class="row g-2 mb-2">
+                            <div class="col-sm-6">
+                              <select class="form-select form-select-sm" name="status">
+                                <option value="novo" {% if ticket.status == 'novo' %}selected{% endif %}>Novo</option>
+                                <option value="em_analise" {% if ticket.status == 'em_analise' %}selected{% endif %}>Em análise</option>
+                                <option value="resolvido" {% if ticket.status == 'resolvido' %}selected{% endif %}>Resolvido</option>
+                              </select>
+                            </div>
+                            <div class="col-sm-6">
+                              <select class="form-select form-select-sm" name="priority">
+                                <option value="baixa" {% if ticket.priority == 'baixa' %}selected{% endif %}>Baixa</option>
+                                <option value="media" {% if ticket.priority == 'media' %}selected{% endif %}>Média</option>
+                                <option value="alta" {% if ticket.priority == 'alta' %}selected{% endif %}>Alta</option>
+                              </select>
+                            </div>
+                          </div>
+                          <textarea class="form-control form-control-sm mb-2" name="support_note" rows="2" placeholder="Observação do suporte">{{ ticket.support_note or ticket.observacao_suporte }}</textarea>
+                          <button class="btn btn-sm btn-outline-secondary rounded-pill" type="submit">Atualizar chamado</button>
+                        </form>
+                        {% else %}
+                        <div class="small text-secondary">Nenhum chamado criado pelo assistente.</div>
+                        {% endfor %}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div class="fw-semibold mb-2">Perguntas mais feitas</div>
+                      <div class="d-grid gap-1 small">
+                        {% for item in help_assistant.metrics.top_questions %}
+                        <div>{{ item.titulo }} • {{ item.count }}</div>
+                        {% else %}
+                        <div class="text-secondary">A métrica aparece conforme a equipe usa o assistente.</div>
+                        {% endfor %}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+              {% endif %}
+
               <div class="entity-card p-3 mt-3">
                 <div class="fw-semibold mb-2">Próximas melhorias recomendadas</div>
                 <div class="route-badges">
@@ -7414,6 +8169,73 @@
   </main>
 
   {% if is_authenticated %}
+  <button class="help-assistant-button HelpAssistantButton" type="button" id="help-assistant-button" aria-controls="help-assistant-panel" aria-expanded="false">Ajuda</button>
+  <div class="help-assistant-backdrop" id="help-assistant-backdrop" hidden></div>
+  <aside class="help-assistant-panel HelpAssistantPanel" id="help-assistant-panel" aria-label="Assistente Operacional" hidden>
+    <div class="help-assistant-header d-flex justify-content-between align-items-start gap-3">
+      <div>
+        <div class="eyebrow mb-2">Assistente</div>
+        <h2 class="h5 mb-1">Assistente Operacional</h2>
+        <div class="small text-secondary">Orientação segura baseada na base interna.</div>
+      </div>
+      <button class="btn btn-sm btn-outline-secondary rounded-pill" type="button" id="help-assistant-close">Fechar</button>
+    </div>
+    <div class="help-assistant-body" id="help-assistant-messages" data-fallback-message="{{ help_assistant.fallback_message }}">
+      <div class="help-assistant-message system HelpAssistantMessage">
+        Olá, sou o Assistente Operacional. Posso te ajudar a usar o sistema. Escolha uma opção abaixo ou digite sua dúvida.
+      </div>
+      <div class="help-assistant-options HelpAssistantOptions" id="help-assistant-options">
+        {% for option in help_assistant.initial_options %}
+        <button class="help-option-button" type="button" data-help-option="true" data-help-id="{{ option.id }}" data-help-query="{{ option.pergunta }}">
+          {{ option.titulo }}
+        </button>
+        {% endfor %}
+      </div>
+      <div class="help-assistant-context ultra-assistant-context" id="help-assistant-context">
+        <div class="d-flex justify-content-between align-items-center gap-2">
+          <div class="fw-semibold">Ajuda desta tela</div>
+          <span class="route-badge badge-fixed" id="help-context-label">Resumo</span>
+        </div>
+        <div class="help-assistant-context-options" id="help-assistant-context-options">
+          {% for option in help_assistant.context_options %}
+          <button class="help-context-button js-context-help d-none" type="button" data-help-context="{{ option.context }}" data-help-option="true" data-help-id="{{ option.id }}" data-help-query="{{ option.pergunta }}">
+            {{ option.titulo }}
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="help-assistant-state d-none" id="help-assistant-state" role="status" aria-live="polite"></div>
+      <div class="help-assistant-message system d-none" id="help-assistant-result"></div>
+      <form class="help-assistant-message SupportTicketForm d-none" id="help-support-form">
+        <div class="fw-semibold mb-2">Falar com suporte humano</div>
+        <div class="small text-secondary mb-2">Explique rapidamente o problema. Essa mensagem será enviada para o responsável pelo sistema.</div>
+        <textarea class="form-control mb-2" id="help-support-message" name="message" rows="3" placeholder="Ex.: Estou na tela de eventos e não consigo encontrar o botão OS."></textarea>
+        <div class="row g-2 mb-2">
+          <div class="col-sm-7">
+            <select class="form-select" id="help-support-priority" name="priority">
+              <option value="media">Prioridade média</option>
+              <option value="baixa">Prioridade baixa</option>
+              <option value="alta">Prioridade alta</option>
+            </select>
+          </div>
+          <div class="col-sm-5">
+            <button class="btn btn-dark rounded-pill w-100" type="submit">Enviar</button>
+          </div>
+        </div>
+        <div class="small text-secondary" id="help-support-status"></div>
+      </form>
+    </div>
+    <div class="help-assistant-footer">
+      <form class="d-grid gap-2" id="help-assistant-search-form">
+        <label class="form-label fw-semibold mb-0" for="help-assistant-query">Digite sua dúvida</label>
+        <div class="input-group">
+          <input class="form-control" id="help-assistant-query" name="q" type="search" placeholder="Ex.: como registrar material extra?">
+          <button class="btn btn-dark" type="submit">Buscar</button>
+        </div>
+      </form>
+    </div>
+  </aside>
+
   <div class="modal fade" id="assetPhotoModal" tabindex="-1" aria-labelledby="assetPhotoModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
       <div class="modal-content">
@@ -7991,6 +8813,186 @@
       showMotionToast("Busca com comando aplicada.");
     }
 
+    function executeQuickCommand(button, fallbackQuery = "") {
+      if (!button) {
+        const input = document.getElementById("global-search");
+        const query = fallbackQuery.trim();
+        if (input && query) {
+          input.value = query;
+          syncGlobalSearchInputs(query, input);
+          saveFilterState(input);
+          applyFiltersForTarget(".global-search-item");
+        }
+        openGuidedTarget("summary-tab", "#global-search-panel", "#global-search-panel");
+        showMotionToast(query ? "Busca livre aberta." : "Digite um comando ou busca.");
+        return;
+      }
+      const targetHref = button.dataset.targetHref || "#global-search-panel";
+      const tabTarget = button.dataset.tabTarget || "";
+      const createTarget = button.dataset.openCreate || "";
+      const query = button.dataset.commandQuery || fallbackQuery || "";
+      const module = button.dataset.commandModule || "";
+      const input = document.getElementById("global-search");
+      const select = document.getElementById("global-search-module");
+      if (input && (query || module)) {
+        input.value = query;
+        syncGlobalSearchInputs(input.value, input);
+        saveFilterState(input);
+      }
+      if (select && module !== undefined) {
+        select.value = module;
+        saveFilterState(select);
+      }
+      if (query || module) {
+        applyFiltersForTarget(".global-search-item");
+      }
+      if (targetHref.startsWith("#")) {
+        if (tabTarget) activateTab(tabTarget);
+        if (createTarget) showCreatePanel(createTarget);
+        document.querySelector(targetHref)?.scrollIntoView({ behavior: "smooth", block: "start" });
+        window.setTimeout(() => highlightTarget(createTarget ? `#${createTarget}` : targetHref), 140);
+      } else {
+        window.location.href = targetHref;
+      }
+      button.classList.remove("quick-action-flash");
+      void button.offsetWidth;
+      button.classList.add("quick-action-flash");
+      window.setTimeout(() => button.classList.remove("quick-action-flash"), 900);
+      showMotionToast(`${button.dataset.commandLabel || "Comando"} aberto.`);
+    }
+
+    function updateQuickCommandResults() {
+      const input = document.getElementById("quick-command-input");
+      const status = document.getElementById("quick-command-status");
+      const query = normalizeText(input?.value || "");
+      const words = query.split(/\s+/).filter(Boolean);
+      let visibleCount = 0;
+      document.querySelectorAll(".js-quick-command").forEach((button) => {
+        const haystack = normalizeText(`${button.dataset.commandLabel} ${button.dataset.commandKeywords} ${button.dataset.commandKind}`);
+        const visible = !words.length || words.every((word) => haystack.includes(word));
+        button.classList.toggle("is-command-hidden", !visible);
+        button.classList.toggle("is-command-match", visible && words.length > 0);
+        if (visible) visibleCount += 1;
+      });
+      if (status) status.textContent = `${visibleCount} comando(s)`;
+    }
+
+    function syncArchivePreference() {
+      const showArchived = localStorage.getItem("compact-archive-visibility-v1") === "show";
+      document.body.classList.toggle("compact-hide-archived", !showArchived);
+      document.body.classList.toggle("archived-toggle-active", showArchived);
+      const button = document.getElementById("archive-visibility-toggle");
+      if (button) button.textContent = showArchived ? "Esconder arquivados" : "Mostrar arquivados";
+    }
+
+    function syncDenseListPreference() {
+      const enabled = localStorage.getItem("dense-list-mode-v1") === "on";
+      document.body.classList.toggle("dense-list-mode", enabled);
+      const button = document.getElementById("dense-list-toggle");
+      if (button) button.textContent = enabled ? "Linhas densas ativas" : "Linhas densas";
+    }
+
+    function syncSmartFormsPreference() {
+      const disabled = localStorage.getItem("smart-forms-enabled-v1") === "off";
+      document.body.classList.toggle("smart-forms-enabled", !disabled);
+      const button = document.getElementById("smart-form-toggle");
+      if (button) button.textContent = disabled ? "Ativar formulário inteligente" : "Formulário inteligente ativo";
+    }
+
+    function updateSmartFormStatus() {
+      const type = document.getElementById("quick_client_type")?.value || "avulso";
+      const billing = document.getElementById("quick_billing_model")?.value || "avulso";
+      const text = document.getElementById("smart-form-status-text");
+      const local = document.getElementById("quick-smart-form-status");
+      let message = "Locação avulsa: mantenha cliente, endereço, data, banheiro, quantidade e valor no primeiro bloco.";
+      if (type === "fixo" || billing === "mensal") {
+        message = "Cliente fixo: cobrança mensal e limpeza semanal ficam sugeridas para reduzir retrabalho.";
+      } else if (billing === "orcamento") {
+        message = "Orçamento: salve os dados principais agora e complete NF, anexos e observações só quando necessário.";
+      }
+      if (text) text.textContent = message;
+      if (local) {
+        local.querySelector("span")?.replaceChildren(document.createTextNode(message));
+        local.classList.add("quick-action-flash");
+        window.setTimeout(() => local.classList.remove("quick-action-flash"), 700);
+      }
+    }
+
+    function batchContainerForCheckbox(checkbox) {
+      return document.getElementById(checkbox.dataset.batchTarget) || checkbox.closest(".event-list-item, .client-list-item, .equipment-list-item, .financial-list-item");
+    }
+
+    function selectedBatchItems() {
+      return [...document.querySelectorAll(".js-batch-select:checked")]
+        .map((checkbox) => {
+          const container = batchContainerForCheckbox(checkbox);
+          return {
+            checkbox,
+            container,
+            label: container?.dataset.batchLabel || checkbox.getAttribute("aria-label") || "item selecionado",
+            type: container?.dataset.batchType || "item",
+          };
+        })
+        .filter((item) => item.container);
+    }
+
+    function updateBatchSelection() {
+      const items = selectedBatchItems();
+      document.querySelectorAll(".batch-selected").forEach((item) => item.classList.remove("batch-selected"));
+      items.forEach((item) => item.container.classList.add("batch-selected"));
+      setTextById("batch-selection-count", `${items.length} selecionado${items.length === 1 ? "" : "s"}`);
+    }
+
+    async function performBatchAction(action) {
+      const items = selectedBatchItems();
+      if (action === "clear") {
+        document.querySelectorAll(".js-batch-select:checked").forEach((checkbox) => { checkbox.checked = false; });
+        updateBatchSelection();
+        showMotionToast("Seleção limpa.");
+        return;
+      }
+      if (!items.length) {
+        showMotionToast("Selecione ao menos um item.");
+        return;
+      }
+      if (action === "copy") {
+        const summary = items.map((item) => `${item.type}: ${item.label}`).join("\n");
+        try {
+          await navigator.clipboard?.writeText(summary);
+          showMotionToast("Resumo dos selecionados copiado.");
+        } catch {
+          showMotionToast(summary, "info");
+        }
+        return;
+      }
+      if (action === "highlight") {
+        items.forEach((item) => {
+          item.container.classList.remove("quick-action-flash");
+          void item.container.offsetWidth;
+          item.container.classList.add("quick-action-flash");
+        });
+        items[0].container.scrollIntoView({ behavior: "smooth", block: "center" });
+        showMotionToast("Selecionados destacados.");
+        return;
+      }
+      if (action === "open-first") {
+        items[0].container.scrollIntoView({ behavior: "smooth", block: "center" });
+        if (items[0].container.id) {
+          highlightTarget(`#${items[0].container.id}`);
+        } else {
+          items[0].container.classList.add("quick-action-flash");
+          window.setTimeout(() => items[0].container.classList.remove("quick-action-flash"), 900);
+        }
+        showMotionToast("Primeiro selecionado aberto.");
+        return;
+      }
+      if (action === "exports") {
+        activateTab("summary-tab");
+        document.getElementById("reports-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        showMotionToast("Exportações e relatórios abertos.");
+      }
+    }
+
     function syncGlobalSearchInputs(value, source) {
       document.querySelectorAll("[data-global-search-input='true']").forEach((input) => {
         if (input === source) return;
@@ -8015,10 +9017,14 @@
       const copyButton = document.getElementById("copy-density-toggle");
       const collapseButton = document.getElementById("compact-collapse-toggle");
       const focusButton = document.getElementById("day-focus-panel-toggle");
+      const ultraButtons = document.querySelectorAll(".js-ultra-compact-toggle");
       if (strongButton) strongButton.textContent = document.body.classList.contains("compact-strong-mode") ? "Compacto forte ativo" : "Mais compacto";
       if (copyButton) copyButton.textContent = document.body.classList.contains("copy-minimal-mode") ? "Texto mínimo ativo" : "Menos texto";
       if (collapseButton) collapseButton.textContent = document.body.classList.contains("compact-collapsed-panels") ? "Painéis recolhidos" : "Recolher painéis";
       if (focusButton) focusButton.textContent = document.body.classList.contains("day-focus-active") ? "Foco ativo" : "Ativar foco";
+      ultraButtons.forEach((button) => {
+        button.textContent = document.body.classList.contains("ultra-compact-mode") ? "Ultra compacto ativo" : "Ultra compacto";
+      });
     }
 
     function syncAdvancedCompactPreferences() {
@@ -8030,6 +9036,20 @@
         document.body.classList.toggle(className, localStorage.getItem(storageKey) === "on");
       });
       updateDensityControlLabels();
+    }
+
+    function syncUltraCompactPreference() {
+      const stored = localStorage.getItem("ultra-compact-mode-v1");
+      document.body.classList.toggle("ultra-compact-mode", stored !== "off");
+      updateDensityControlLabels();
+    }
+
+    function toggleUltraCompactPreference() {
+      const enabled = !document.body.classList.contains("ultra-compact-mode");
+      document.body.classList.toggle("ultra-compact-mode", enabled);
+      localStorage.setItem("ultra-compact-mode-v1", enabled ? "on" : "off");
+      updateDensityControlLabels();
+      showMotionToast(enabled ? "Modo ultra compacto ativado." : "Modo ultra compacto desativado.");
     }
 
     function toggleStoredBodyClass(storageKey, className, messageOn, messageOff) {
@@ -8142,6 +9162,310 @@
       }, 2400);
     }
 
+    function useHelpAssistant() {
+      const button = document.getElementById("help-assistant-button");
+      const panel = document.getElementById("help-assistant-panel");
+      const backdrop = document.getElementById("help-assistant-backdrop");
+      const closeButton = document.getElementById("help-assistant-close");
+      const form = document.getElementById("help-assistant-search-form");
+      const input = document.getElementById("help-assistant-query");
+      const result = document.getElementById("help-assistant-result");
+      const state = document.getElementById("help-assistant-state");
+      const messages = document.getElementById("help-assistant-messages");
+      const supportForm = document.getElementById("help-support-form");
+      const supportMessage = document.getElementById("help-support-message");
+      const supportPriority = document.getElementById("help-support-priority");
+      const supportStatus = document.getElementById("help-support-status");
+      const contextLabel = document.getElementById("help-context-label");
+      const contextButtons = [...document.querySelectorAll(".js-context-help")];
+      const fallbackMessage = messages?.dataset.fallbackMessage || "Não encontrei uma resposta segura para essa dúvida. Posso registrar isso para o suporte analisar.";
+      if (!button || !panel || !backdrop || !form || !input || !result || !state) return;
+
+      const screen = () => window.location.href;
+      const helpContextFromLocation = () => {
+        const hash = window.location.hash || "";
+        if (hash.includes("events")) return ["events", "Eventos"];
+        if (hash.includes("clients") || hash.includes("client-")) return ["clients", "Clientes"];
+        if (hash.includes("fleet") || hash.includes("equipment") || hash.includes("maintenance")) return ["fleet", "Banheiros e frota"];
+        if (hash.includes("warehouse")) return ["warehouse", "Almoxarifado"];
+        if (hash.includes("operations") || hash.includes("route") || hash.includes("pdf")) return ["operations", "Rotas e PDF"];
+        if (hash.includes("support") || hash.includes("help")) return ["support", "Suporte"];
+        return ["summary", "Resumo"];
+      };
+      const syncHelpContextButtons = () => {
+        const [currentContext, label] = helpContextFromLocation();
+        let visible = 0;
+        contextButtons.forEach((item) => {
+          const show = item.dataset.helpContext === currentContext;
+          item.classList.toggle("d-none", !show);
+          if (show) visible += 1;
+        });
+        if (contextLabel) {
+          contextLabel.textContent = visible ? label : "Resumo";
+        }
+      };
+      const postForm = async (url, payload) => {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams(payload),
+        });
+        const data = await response.json();
+        if (!response.ok || !data.ok) throw new Error(data.error || "Não foi possível concluir agora.");
+        return data;
+      };
+
+      const setOpen = (open) => {
+        panel.hidden = !open;
+        backdrop.hidden = !open;
+        button.setAttribute("aria-expanded", open ? "true" : "false");
+        if (open) {
+          syncHelpContextButtons();
+          panel.classList.add("filter-just-matched");
+          window.setTimeout(() => panel.classList.remove("filter-just-matched"), 360);
+          input.focus({ preventScroll: true });
+        }
+      };
+
+      const appendUserMessage = (text) => {
+        const item = document.createElement("div");
+        item.className = "help-assistant-message user HelpAssistantMessage";
+        item.textContent = text;
+        messages.insertBefore(item, result);
+      };
+
+      const clearResult = () => {
+        result.replaceChildren();
+        result.classList.add("d-none");
+      };
+
+      const setHelpState = (type, message) => {
+        state.className = `help-assistant-state ${type || ""}`;
+        state.textContent = message || "";
+        state.classList.toggle("d-none", !message);
+      };
+
+      const clearHelpState = () => {
+        state.textContent = "";
+        state.className = "help-assistant-state d-none";
+      };
+
+      const openEntryTarget = (entry, highlight = true) => {
+        const targetHref = entry.targetHref || entry.rotaRelacionada || "";
+        if (targetHref === "#help-support-form") {
+          showSupportForm();
+          return;
+        }
+        if (targetHref.startsWith("#")) {
+          setOpen(false);
+          openGuidedTarget(entry.targetTab || "", targetHref, highlight ? targetHref : "");
+        } else if (targetHref) {
+          window.location.href = targetHref;
+        }
+      };
+
+      const showSupportForm = async () => {
+        supportForm?.classList.remove("d-none");
+        supportMessage?.focus({ preventScroll: true });
+        try {
+          await postForm("{{ url_for('register_help_support_click') }}", { screen: screen() });
+        } catch {
+          // A abertura do formulário continua mesmo se a métrica não for registrada.
+        }
+      };
+
+      const renderActions = (entry) => {
+        const actions = document.createElement("div");
+        actions.className = "help-result-actions";
+        if (entry.targetHref || entry.rotaRelacionada) {
+          const showButton = document.createElement("button");
+          showButton.type = "button";
+          showButton.className = "btn btn-sm btn-dark rounded-pill";
+          showButton.textContent = "Me mostre onde fica";
+          showButton.addEventListener("click", () => openEntryTarget(entry, true));
+          actions.appendChild(showButton);
+
+          const goButton = document.createElement("button");
+          goButton.type = "button";
+          goButton.className = "btn btn-sm btn-outline-secondary rounded-pill";
+          goButton.textContent = "Abrir tela";
+          goButton.addEventListener("click", () => openEntryTarget(entry, false));
+          actions.appendChild(goButton);
+        }
+        const doubtButton = document.createElement("button");
+        doubtButton.type = "button";
+        doubtButton.className = "btn btn-sm btn-outline-secondary rounded-pill";
+        doubtButton.textContent = "Ainda estou com dúvida";
+        doubtButton.addEventListener("click", async () => {
+          try {
+            await postForm("{{ url_for('save_help_feedback') }}", {
+              answer_id: entry.id,
+              useful: "false",
+              screen: screen(),
+            });
+            setHelpState("empty", "Sem problema. Explique a dúvida para o suporte analisar.");
+            showSupportForm();
+          } catch (error) {
+            showMotionToast(error.message, "warning");
+            showSupportForm();
+          }
+        });
+        actions.appendChild(doubtButton);
+
+        const supportButton = document.createElement("button");
+        supportButton.type = "button";
+        supportButton.className = "btn btn-sm btn-outline-secondary rounded-pill";
+        supportButton.textContent = "Chamar suporte";
+        supportButton.addEventListener("click", showSupportForm);
+        actions.appendChild(supportButton);
+        return actions;
+      };
+
+      const renderEntry = (entry) => {
+        result.replaceChildren();
+        result.className = "help-assistant-message system HelpAssistantMessage";
+        const title = document.createElement("div");
+        title.className = "fw-semibold mb-2";
+        title.textContent = entry.titulo || "Orientação encontrada";
+        const answer = document.createElement("div");
+        answer.textContent = entry.resposta || "";
+        if (entry.passos?.length) {
+          const steps = document.createElement("ol");
+          steps.className = "help-steps";
+          entry.passos.forEach((stepText) => {
+            const step = document.createElement("li");
+            step.textContent = stepText;
+            steps.appendChild(step);
+          });
+          answer.appendChild(steps);
+        }
+        const meta = document.createElement("div");
+        meta.className = "route-badges mt-2";
+        const category = document.createElement("span");
+        category.className = "route-badge badge-fixed";
+        category.textContent = entry.categoria || "Operacional";
+        const criticality = document.createElement("span");
+        criticality.className = `route-badge ${entry.criticidade === "alto" ? "badge-danger" : entry.criticidade === "medio" ? "badge-avulso" : "badge-success"}`;
+        criticality.textContent = `criticidade ${entry.criticidade || "baixo"}`;
+        meta.append(category, criticality);
+        result.append(title, answer, meta, renderActions(entry));
+        result.classList.remove("d-none");
+      };
+
+      const renderFallback = (query) => {
+        setHelpState("empty", "Sem resultado seguro na base do assistente.");
+        result.replaceChildren();
+        result.className = "help-assistant-message system HelpAssistantMessage";
+        const text = document.createElement("div");
+        text.textContent = fallbackMessage;
+        const actions = document.createElement("div");
+        actions.className = "help-result-actions";
+        const registerButton = document.createElement("button");
+        registerButton.type = "button";
+        registerButton.className = "btn btn-sm btn-dark rounded-pill";
+        registerButton.textContent = "Registrar para suporte analisar";
+        registerButton.addEventListener("click", async () => {
+          try {
+            setHelpState("loading", "Registrando dúvida...");
+            await postForm("{{ url_for('save_help_unanswered_question') }}", {
+              text: query,
+              screen: screen(),
+            });
+            setHelpState("success", "Dúvida registrada. O suporte poderá analisar depois.");
+            showMotionToast("Dúvida registrada.");
+            registerButton.disabled = true;
+            registerButton.textContent = "Dúvida registrada";
+          } catch (error) {
+            setHelpState("empty", error.message);
+            showMotionToast(error.message, "warning");
+          }
+        });
+        const supportButton = document.createElement("button");
+        supportButton.type = "button";
+        supportButton.className = "btn btn-sm btn-outline-secondary rounded-pill";
+        supportButton.textContent = "Chamar suporte";
+        supportButton.addEventListener("click", showSupportForm);
+        actions.append(registerButton, supportButton);
+        result.append(text, actions);
+        result.classList.remove("d-none");
+      };
+
+      const search = async ({ query = "", id = "" }) => {
+        const cleanQuery = query.trim();
+        if (!cleanQuery && !id) {
+          showMotionToast("Digite a dúvida ou escolha uma opção.");
+          return;
+        }
+        clearResult();
+        setHelpState("loading", "Buscando resposta segura...");
+        if (cleanQuery) appendUserMessage(cleanQuery);
+        const params = new URLSearchParams();
+        if (cleanQuery) params.set("q", cleanQuery);
+        if (id) params.set("id", id);
+        try {
+          const response = await fetch(`{{ url_for('help_assistant_search') }}?${params.toString()}`, {
+            headers: { "Accept": "application/json" },
+          });
+          const payload = await response.json();
+          if (!response.ok || !payload.ok) throw new Error(payload.error || "Busca indisponível.");
+          if (payload.found && payload.entry) {
+            clearHelpState();
+            renderEntry(payload.entry);
+          } else {
+            renderFallback(cleanQuery);
+          }
+        } catch (error) {
+          renderFallback(cleanQuery);
+          showMotionToast(error.message, "warning");
+        }
+      };
+
+      button.addEventListener("click", () => setOpen(true));
+      document.querySelectorAll("[data-open-help-assistant='true']").forEach((trigger) => {
+        trigger.addEventListener("click", () => setOpen(true));
+      });
+      backdrop.addEventListener("click", () => setOpen(false));
+      closeButton?.addEventListener("click", () => setOpen(false));
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !panel.hidden) setOpen(false);
+      });
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        search({ query: input.value });
+      });
+      document.querySelectorAll("[data-help-option='true']").forEach((option) => {
+        option.addEventListener("click", () => search({
+          query: option.dataset.helpQuery || option.textContent || "",
+          id: option.dataset.helpId || "",
+        }));
+      });
+      window.addEventListener("hashchange", syncHelpContextButtons);
+      syncHelpContextButtons();
+      supportForm?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        setHelpState("loading", "Enviando chamado...");
+        supportStatus.textContent = "Enviando chamado...";
+        try {
+          const data = await postForm("{{ url_for('save_help_support_ticket') }}", {
+            message: supportMessage?.value || "",
+            priority: supportPriority?.value || "media",
+            screen: screen(),
+          });
+          setHelpState("success", `Chamado ${data.ticket?.id || ""} enviado para análise.`);
+          supportStatus.textContent = `Chamado ${data.ticket?.id || ""} enviado.`;
+          supportMessage.value = "";
+          showMotionToast("Chamado enviado.");
+        } catch (error) {
+          setHelpState("empty", error.message);
+          supportStatus.textContent = error.message;
+          showMotionToast(error.message, "warning");
+        }
+      });
+      if (new URLSearchParams(window.location.search).get("help") === "open" || window.location.hash === "#help-assistant-button") {
+        setOpen(true);
+      }
+    }
+
     function initMotionLayer() {
       document.body?.classList.add("motion-ready");
       const staggerGroups = document.querySelectorAll(
@@ -8167,6 +9491,7 @@
 
     function initSubmitFeedback() {
       document.querySelectorAll("form").forEach((form) => {
+        if (["help-assistant-search-form", "help-support-form"].includes(form.id)) return;
         form.addEventListener("submit", (event) => {
           const button = event.submitter || form.querySelector('button[type="submit"], input[type="submit"]');
           if (!button) return;
@@ -8316,6 +9641,7 @@
     initSubmitFeedback();
     initLinkLoadingFeedback();
     initKanbanMotion();
+    useHelpAssistant();
     if (vehicleFields.start_lat && !vehicleFields.start_lat.value) {
       vehicleFields.start_lat.value = hqLat;
     }
@@ -8333,10 +9659,12 @@
       if (quickBillingModel) quickBillingModel.value = fixed ? "mensal" : "avulso";
       if (quickCleaningFrequency) quickCleaningFrequency.value = fixed ? "semanal" : "nao_aplica";
       updateQuickReview();
+      updateSmartFormStatus();
     });
     quickBillingModel?.addEventListener("change", () => {
       if (quickCleaningFrequency && quickBillingModel.value === "mensal") quickCleaningFrequency.value = "semanal";
       updateQuickReview();
+      updateSmartFormStatus();
     });
     document.getElementById("quick-rental-form")?.querySelectorAll("input, select").forEach((field) => {
       field.addEventListener("input", updateQuickReview);
@@ -8451,8 +9779,44 @@
       button.addEventListener("click", () => applyCommandSearch(button));
     });
 
+    const quickCommandInput = document.getElementById("quick-command-input");
+    quickCommandInput?.addEventListener("input", updateQuickCommandResults);
+    quickCommandInput?.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      const first = document.querySelector(".js-quick-command:not(.is-command-hidden)");
+      executeQuickCommand(first, quickCommandInput.value || "");
+    });
+    document.getElementById("quick-command-submit")?.addEventListener("click", () => {
+      const first = document.querySelector(".js-quick-command:not(.is-command-hidden)");
+      executeQuickCommand(first, quickCommandInput?.value || "");
+    });
+    document.getElementById("quick-command-clear")?.addEventListener("click", () => {
+      if (quickCommandInput) quickCommandInput.value = "";
+      updateQuickCommandResults();
+      quickCommandInput?.focus();
+      showMotionToast("Comando limpo.");
+    });
+    document.querySelectorAll(".js-quick-command").forEach((button) => {
+      button.addEventListener("click", () => executeQuickCommand(button, quickCommandInput?.value || ""));
+    });
+
+    document.querySelectorAll(".js-batch-select").forEach((checkbox) => {
+      checkbox.addEventListener("change", updateBatchSelection);
+    });
+    document.querySelectorAll(".js-batch-action").forEach((button) => {
+      button.addEventListener("click", () => performBatchAction(button.dataset.batchAction));
+    });
+
     syncCompactPreference();
     syncAdvancedCompactPreferences();
+    syncUltraCompactPreference();
+    syncArchivePreference();
+    syncDenseListPreference();
+    syncSmartFormsPreference();
+    updateQuickCommandResults();
+    updateBatchSelection();
+    updateSmartFormStatus();
     updateStickySearchCount();
     document.getElementById("compact-density-toggle")?.addEventListener("click", () => {
       const compact = !document.body.classList.contains("compact-density");
@@ -8466,6 +9830,14 @@
       toggleStoredBodyClass("compact-strong-mode-v1", "compact-strong-mode", "Modo mais compacto ativado.", "Modo compacto forte desativado.");
       document.getElementById("compact-system-panel")?.classList.add("quick-action-flash");
       window.setTimeout(() => document.getElementById("compact-system-panel")?.classList.remove("quick-action-flash"), 1200);
+    });
+
+    document.querySelectorAll(".js-ultra-compact-toggle").forEach((button) => {
+      button.addEventListener("click", () => {
+        toggleUltraCompactPreference();
+        document.getElementById("ultra-compact-role-strip")?.classList.add("quick-action-flash");
+        window.setTimeout(() => document.getElementById("ultra-compact-role-strip")?.classList.remove("quick-action-flash"), 1200);
+      });
     });
 
     document.getElementById("copy-density-toggle")?.addEventListener("click", () => {
@@ -8511,8 +9883,38 @@
       showMotionToast(document.body.classList.contains("compact-list-mode") ? "Listas compactas ativadas." : "Listas completas ativadas.");
     });
 
+    document.getElementById("dense-list-toggle")?.addEventListener("click", () => {
+      const enabled = !document.body.classList.contains("dense-list-mode");
+      localStorage.setItem("dense-list-mode-v1", enabled ? "on" : "off");
+      syncDenseListPreference();
+      showMotionToast(enabled ? "Linhas densas ativadas." : "Linhas completas ativadas.");
+    });
+
+    document.getElementById("archive-visibility-toggle")?.addEventListener("click", () => {
+      const showing = localStorage.getItem("compact-archive-visibility-v1") === "show";
+      localStorage.setItem("compact-archive-visibility-v1", showing ? "hide" : "show");
+      syncArchivePreference();
+      showMotionToast(showing ? "Arquivados escondidos." : "Arquivados visíveis.");
+    });
+
+    document.getElementById("smart-form-toggle")?.addEventListener("click", () => {
+      const disabled = document.body.classList.contains("smart-forms-enabled");
+      localStorage.setItem("smart-forms-enabled-v1", disabled ? "off" : "on");
+      syncSmartFormsPreference();
+      showMotionToast(disabled ? "Formulário inteligente pausado." : "Formulário inteligente ativado.");
+    });
+
     document.querySelectorAll(".js-compact-filter").forEach((button) => {
       button.addEventListener("click", () => applyCompactFilter(button));
+    });
+
+    document.querySelectorAll(".js-mark-review").forEach((button) => {
+      button.addEventListener("click", () => {
+        const card = button.closest(".action-card");
+        card?.classList.add("quick-action-flash");
+        window.setTimeout(() => card?.classList.remove("quick-action-flash"), 900);
+        showMotionToast("Pendência marcada para revisão visual.");
+      });
     });
 
     document.querySelectorAll(".js-clear-filters").forEach((button) => {

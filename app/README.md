@@ -108,8 +108,7 @@ O arquivo `.zip` inclui:
 ## Materiais de finalização
 
 - `docs/finalizacao-v1.md`: checklist de aceite, deploy e rotina v1.0.
-- `docs/manual-rapido-equipe.md`: manual em texto para treinamento.
-- `output/pdf/sannygold-manual-rapido-equipe.pdf`: manual rápido em PDF.
+- O Assistente Operacional dentro do sistema concentra a ajuda de uso da equipe.
 - `output/pdf/sannygold-apresentacao-sistema.pdf`: apresentação do sistema em PDF.
 
 ## Publicação

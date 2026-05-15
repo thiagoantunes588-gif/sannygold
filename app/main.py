@@ -24,6 +24,12 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
 from app.executive import build_executive_dashboard
+from app.help_assistant import (
+    DEFAULT_HELP_KNOWLEDGE_BASE,
+    DEFAULT_HELP_KNOWLEDGE_BASE_VERSION,
+    search_help_knowledge_base,
+    summarize_help_metrics,
+)
 from app.security import DEFAULT_SECRET_KEY, build_security_posture, password_change_required, password_policy_issues
 
 
@@ -52,11 +58,14 @@ FINANCIAL_CLOSEOUTS_PATH = DATA_DIR / "financial_closeouts.json"
 FIELD_CONFIRMATIONS_PATH = DATA_DIR / "field_confirmations.json"
 OPERATION_VALIDATION_PATH = DATA_DIR / "operation_validation.json"
 FORECAST_AUDIT_PATH = DATA_DIR / "forecast_audit.json"
+HELP_KNOWLEDGE_BASE_PATH = DATA_DIR / "help_knowledge_base.json"
+HELP_UNANSWERED_PATH = DATA_DIR / "help_unanswered_questions.json"
+HELP_SUPPORT_TICKETS_PATH = DATA_DIR / "help_support_tickets.json"
+HELP_METRICS_PATH = DATA_DIR / "help_metrics.json"
 UPLOADS_DIR = STORAGE_ROOT / "uploads"
 PREVIEW_DIR = STORAGE_ROOT / "preview"
 ROUTE_JSON_PATH = PREVIEW_DIR / "route-plan-mobile.json"
 ROUTE_PDF_PATH = PREVIEW_DIR / "route-plan.pdf"
-USER_MANUAL_PDF_PATH = BASE_DIR / "output" / "pdf" / "sannygold-manual-rapido-equipe.pdf"
 APP_VERSION = os.environ.get("SANNYGOLD_APP_VERSION", "v1.0.0")
 DEPLOY_TARGET = "vercel" if os.environ.get("VERCEL") else ("render" if os.environ.get("RENDER") else "local")
 INVITATION_EXPIRATION_HOURS = 48
@@ -205,6 +214,8 @@ def ensure_storage_dirs() -> None:
         FINANCIAL_RECEIVABLES_PATH,
         FINANCIAL_ENTRIES_PATH,
         FINANCIAL_CLOSEOUTS_PATH,
+        HELP_UNANSWERED_PATH,
+        HELP_SUPPORT_TICKETS_PATH,
     ):
         if not path.exists():
             path.write_text("[]\n", encoding="utf-8")
@@ -215,6 +226,22 @@ def ensure_storage_dirs() -> None:
         OPERATION_VALIDATION_PATH.write_text(json.dumps({}, indent=2) + "\n", encoding="utf-8")
     if not FORECAST_AUDIT_PATH.exists():
         FORECAST_AUDIT_PATH.write_text(json.dumps({}, indent=2) + "\n", encoding="utf-8")
+    if not HELP_KNOWLEDGE_BASE_PATH.exists():
+        HELP_KNOWLEDGE_BASE_PATH.write_text(json.dumps(DEFAULT_HELP_KNOWLEDGE_BASE, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    if not HELP_METRICS_PATH.exists():
+        HELP_METRICS_PATH.write_text(
+            json.dumps(
+                {
+                    "question_counts": {},
+                    "useful_counts": {},
+                    "not_useful_counts": {},
+                    "support_clicks": 0,
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
 
 
 def ensure_users_file() -> None:
@@ -1242,6 +1269,224 @@ def load_forecast_audit() -> dict:
 
 def save_forecast_audit(payload: dict) -> None:
     save_json_dict(FORECAST_AUDIT_PATH, payload)
+
+
+def default_help_metrics() -> dict:
+    return {
+        "question_counts": {},
+        "useful_counts": {},
+        "not_useful_counts": {},
+        "support_clicks": 0,
+    }
+
+
+def merge_default_help_knowledge_base(items: list[dict]) -> tuple[list[dict], bool]:
+    defaults_by_id = {clean_text(entry.get("id")): entry for entry in DEFAULT_HELP_KNOWLEDGE_BASE}
+    merged_by_id: dict[str, dict] = {}
+    changed = False
+    for item in items:
+        item_id = clean_text(item.get("id"))
+        if not item_id:
+            changed = True
+            continue
+        default_entry = defaults_by_id.get(item_id)
+        seed_version = int(item.get("seedVersion") or 0)
+        if default_entry and seed_version < DEFAULT_HELP_KNOWLEDGE_BASE_VERSION:
+            merged_by_id[item_id] = dict(default_entry)
+            changed = True
+        else:
+            merged_by_id[item_id] = item
+    for item_id, default_entry in defaults_by_id.items():
+        if item_id not in merged_by_id:
+            merged_by_id[item_id] = dict(default_entry)
+            changed = True
+    return list(merged_by_id.values()), changed
+
+
+def load_help_knowledge_base() -> list[dict]:
+    items = load_json_list(HELP_KNOWLEDGE_BASE_PATH)
+    if not items:
+        items = [dict(item) for item in DEFAULT_HELP_KNOWLEDGE_BASE]
+        save_json_list(HELP_KNOWLEDGE_BASE_PATH, items)
+        return items
+    merged_items, changed = merge_default_help_knowledge_base(items)
+    if changed:
+        save_help_knowledge_base(merged_items)
+    return merged_items
+
+
+def save_help_knowledge_base(items: list[dict]) -> None:
+    ordered = sort_by_label(items, "categoria", "titulo", "id")
+    save_json_list(HELP_KNOWLEDGE_BASE_PATH, ordered)
+
+
+def load_help_unanswered_questions() -> list[dict]:
+    return load_json_list(HELP_UNANSWERED_PATH)
+
+
+def save_help_unanswered_questions(items: list[dict]) -> None:
+    ordered = sorted(items, key=lambda item: str(item.get("created_at") or ""), reverse=True)
+    save_json_list(HELP_UNANSWERED_PATH, ordered[:1000])
+
+
+def load_help_support_tickets() -> list[dict]:
+    return load_json_list(HELP_SUPPORT_TICKETS_PATH)
+
+
+def save_help_support_tickets(items: list[dict]) -> None:
+    ordered = sorted(items, key=lambda item: str(item.get("created_at") or ""), reverse=True)
+    save_json_list(HELP_SUPPORT_TICKETS_PATH, ordered[:1000])
+
+
+def load_help_metrics() -> dict:
+    metrics = default_help_metrics()
+    stored = load_json_dict(HELP_METRICS_PATH)
+    for key in ("question_counts", "useful_counts", "not_useful_counts"):
+        if isinstance(stored.get(key), dict):
+            metrics[key] = stored[key]
+    metrics["support_clicks"] = int(stored.get("support_clicks") or 0)
+    return metrics
+
+
+def save_help_metrics(metrics: dict) -> None:
+    baseline = default_help_metrics()
+    baseline.update(metrics)
+    for key in ("question_counts", "useful_counts", "not_useful_counts"):
+        if not isinstance(baseline.get(key), dict):
+            baseline[key] = {}
+    baseline["support_clicks"] = int(baseline.get("support_clicks") or 0)
+    save_json_dict(HELP_METRICS_PATH, baseline)
+
+
+def public_help_entry(entry: dict) -> dict:
+    return {
+        "id": clean_text(entry.get("id")),
+        "titulo": clean_text(entry.get("titulo")),
+        "categoria": clean_text(entry.get("categoria")),
+        "pergunta": clean_text(entry.get("pergunta")),
+        "resposta": clean_text(entry.get("resposta")),
+        "passos": [clean_text(step) for step in entry.get("passos") or [] if clean_text(step)],
+        "palavrasChave": [clean_text(word) for word in entry.get("palavrasChave") or [] if clean_text(word)],
+        "rotaRelacionada": clean_text(entry.get("rotaRelacionada")),
+        "targetHref": clean_text(entry.get("targetHref") or entry.get("rotaRelacionada")),
+        "targetTab": clean_text(entry.get("targetTab")),
+        "criticidade": clean_text(entry.get("criticidade"), "baixo") or "baixo",
+    }
+
+
+def help_request_payload() -> dict:
+    if request.is_json:
+        payload = request.get_json(silent=True)
+        return payload if isinstance(payload, dict) else {}
+    return request.form.to_dict(flat=True)
+
+
+def help_current_screen(payload: dict | None = None) -> str:
+    payload = payload or {}
+    return clean_text(payload.get("screen") or request.args.get("screen") or request.headers.get("Referer"))[:500]
+
+
+def help_user_snapshot(user: dict | None = None) -> dict:
+    user = user or current_user()
+    return {
+        "user_id": clean_text(user.get("id")),
+        "user_name": clean_text(user.get("nome")),
+        "user_email": clean_text(user.get("email")),
+        "user_role": clean_text(user.get("role")),
+    }
+
+
+def increment_help_counter(metrics: dict, group: str, key: str, amount: int = 1) -> None:
+    if group not in metrics or not isinstance(metrics.get(group), dict):
+        metrics[group] = {}
+    metrics[group][key] = int(metrics[group].get(key) or 0) + amount
+
+
+def help_initial_options(entries: list[dict]) -> list[dict]:
+    preferred_order = [entry["id"] for entry in DEFAULT_HELP_KNOWLEDGE_BASE if entry.get("opcaoInicial")]
+    by_id = {clean_text(entry.get("id")): entry for entry in entries if entry.get("opcaoInicial", True)}
+    ordered = [by_id[item_id] for item_id in preferred_order if item_id in by_id]
+    remaining = [entry for entry in entries if clean_text(entry.get("id")) not in preferred_order and entry.get("opcaoInicial", False)]
+    return [public_help_entry(entry) for entry in ordered + sort_by_label(remaining, "titulo")][:12]
+
+
+def help_context_options(entries: list[dict]) -> list[dict]:
+    context_groups = [
+        ("summary", "Resumo", ["ver-pendencias", "buscar-no-sistema", "fechar-dia"]),
+        ("events", "Eventos", ["cadastrar-evento", "criar-ordem-servico", "evento-sem-endereco", "corrigir-status-evento"]),
+        ("clients", "Clientes", ["cadastrar-cliente", "cliente-duplicado", "cliente-sem-telefone", "registrar-limpeza-cliente"]),
+        ("fleet", "Banheiros e frota", ["check-in-equipamento", "check-out-equipamento", "banheiro-luxo-cadastrar", "banheiro-quimico-cadastrar", "equipamento-em-manutencao"]),
+        ("warehouse", "Almoxarifado", ["registrar-material-extra", "conferir-material-retornado", "estoque-baixo", "registrar-entrada-material", "registrar-saida-material"]),
+        ("operations", "Rotas e PDF", ["gerar-rota", "validar-operacao", "baixar-pdf-operacional", "criar-ordem-servico"]),
+        ("support", "Suporte", ["falar-suporte-humano"]),
+    ]
+    by_id = {clean_text(entry.get("id")): entry for entry in entries}
+    options = []
+    for context, context_label, entry_ids in context_groups:
+        for entry_id in entry_ids:
+            entry = by_id.get(entry_id)
+            if not entry:
+                continue
+            option = public_help_entry(entry)
+            option["context"] = context
+            option["contextLabel"] = context_label
+            options.append(option)
+    return options
+
+
+def build_help_assistant_context(user: dict) -> dict:
+    knowledge_base = [public_help_entry(entry) for entry in load_help_knowledge_base()]
+    unanswered = load_help_unanswered_questions()
+    tickets = load_help_support_tickets()
+    metrics = summarize_help_metrics(load_help_metrics(), knowledge_base, unanswered, tickets)
+    can_manage = has_permission(user, "settings.manage")
+    return {
+        "initial_options": help_initial_options(knowledge_base),
+        "context_options": help_context_options(knowledge_base),
+        "knowledge_base": knowledge_base if can_manage else [],
+        "unanswered_questions": unanswered[:40] if can_manage else [],
+        "support_tickets": tickets[:40] if can_manage else [],
+        "metrics": metrics,
+        "can_manage": can_manage,
+        "fallback_message": "Não encontrei uma resposta segura para essa dúvida. Posso registrar isso para o suporte analisar.",
+    }
+
+
+def create_help_knowledge_record(form) -> dict:
+    entry_id = clean_text(form.get("entry_id") or form.get("id")).lower()
+    title = clean_text(form.get("titulo") or form.get("title"))
+    category = clean_text(form.get("categoria") or form.get("category"), "Operacional") or "Operacional"
+    question = clean_text(form.get("pergunta") or form.get("question"))
+    answer = clean_text(form.get("resposta") or form.get("answer"))
+    steps_text = clean_text(form.get("passos") or form.get("steps"))
+    keywords_text = clean_text(form.get("palavrasChave") or form.get("keywords"))
+    if not title or not question or not answer:
+        raise ValueError("Informe título, pergunta e resposta da base de conhecimento.")
+    if not entry_id:
+        base = "".join(ch if ch.isalnum() else "-" for ch in title.lower())
+        entry_id = "-".join(part for part in base.split("-") if part)[:60]
+    if not entry_id:
+        raise ValueError("Informe um ID válido para a pergunta.")
+    criticality = clean_text(form.get("criticidade"), "baixo").lower()
+    if criticality not in {"baixo", "medio", "médio", "alto"}:
+        raise ValueError("Criticidade deve ser baixo, médio ou alto.")
+    if criticality == "médio":
+        criticality = "medio"
+    keywords = [clean_text(word) for word in keywords_text.split(",") if clean_text(word)]
+    return {
+        "id": entry_id,
+        "titulo": title,
+        "categoria": category,
+        "pergunta": question,
+        "resposta": answer,
+        "passos": [clean_text(step).lstrip("0123456789.:-) ") for step in steps_text.splitlines() if clean_text(step)],
+        "palavrasChave": keywords,
+        "rotaRelacionada": clean_text(form.get("rotaRelacionada") or form.get("route") or "/"),
+        "targetHref": clean_text(form.get("targetHref") or form.get("target_href") or form.get("rotaRelacionada") or "/"),
+        "targetTab": clean_text(form.get("targetTab") or form.get("target_tab")),
+        "criticidade": criticality,
+        "opcaoInicial": clean_text(form.get("opcaoInicial") or form.get("initial_option")) in {"1", "true", "on", "sim"},
+    }
 
 
 def load_users() -> list[dict]:
@@ -7086,6 +7331,7 @@ def build_search_module_counts(global_search_items: list[dict], *, can_view_fina
 
 def build_compact_system_dashboard(
     *,
+    user: dict,
     clients: list[dict],
     events: list[dict],
     vehicles: list[dict],
@@ -7123,6 +7369,68 @@ def build_compact_system_dashboard(
     stock_attention_count = int(warehouse_counts.get("low") or 0) + int(warehouse_counts.get("zero") or 0)
     quick_finance_href = "#receivables-panel" if can_view_finance else "#system-readiness-panel"
     quick_finance_detail = f"{overdue_count} cobrança(s) vencida(s)" if can_view_finance else "Financeiro protegido por permissão"
+    role = clean_text(user.get("role"), "guest")
+    role_views = {
+        "admin": {
+            "label": "Administrador",
+            "summary": "Comece por pendências, segurança, acessos e backup; financeiro e operação continuam a um clique.",
+            "primary": "#attention-now-panel",
+            "tab": "summary-tab",
+            "actions": [
+                {"label": "Pendências", "href": "#attention-now-panel", "tab": "summary-tab"},
+                {"label": "Acessos", "href": "#access-management-panel", "tab": "access-tab"},
+                {"label": "Backup", "href": url_for("download_system_backup"), "tab": ""},
+                {"label": "Homologação", "href": "#homologation-pane", "tab": "homologation-tab"},
+            ],
+        },
+        "operacional": {
+            "label": "Operação",
+            "summary": "Mostra agenda, locações, banheiros, rota/PDF, estoque e pendências antes dos relatórios.",
+            "primary": "#central-day-panel",
+            "tab": "summary-tab",
+            "actions": [
+                {"label": "Central do dia", "href": "#central-day-panel", "tab": "summary-tab"},
+                {"label": "Criar locação", "href": "#quick-rental-panel", "tab": "summary-tab"},
+                {"label": "Banheiros", "href": "#fleet-pane", "tab": "fleet-tab"},
+                {"label": "Gerar PDF", "href": "#operations-pane", "tab": "operations-tab"},
+            ],
+        },
+        "financeiro": {
+            "label": "Financeiro",
+            "summary": "Abre recebimentos, vencidos, baixa de pagamento e fechamento mensal sem passar pela operação.",
+            "primary": quick_finance_href,
+            "tab": "summary-tab",
+            "actions": [
+                {"label": "Recebimentos", "href": quick_finance_href, "tab": "summary-tab"},
+                {"label": "Baixar pagamento", "href": quick_finance_href, "tab": "summary-tab"},
+                {"label": "Fluxo de caixa", "href": "#cashflow-panel", "tab": "summary-tab"},
+                {"label": "Fechamento", "href": "#closeout-panel", "tab": "summary-tab"},
+            ],
+        },
+        "leitura": {
+            "label": "Leitura",
+            "summary": "Mantém consultas, agenda, histórico, PDF e relatórios visíveis sem destacar ações de edição.",
+            "primary": "#summary-pane",
+            "tab": "summary-tab",
+            "actions": [
+                {"label": "Resumo", "href": "#summary-pane", "tab": "summary-tab"},
+                {"label": "Agenda", "href": "#agenda-pane", "tab": "agenda-tab"},
+                {"label": "Histórico", "href": "#history-pane", "tab": "history-tab"},
+                {"label": "Relatórios", "href": "#reports-panel", "tab": "summary-tab"},
+            ],
+        },
+        "guest": {
+            "label": "Visitante",
+            "summary": "Mostra resumo público e entrada no sistema.",
+            "primary": "#public-dashboard",
+            "tab": "",
+            "actions": [
+                {"label": "Resumo", "href": "#public-dashboard", "tab": ""},
+                {"label": "Entrar", "href": "#settings-menu-button", "tab": ""},
+            ],
+        },
+    }
+    role_view = role_views.get(role, role_views["guest"])
 
     nav_groups = [
         {
@@ -7240,6 +7548,28 @@ def build_compact_system_dashboard(
     if can_view_finance:
         search_shortcuts.append({"label": "Cobrança", "query": "vencido", "module": "financeiro", "target_tab": "summary-tab", "target_href": "#receivables-panel"})
 
+    command_palette = [
+        {"label": "Criar locação", "keywords": "novo criar locacao aluguel cliente evento banheiro rapido", "kind": "acao", "href": "#quick-rental-panel", "tab": "summary-tab", "create": "", "query": "", "module": ""},
+        {"label": "Novo cliente", "keywords": "cliente cadastro telefone endereco cpf cnpj contato", "kind": "cadastro", "href": "#clients-pane", "tab": "clients-tab", "create": "manual-client-form", "query": "", "module": ""},
+        {"label": "Novo evento", "keywords": "evento obra agenda data locacao checklist", "kind": "cadastro", "href": "#events-pane", "tab": "events-tab", "create": "event-create-panel", "query": "", "module": ""},
+        {"label": "Buscar cliente", "keywords": "buscar encontrar cliente telefone endereco documento", "kind": "busca", "href": "#global-search-panel", "tab": "summary-tab", "create": "", "query": "", "module": "clientes"},
+        {"label": "Buscar evento", "keywords": "buscar encontrar evento agenda semana status", "kind": "busca", "href": "#global-search-panel", "tab": "summary-tab", "create": "", "query": "", "module": "eventos"},
+        {"label": "Banheiros e placas", "keywords": "banheiro equipamento placa frota manutencao disponivel", "kind": "busca", "href": "#fleet-pane", "tab": "fleet-tab", "create": "", "query": "banheiro", "module": "equipamentos"},
+        {"label": "Gerar rota/PDF", "keywords": "rota pdf imprimir ordem servico endereco mapa validar", "kind": "operacao", "href": "#operations-pane", "tab": "operations-tab", "create": "", "query": "", "module": ""},
+        {"label": "Estoque crítico", "keywords": "estoque almoxarifado material baixo zerado limpeza", "kind": "rotina", "href": "#warehouse-pane", "tab": "warehouse-tab", "create": "", "query": "baixo", "module": "almoxarifado"},
+        {"label": "Resolver pendências", "keywords": "resolver pendencia alerta critico atenção agora", "kind": "rotina", "href": "#attention-now-panel", "tab": "summary-tab", "create": "", "query": "", "module": ""},
+    ]
+    if can_view_finance:
+        command_palette.extend([
+            {"label": "Baixar pagamento", "keywords": "pagamento receber baixa financeiro vencido cobrança boleto pix", "kind": "financeiro", "href": "#receivables-panel", "tab": "summary-tab", "create": "", "query": "vencido", "module": "financeiro"},
+            {"label": "Fechamento mensal", "keywords": "fechamento mensal dre lucro caixa relatório", "kind": "financeiro", "href": "#closeout-panel", "tab": "summary-tab", "create": "", "query": "", "module": ""},
+        ])
+    if can_manage_access:
+        command_palette.extend([
+            {"label": "Acessos da equipe", "keywords": "usuario senha convite permissao acesso equipe admin", "kind": "admin", "href": "#access-management-panel", "tab": "access-tab", "create": "", "query": "", "module": ""},
+            {"label": "Backup do sistema", "keywords": "backup baixar segurança dados zip", "kind": "admin", "href": url_for("download_system_backup"), "tab": "", "create": "", "query": "", "module": ""},
+        ])
+
     list_filters = [
         {"label": "Hoje", "target": "", "query": "", "select": "", "value": "", "period": "today"},
         {"label": "Semana", "target": "", "query": "", "select": "", "value": "", "period": "week"},
@@ -7327,8 +7657,29 @@ def build_compact_system_dashboard(
         {"label": "Busca completa", "href": "#global-search-panel", "tab": "summary-tab"},
     ]
 
+    batch_actions = [
+        {"label": "Copiar resumo", "action": "copy"},
+        {"label": "Destacar selecionados", "action": "highlight"},
+        {"label": "Abrir primeiro", "action": "open-first"},
+        {"label": "Abrir exportações", "action": "exports"},
+        {"label": "Limpar seleção", "action": "clear"},
+    ]
+
+    archive_defaults = [
+        {"label": "Eventos antigos concluídos", "detail": "Ficam escondidos no modo enxuto e voltam em Mostrar arquivados."},
+        {"label": "Cobranças pagas", "detail": "Pagas saem da rotina principal para reduzir ruído."},
+        {"label": "Listas resolvidas", "detail": "Itens concluídos continuam acessíveis por busca, filtro ou relatório."},
+    ]
+
+    smart_form_modes = [
+        {"label": "Essencial", "detail": "Cliente, endereço, data, banheiro, quantidade e valor aparecem primeiro."},
+        {"label": "Mensal", "detail": "Ao escolher cliente fixo, cobrança mensal e limpeza semanal já ficam sugeridas."},
+        {"label": "Avançado sob demanda", "detail": "NF, anexos, observações e campos raros ficam recolhidos até precisar."},
+    ]
+
     return {
         "nav_groups": nav_groups,
+        "role_view": role_view,
         "primary_actions": primary_actions,
         "sticky_actions": sticky_actions,
         "more_actions": more_actions,
@@ -7336,6 +7687,10 @@ def build_compact_system_dashboard(
         "day_focus": day_focus,
         "quick_drawer_actions": quick_drawer_actions,
         "collapsible_panels": collapsible_panels,
+        "command_palette": command_palette,
+        "batch_actions": batch_actions,
+        "archive_defaults": archive_defaults,
+        "smart_form_modes": smart_form_modes,
         "search_shortcuts": search_shortcuts,
         "list_filters": list_filters,
         "today_iso": today_text,
@@ -8391,6 +8746,7 @@ def build_dashboard_context() -> dict:
         financial_management=financial_management,
     )
     compact_system = build_compact_system_dashboard(
+        user=user,
         clients=clients,
         events=events,
         vehicles=vehicles,
@@ -8549,6 +8905,7 @@ def build_dashboard_context() -> dict:
         "search_module_counts": build_search_module_counts(global_search_items, can_view_finance=can_view_finance),
         "reports_hub": reports_hub,
         "compact_system": compact_system,
+        "help_assistant": build_help_assistant_context(user),
         "daily_management_checklist": daily_management_checklist,
         "maintenance_items": [item for item in inventory if item.get("status") in {"manutencao", "indisponivel"} or item.get("maintenance_reason")],
         "can_view_finance": can_view_finance,
@@ -8623,6 +8980,196 @@ def statuscheck():
 @require_permission("dashboard.view")
 def system_status_json():
     return jsonify({"ok": True, **build_system_status_snapshot()})
+
+
+@app.route("/ajuda", methods=["GET"])
+@app.route("/assistente", methods=["GET"])
+@require_permission("dashboard.view")
+def help_assistant_page():
+    return redirect(url_for("index", help="open", _anchor="help-assistant-button"))
+
+
+@app.route("/admin/ajuda", methods=["GET"])
+@require_permission("settings.manage")
+def admin_help_page():
+    return redirect(url_for("index", _anchor="help-admin-panel"))
+
+
+@app.route("/admin/chamados-suporte", methods=["GET"])
+@require_permission("settings.manage")
+def admin_support_tickets_page():
+    return redirect(url_for("index", _anchor="support-tickets-admin-panel"))
+
+
+@app.route("/assistant/search", methods=["GET"])
+@require_permission("dashboard.view")
+def help_assistant_search():
+    query = clean_text(request.args.get("q"))
+    entry_id = clean_text(request.args.get("id"))
+    entries = load_help_knowledge_base()
+    entry = next((item for item in entries if clean_text(item.get("id")) == entry_id), None) if entry_id else None
+    if not entry:
+        entry = search_help_knowledge_base(entries, query)
+    if entry:
+        public_entry = public_help_entry(entry)
+        metrics = load_help_metrics()
+        increment_help_counter(metrics, "question_counts", public_entry["id"])
+        save_help_metrics(metrics)
+        return jsonify({"ok": True, "found": True, "entry": public_entry})
+    return jsonify(
+        {
+            "ok": True,
+            "found": False,
+            "message": "Não encontrei uma resposta segura para essa dúvida. Posso registrar isso para o suporte analisar.",
+        }
+    )
+
+
+@app.route("/assistant/unanswered", methods=["POST"])
+@require_permission("dashboard.view")
+def save_help_unanswered_question():
+    payload = help_request_payload()
+    text = clean_text(payload.get("text") or payload.get("question") or payload.get("duvida"))
+    if not text:
+        return jsonify({"ok": False, "error": "Digite a dúvida antes de registrar."}), 400
+    items = load_help_unanswered_questions()
+    user = help_user_snapshot()
+    record = {
+        "id": next_numeric_id(items, "DUV", "id"),
+        "text": text[:1000],
+        "texto_duvida": text[:1000],
+        "created_at": now_iso(),
+        "screen": help_current_screen(payload),
+        "status": "nova",
+        "support_note": "",
+        "observacao_suporte": "",
+        **user,
+    }
+    items.append(record)
+    save_help_unanswered_questions(items)
+    record_audit("unanswered", "help_assistant", record["id"], "Dúvida sem resposta registrada.", after=record)
+    return jsonify({"ok": True, "question": record})
+
+
+@app.route("/assistant/support-click", methods=["POST"])
+@require_permission("dashboard.view")
+def register_help_support_click():
+    metrics = load_help_metrics()
+    metrics["support_clicks"] = int(metrics.get("support_clicks") or 0) + 1
+    save_help_metrics(metrics)
+    return jsonify({"ok": True, "support_clicks": metrics["support_clicks"]})
+
+
+@app.route("/assistant/support", methods=["POST"])
+@require_permission("dashboard.view")
+def save_help_support_ticket():
+    payload = help_request_payload()
+    message = clean_text(payload.get("message") or payload.get("mensagem"))
+    if not message:
+        return jsonify({"ok": False, "error": "Explique rapidamente o problema antes de enviar."}), 400
+    priority = clean_text(payload.get("priority") or payload.get("prioridade"), "media").lower()
+    if priority not in {"baixa", "media", "média", "alta"}:
+        priority = "media"
+    if priority == "média":
+        priority = "media"
+    tickets = load_help_support_tickets()
+    record = {
+        "id": next_numeric_id(tickets, "SUP", "id"),
+        "message": message[:1500],
+        "mensagem": message[:1500],
+        "screen": help_current_screen(payload),
+        "created_at": now_iso(),
+        "status": "novo",
+        "priority": priority,
+        "prioridade": priority,
+        "support_note": "",
+        "observacao_suporte": "",
+        **help_user_snapshot(),
+    }
+    tickets.append(record)
+    save_help_support_tickets(tickets)
+    record_audit("support_ticket", "help_assistant", record["id"], "Chamado de suporte criado.", after=record)
+    return jsonify({"ok": True, "ticket": record})
+
+
+@app.route("/assistant/feedback", methods=["POST"])
+@require_permission("dashboard.view")
+def save_help_feedback():
+    payload = help_request_payload()
+    answer_id = clean_text(payload.get("answer_id") or payload.get("id"))
+    useful = clean_text(payload.get("useful")).lower() in {"1", "true", "sim", "yes", "util", "útil"}
+    if not answer_id:
+        return jsonify({"ok": False, "error": "Resposta não identificada."}), 400
+    metrics = load_help_metrics()
+    increment_help_counter(metrics, "useful_counts" if useful else "not_useful_counts", answer_id)
+    save_help_metrics(metrics)
+    return jsonify({"ok": True})
+
+
+@app.route("/admin/help/knowledge", methods=["POST"])
+@require_permission("settings.manage")
+def save_help_knowledge_entry():
+    try:
+        items = load_help_knowledge_base()
+        record = create_help_knowledge_record(request.form)
+        before = next((item for item in items if clean_text(item.get("id")) == clean_text(record.get("id"))), None)
+        save_help_knowledge_base(upsert_item(items, record, "id"))
+        record_audit("save", "help_knowledge", record["id"], f"Pergunta {record['titulo']} salva.", before=before, after=record)
+        flash(f"Pergunta '{record['titulo']}' salva na base do assistente.", "success")
+    except Exception as exc:  # noqa: BLE001
+        flash(str(exc), "danger")
+    return redirect(url_for("index", _anchor="help-admin-panel"))
+
+
+@app.route("/admin/help/unanswered/<question_id>", methods=["POST"])
+@require_permission("settings.manage")
+def update_help_unanswered_question(question_id: str):
+    try:
+        items = load_help_unanswered_questions()
+        target = next((item for item in items if clean_text(item.get("id")) == clean_text(question_id)), None)
+        if not target:
+            raise ValueError("Dúvida não encontrada.")
+        status = clean_text(request.form.get("status"), "nova")
+        if status not in {"nova", "em_analise", "em análise", "resolvida"}:
+            raise ValueError("Status da dúvida inválido.")
+        target["status"] = "em_analise" if status == "em análise" else status
+        target["support_note"] = clean_text(request.form.get("support_note") or request.form.get("observacao_suporte"))
+        target["observacao_suporte"] = target["support_note"]
+        target["updated_at"] = now_iso()
+        save_help_unanswered_questions(items)
+        record_audit("update", "help_unanswered", question_id, "Dúvida atualizada pelo suporte.", after=target)
+        flash(f"Dúvida {question_id} atualizada.", "success")
+    except Exception as exc:  # noqa: BLE001
+        flash(str(exc), "danger")
+    return redirect(url_for("index", _anchor="help-admin-panel"))
+
+
+@app.route("/admin/support-tickets/<ticket_id>", methods=["POST"])
+@require_permission("settings.manage")
+def update_help_support_ticket(ticket_id: str):
+    try:
+        tickets = load_help_support_tickets()
+        target = next((item for item in tickets if clean_text(item.get("id")) == clean_text(ticket_id)), None)
+        if not target:
+            raise ValueError("Chamado não encontrado.")
+        status = clean_text(request.form.get("status"), "novo")
+        if status not in {"novo", "em_analise", "em análise", "resolvido"}:
+            raise ValueError("Status do chamado inválido.")
+        priority = clean_text(request.form.get("priority") or request.form.get("prioridade"), target.get("priority", "media")).lower()
+        if priority not in {"baixa", "media", "média", "alta"}:
+            priority = "media"
+        target["status"] = "em_analise" if status == "em análise" else status
+        target["priority"] = "media" if priority == "média" else priority
+        target["prioridade"] = target["priority"]
+        target["support_note"] = clean_text(request.form.get("support_note") or request.form.get("observacao_suporte"))
+        target["observacao_suporte"] = target["support_note"]
+        target["updated_at"] = now_iso()
+        save_help_support_tickets(tickets)
+        record_audit("update", "help_support", ticket_id, "Chamado atualizado pelo suporte.", after=target)
+        flash(f"Chamado {ticket_id} atualizado.", "success")
+    except Exception as exc:  # noqa: BLE001
+        flash(str(exc), "danger")
+    return redirect(url_for("index", _anchor="support-tickets-admin-panel"))
 
 
 @app.route("/auth/login", methods=["POST"])
@@ -9915,20 +10462,6 @@ def geocode():
 @require_permission("routes.view")
 def preview_file(filename: str):
     return send_from_directory(PREVIEW_DIR, filename, as_attachment=False)
-
-
-@app.route("/manual/sannygold-equipe.pdf", methods=["GET"])
-@require_permission("dashboard.view")
-def download_user_manual():
-    if not USER_MANUAL_PDF_PATH.exists():
-        flash("Manual ainda não foi gerado.", "danger")
-        return redirect(url_for("index"))
-    return send_file(
-        io.BytesIO(USER_MANUAL_PDF_PATH.read_bytes()),
-        mimetype="application/pdf",
-        as_attachment=False,
-        download_name="sannygold-manual-rapido-equipe.pdf",
-    )
 
 
 @app.route("/uploads/assets/<path:filename>", methods=["GET"])

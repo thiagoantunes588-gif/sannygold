@@ -55,7 +55,7 @@ http://127.0.0.1:5000
 - `app/templates/`: telas do sistema.
 - `app/static/`: imagens e arquivos visuais.
 - `data/`: base local em JSON usada pela versao atual.
-- `docs/`: manuais, finalizacao e orientacoes de uso.
+- `docs/`: finalizacao e orientacoes de uso.
 - `references/`: regras de operacao, dados e materiais de apoio.
 - `scripts/`: rotinas para iniciar, gerar PDFs e planejar rotas.
 - `tests/`: testes automatizados do sistema.
@@ -78,7 +78,7 @@ http://127.0.0.1:5000
 - `app/README.md`: guia completo da aplicacao principal.
 - `docs/finalizacao-local.md`: uso interno local.
 - `docs/finalizacao-v1.md`: checklist para publicar e operar a v1.
-- `docs/manual-rapido-equipe.md`: manual resumido para treinamento.
+- O Assistente Operacional dentro do sistema concentra a ajuda de uso da equipe.
 - `references/operational-rules.md`: regras e indicadores operacionais.
 - `references/mobile-operation.md`: playbook do PDF operacional.
 
