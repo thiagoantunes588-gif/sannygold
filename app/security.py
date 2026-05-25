@@ -5,6 +5,38 @@ from datetime import datetime
 
 DEFAULT_SECRET_KEY = "rotaflow-local-dev"
 MIN_PASSWORD_LENGTH = 10
+MIN_SECRET_KEY_LENGTH = 32
+WEAK_SECRET_KEYS = {
+    "",
+    "change-me",
+    "changeme",
+    "dev",
+    "development",
+    "password",
+    "secret",
+    "sannygold",
+    DEFAULT_SECRET_KEY,
+}
+
+
+def is_production_environment(deploy_target: str = "", app_env: str = "") -> bool:
+    target = str(deploy_target or "").strip().lower()
+    env = str(app_env or "").strip().lower()
+    return target in {"render", "vercel", "production", "prod"} or env in {"production", "prod"}
+
+
+def validate_secret_key_value(secret_key: str | None, *, production: bool = False) -> list[str]:
+    value = str(secret_key or "").strip()
+    issues: list[str] = []
+    if not value:
+        issues.append("SANNYGOLD_SECRET_KEY não foi definida.")
+    if value.lower() in WEAK_SECRET_KEYS:
+        issues.append("SANNYGOLD_SECRET_KEY usa valor padrão ou previsível.")
+    if value and len(value) < MIN_SECRET_KEY_LENGTH:
+        issues.append(f"SANNYGOLD_SECRET_KEY precisa ter pelo menos {MIN_SECRET_KEY_LENGTH} caracteres.")
+    if production and issues:
+        return issues
+    return issues
 
 
 def password_policy_issues(password: str, user_identifiers: list[str] | None = None) -> list[str]:

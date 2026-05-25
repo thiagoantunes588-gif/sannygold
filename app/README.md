@@ -1,4 +1,4 @@
-# SannyGold Operacao
+# Sistema Geral SannyGold
 
 Aplicacao principal do sistema interno da SannyGold. Ela concentra operacao, banheiros, equipamentos, frota, eventos, rotas, PDFs, almoxarifado, financeiro e acessos da equipe.
 
@@ -107,6 +107,9 @@ O arquivo `.zip` inclui:
 
 ## Materiais de finalização
 
+- `README.md`: guia tecnico de instalacao, testes, backup, restore e migracao.
+- `docs/manual-equipe.md`: manual rapido para operacao e financeiro.
+- `docs/manual-admin.md`: manual de acessos, auditoria, backup e pendencias criticas.
 - `docs/finalizacao-v1.md`: checklist de aceite, deploy e rotina v1.0.
 - O Assistente Operacional dentro do sistema concentra a ajuda de uso da equipe.
 - `output/pdf/sannygold-apresentacao-sistema.pdf`: apresentação do sistema em PDF.
@@ -117,11 +120,21 @@ O arquivo `render.yaml` está preparado para Render com disco persistente em `/v
 
 Antes de publicar, configure no provedor:
 
-- `SANNYGOLD_SECRET_KEY`
+- `SANNYGOLD_ENV=production`
+- `SANNYGOLD_SECRET_KEY` com 32+ caracteres aleatorios. Exemplo de geracao: `openssl rand -hex 32`.
 - `SANNYGOLD_ADMIN_EMAIL=contato@sannygold.com`
 - `SANNYGOLD_ADMIN_PASSWORD`
 - `SANNYGOLD_ADMIN_NAME`
 - `ROTAFLOW_STORAGE_DIR=/var/data`
+- `FLASK_DEBUG=0`
+- `SANNYGOLD_SESSION_COOKIE_SECURE=1` quando o acesso for por HTTPS fora do Render/Vercel.
+
+Seguranca basica ativa:
+
+- sessoes com cookie `HttpOnly`, `SameSite=Lax` e `Secure` em producao;
+- formularios `POST` protegidos por CSRF;
+- uploads limitados a 10 MB e a extensoes esperadas por cada fluxo;
+- paginas de erro comuns exibem mensagens simples, sem stack trace para usuario comum.
 
 ## Monitoramento básico
 
@@ -129,6 +142,16 @@ Endpoints úteis depois do deploy:
 
 - `GET /health`: status básico da aplicação, armazenamento e artefatos principais.
 - `GET /system/status.json`: snapshot operacional autenticado com versão, ambiente, contagens e status do sistema.
+
+## Estrutura do backend
+
+- `app/main.py`: aplicacao Flask, dashboard, dados legados e rotas ainda nao extraidas.
+- `app/routes/`: rotas ja separadas por responsabilidade.
+- `app/services/`: servicos reutilizaveis sem renderizacao de tela.
+- `app/repositories/`: camada preparada para armazenamento SQLite paralelo.
+- `app/db/schema.sql`: schema inicial do banco local `data/sannygold.db`.
+- `docs/backend-route-map.md`: mapa atual dos grupos de rotas e status da refatoracao.
+- `docs/sqlite-migration-plan.md`: plano de migracao gradual JSON -> SQLite.
 
 ## Observação operacional
 

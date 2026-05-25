@@ -2,13 +2,17 @@ import json
 import os
 import tempfile
 import unittest
+from datetime import datetime, timedelta
 
 from werkzeug.security import generate_password_hash
 
 os.environ["ROTAFLOW_STORAGE_DIR"] = tempfile.mkdtemp(prefix="sannygold-finance-test-")
 
 from app.main import (  # noqa: E402
+    AUDIT_LOG_PATH,
+    CLIENTS_PATH,
     CONTRACTS_PATH,
+    EVENTS_PATH,
     FINANCIAL_CLOSEOUTS_PATH,
     FINANCIAL_ENTRIES_PATH,
     FINANCIAL_RECEIVABLES_PATH,
@@ -24,6 +28,16 @@ from app.main import (  # noqa: E402
 class FinancialManagementTest(unittest.TestCase):
     def setUp(self):
         ensure_storage_dirs()
+        for path in (
+            AUDIT_LOG_PATH,
+            CLIENTS_PATH,
+            CONTRACTS_PATH,
+            EVENTS_PATH,
+            FINANCIAL_CLOSEOUTS_PATH,
+            FINANCIAL_ENTRIES_PATH,
+            FINANCIAL_RECEIVABLES_PATH,
+        ):
+            path.write_text("[]\n", encoding="utf-8")
         USERS_PATH.write_text(
             json.dumps(
                 [
@@ -44,6 +58,7 @@ class FinancialManagementTest(unittest.TestCase):
             + "\n",
             encoding="utf-8",
         )
+        app.config.update(TESTING=True)
         self.client = app.test_client()
         self.client.post(
             "/auth/login",
@@ -88,6 +103,146 @@ class FinancialManagementTest(unittest.TestCase):
         self.assertIn('name="financial_start"', html)
         self.assertIn('name="financial_end"', html)
 
+    def test_financial_decision_panel_summarizes_managerial_items(self):
+        today = datetime.now().date()
+        CLIENTS_PATH.write_text(
+            json.dumps(
+                [
+                    {"client_id": "CLI-ALFA", "customer_name": "Cliente Alfa", "phone": "21999990000", "address": "Rua Alfa"},
+                    {"client_id": "CLI-BETA", "customer_name": "Cliente Beta", "phone": "21999990001", "address": "Rua Beta"},
+                ],
+                ensure_ascii=False,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        EVENTS_PATH.write_text(
+            json.dumps(
+                [
+                    {
+                        "event_id": "EVT-SEM-VALOR",
+                        "title": "Evento Sem Valor",
+                        "event_date": today.isoformat(),
+                        "client_ids": ["CLI-ALFA"],
+                        "vehicle_ids": [],
+                        "status": "confirmado",
+                        "valor_servico": 0,
+                    },
+                    {
+                        "event_id": "EVT-COM-VALOR",
+                        "title": "Evento Com Valor",
+                        "event_date": today.isoformat(),
+                        "client_ids": ["CLI-BETA"],
+                        "vehicle_ids": [],
+                        "status": "confirmado",
+                        "valor_servico": 900,
+                        "valor_adicional": 100,
+                    },
+                ],
+                ensure_ascii=False,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        FINANCIAL_RECEIVABLES_PATH.write_text(
+            json.dumps(
+                [
+                    {
+                        "id": "REC-001",
+                        "client_id": "CLI-ALFA",
+                        "client_name": "Cliente Alfa",
+                        "event_title": "Contrato Alfa",
+                        "amount": 1200,
+                        "amount_received": 200,
+                        "due_date": (today - timedelta(days=5)).isoformat(),
+                        "received_date": "",
+                        "status": "parcial",
+                    },
+                    {
+                        "id": "REC-002",
+                        "client_id": "CLI-BETA",
+                        "client_name": "Cliente Beta",
+                        "event_title": "Contrato Beta",
+                        "amount": 800,
+                        "amount_received": 0,
+                        "due_date": (today + timedelta(days=4)).isoformat(),
+                        "received_date": "",
+                        "status": "aguardando",
+                    },
+                    {
+                        "id": "REC-003",
+                        "client_id": "CLI-BETA",
+                        "client_name": "Cliente Beta",
+                        "event_title": "Recebido Beta",
+                        "amount": 500,
+                        "amount_received": 500,
+                        "due_date": today.isoformat(),
+                        "received_date": today.isoformat(),
+                        "status": "pago",
+                    },
+                ],
+                ensure_ascii=False,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        response = self.client.get("/")
+        html = response.get_data(as_text=True)
+
+        self.assertEqual(response.status_code, 200)
+        for expected in (
+            "Painel financeiro gerencial",
+            "Total previsto no mês",
+            "Total recebido no mês",
+            "Total em aberto",
+            "Total vencido",
+            "Vencem em 7 dias",
+            "Eventos/locações sem valor definido",
+            "Evento Sem Valor",
+            "Clientes com maior valor em aberto",
+            "Cliente Alfa",
+            "Clientes com atraso",
+            "Recebimentos recentes",
+            "Lançar recebimento",
+            "Editar valor de evento",
+            "Gerar relatório financeiro",
+            "R$ 1.000,00",
+            "R$ 500,00",
+        ):
+            self.assertIn(expected, html)
+
+    def test_finance_can_update_event_value_from_decision_panel(self):
+        today = datetime.now().date().isoformat()
+        CLIENTS_PATH.write_text(
+            json.dumps([{"client_id": "CLI-VALOR", "customer_name": "Cliente Valor", "phone": "21999990000", "address": "Rua Valor"}]),
+            encoding="utf-8",
+        )
+        EVENTS_PATH.write_text(
+            json.dumps(
+                [
+                    {
+                        "event_id": "EVT-VALOR",
+                        "title": "Evento Valor",
+                        "event_date": today,
+                        "client_ids": ["CLI-VALOR"],
+                        "vehicle_ids": [],
+                        "status": "confirmado",
+                        "valor_servico": 0,
+                    }
+                ],
+                ensure_ascii=False,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        response = self.client.post("/events/EVT-VALOR/financial", data={"valor_servico": "1750.50"}, follow_redirects=True)
+        events = json.loads(EVENTS_PATH.read_text(encoding="utf-8"))
+
+        self.assertIn("Valor financeiro do evento atualizado.", response.get_data(as_text=True))
+        self.assertEqual(events[0]["valor_servico"], 1750.5)
+
     def test_receivable_entry_and_optional_attachment_are_saved(self):
         response = self.client.post(
             "/financial/receivables",
@@ -115,6 +270,29 @@ class FinancialManagementTest(unittest.TestCase):
         self.assertEqual(saved[0]["status"], "vencido")
         self.assertEqual(saved[0]["service_type"], "Banheiro Químico")
         self.assertEqual(saved[0]["invoice_status"], "com_nota")
+
+    def test_receivable_can_be_deleted_with_audit(self):
+        self.client.post(
+            "/financial/receivables",
+            data={
+                "client_name": "Cliente Remover",
+                "amount": "450",
+                "due_date": "2026-04-10",
+                "status": "aguardando",
+            },
+            follow_redirects=True,
+        )
+        receivable = json.loads(FINANCIAL_RECEIVABLES_PATH.read_text(encoding="utf-8"))[0]
+
+        response = self.client.post(
+            f"/financial/receivables/{receivable['id']}/delete",
+            follow_redirects=True,
+        )
+
+        self.assertIn("Recebimento excluído.", response.get_data(as_text=True))
+        self.assertEqual(json.loads(FINANCIAL_RECEIVABLES_PATH.read_text(encoding="utf-8")), [])
+        audit_log = json.loads(AUDIT_LOG_PATH.read_text(encoding="utf-8"))
+        self.assertTrue(any(item.get("action") == "delete" and item.get("module") == "finance" and item.get("target_id") == receivable["id"] for item in audit_log))
 
     def test_cashflow_entry_is_saved_and_rendered(self):
         response = self.client.post(

@@ -95,6 +95,15 @@ class HelpAssistantTest(unittest.TestCase):
         self.assertIn('data-help-context="events"', html)
         self.assertIn("syncHelpContextButtons", html)
 
+    def test_help_routes_open_quick_help_and_assistant(self):
+        quick_help = self.client.get("/ajuda", follow_redirects=False)
+        assistant = self.client.get("/assistente", follow_redirects=False)
+
+        self.assertEqual(quick_help.status_code, 302)
+        self.assertIn("#quick-help-panel", quick_help.headers["Location"])
+        self.assertEqual(assistant.status_code, 302)
+        self.assertIn("#help-assistant-button", assistant.headers["Location"])
+
     def test_initial_knowledge_base_has_common_operational_questions(self):
         categories = {entry["categoria"] for entry in DEFAULT_HELP_KNOWLEDGE_BASE}
 
@@ -105,7 +114,12 @@ class HelpAssistantTest(unittest.TestCase):
         self.assertIn("Banheiros de luxo", categories)
         self.assertIn("Banheiros químicos", categories)
         self.assertIn("Rotas", categories)
+        self.assertIn("Ajuda Rápida", categories)
         self.assertTrue(all(entry.get("passos") for entry in DEFAULT_HELP_KNOWLEDGE_BASE))
+        quick_help_titles = {entry["titulo"] for entry in DEFAULT_HELP_KNOWLEDGE_BASE if entry["categoria"] == "Ajuda Rápida"}
+        self.assertIn("Como criar locação rápida", quick_help_titles)
+        self.assertIn("Como lançar recebimento", quick_help_titles)
+        self.assertTrue(all(entry.get("exemplo") for entry in DEFAULT_HELP_KNOWLEDGE_BASE if entry["categoria"] == "Ajuda Rápida"))
 
     def test_search_returns_controlled_answer_by_keyword(self):
         response = self.client.get("/assistant/search?q=material%20extra")
