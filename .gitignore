@@ -1,14 +1,22 @@
 .DS_Store
 .env
+.env.local
 .venv/
+node_modules/
+.expo/
 __pycache__/
 *.pyc
+*.log
 
 data/
 uploads/
 backups/
+logs/
 output/
+build/
+dist/
 gestor-de-rota-empresa/
+_Revisao_Antes_de_Excluir/
 
 preview/route-plan-mobile.json
 preview/route-plan.pdf

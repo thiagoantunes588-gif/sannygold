@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <title>Frota · Manutenção · SannyGold</title>
+  <link href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}" rel="stylesheet">
+  <style>
+    :root { --ink:#211d1a; --muted:#6c665f; --line:#ddd7ce; --gold:#b9852d; --aqua:#187f91; --paper:#fff; --bg:#f4f5f3; --danger:#a53232; --success:#207a56; }
+    body { background:var(--bg); color:var(--ink); letter-spacing:0; }
+    .app-shell { max-width:1440px; margin:0 auto; }
+    .topbar { background:#171717; color:#fff; border-bottom:4px solid var(--gold); }
+    .topbar a { color:#fff; }
+    .section { background:var(--paper); border-bottom:1px solid var(--line); padding:1.25rem; }
+    .section-title { font-size:1.15rem; margin:0; }
+    .muted { color:var(--muted); }
+    .metric { border-left:3px solid var(--aqua); padding:.55rem .8rem; min-height:72px; background:#f8faf9; }
+    .metric strong { display:block; font-size:1.5rem; }
+    .order-row { display:grid; grid-template-columns:minmax(150px,1fr) minmax(180px,1.4fr) minmax(130px,.7fr) auto; gap:1rem; align-items:center; padding:.9rem 0; border-bottom:1px solid var(--line); }
+    .order-row:last-child { border-bottom:0; }
+    .badge-state { display:inline-block; padding:.2rem .5rem; border:1px solid var(--line); border-radius:4px; font-size:.78rem; background:#f7f6f3; }
+    .badge-critical { color:var(--danger); border-color:#dfb3b3; background:#fff4f4; }
+    .badge-ok { color:var(--success); border-color:#abd4c2; background:#f1fbf6; }
+    .badge-warn { color:#8a610c; border-color:#dec58f; background:#fff9ec; }
+    .subnav { overflow-x:auto; white-space:nowrap; border-bottom:1px solid var(--line); background:#fff; }
+    .subnav a { display:inline-block; padding:.75rem 1rem; color:var(--ink); text-decoration:none; }
+    .subnav a:hover { background:#f3eee4; }
+    .form-control,.form-select,.btn { border-radius:5px; }
+    .btn-dark { background:#222; border-color:#222; }
+    .table-responsive { border:1px solid var(--line); }
+    details.action-panel { border-top:1px solid var(--line); padding:.8rem 0; }
+    summary { cursor:pointer; font-weight:600; }
+    .timeline { border-left:2px solid var(--line); margin-left:.5rem; padding-left:1.1rem; }
+    .timeline-item { position:relative; padding:0 0 1rem; }
+    .timeline-item::before { content:""; position:absolute; left:-1.48rem; top:.3rem; width:.7rem; height:.7rem; border-radius:50%; background:var(--aqua); }
+    .empty { padding:2rem; text-align:center; color:var(--muted); border:1px dashed var(--line); }
+    @media (max-width: 800px) { .order-row { grid-template-columns:1fr; gap:.35rem; } .desktop-table { display:none; } .section { padding:1rem; } }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="app-shell px-3 py-3 d-flex flex-wrap justify-content-between align-items-center gap-3">
+      <div><div class="small text-uppercase">SannyGold</div><h1 class="h4 mb-0">Frota · Manutenção</h1></div>
+      <div class="d-flex gap-2 align-items-center"><span class="small">{{ current_user.nome }}</span><a class="btn btn-sm btn-outline-light" href="{{ url_for('index') }}#fleet-pane">Voltar à Frota</a></div>
+    </div>
+  </header>
+  <nav class="subnav"><div class="app-shell"><a href="#ordens">Ordens</a><a href="#nova-ordem">Abertura</a><a href="#detalhe">Detalhe</a><a href="#planos">Planos preventivos</a><a href="#revisoes">Próximas revisões</a><a href="#historico">Histórico</a><a href="#relatorios">Relatórios</a></div></nav>
+
+  <main class="app-shell pb-5">
+    {% with messages = get_flashed_messages(with_categories=true) %}{% for category, message in messages %}
+    <div class="alert alert-{{ 'danger' if category == 'danger' else 'warning' if category == 'warning' else 'success' }} m-3 mb-0">{% if message is mapping %}<strong>{{ message.title }}</strong> {{ message.intro }}{% else %}{{ message }}{% endif %}</div>
+    {% endfor %}{% endwith %}
+
+    <section class="section" aria-label="Resumo">
+      <div class="row g-2">
+        <div class="col-6 col-lg"><div class="metric"><strong>{{ dashboard.counts.orders }}</strong><span class="muted small">ordens</span></div></div>
+        <div class="col-6 col-lg"><div class="metric"><strong>{{ dashboard.counts.active }}</strong><span class="muted small">ativas</span></div></div>
+        <div class="col-6 col-lg"><div class="metric"><strong>{{ dashboard.counts.critical }}</strong><span class="muted small">críticas</span></div></div>
+        <div class="col-6 col-lg"><div class="metric"><strong>{{ dashboard.counts.completed }}</strong><span class="muted small">concluídas</span></div></div>
+        <div class="col-12 col-lg"><div class="metric"><strong>{{ dashboard.counts.overdue_plans }}</strong><span class="muted small">revisões vencidas</span></div></div>
+      </div>
+    </section>
+
+    <section class="section" id="ordens">
+      <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
+        <div><h2 class="section-title">Ordens de serviço</h2><div class="small muted">Preventivas e corretivas, com bloqueio, estoque e custos controlados.</div></div>
+        <div class="d-flex gap-2"><input class="form-control form-control-sm" id="order-search" type="search" placeholder="Buscar placa, número ou problema"><select class="form-select form-select-sm" id="order-status"><option value="">Todos os status</option>{% for value,label in dashboard.statuses.items() %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></div>
+      </div>
+      <div id="order-list">
+        {% for order in dashboard.orders %}
+        <div class="order-row js-order-row" data-status="{{ order.status }}" data-search="{{ order.order_number }} {{ order.vehicle_plate }} {{ order.reported_problem }} {{ order.supplier_name }}">
+          <div><a class="fw-semibold text-dark" href="{{ url_for('fleet_maintenance_home', order=order.id, vehicle=order.vehicle_id) }}#detalhe">{{ order.order_number }}</a><div class="small muted">{{ order.opening_date }} · {{ order.maintenance_type_label }}</div></div>
+          <div>{{ order.vehicle_plate }} · {{ order.reported_problem }}<div class="small muted">{{ order.supplier_name or 'Fornecedor não informado' }}</div></div>
+          <div><span class="badge-state {{ 'badge-critical' if order.priority == 'critica' else 'badge-ok' if order.status == 'concluida' else 'badge-warn' if order.status not in ['cancelada'] else '' }}">{{ order.status_label }}</span><div class="small muted">{{ order.priority_label }}</div></div>
+          <div class="text-end">{% if can_view_costs %}<strong>{{ order.total_cost|currency_br }}</strong>{% else %}<span class="small muted">Valores restritos</span>{% endif %}</div>
+        </div>
+        {% else %}<div class="empty">Nenhuma ordem de serviço registrada.</div>{% endfor %}
+      </div>
+    </section>
+
+    {% if permissions['fleet.maintenance.create'] %}
+    <section class="section" id="nova-ordem">
+      <h2 class="section-title mb-3">Abrir ordem de serviço</h2>
+      <form method="post" action="{{ url_for('save_fleet_service_order') }}" class="row g-3">
+        <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}">
+        <div class="col-md-4"><label class="form-label">Veículo</label><select class="form-select" name="vehicle_id" required><option value="">Selecione</option>{% for vehicle in vehicles %}<option value="{{ vehicle.vehicle_id }}" {% if selected_vehicle_id == vehicle.vehicle_id %}selected{% endif %}>{{ vehicle.plate }} · {{ vehicle.brand }} {{ vehicle.model }}</option>{% endfor %}</select></div>
+        <div class="col-md-4"><label class="form-label">Tipo</label><select class="form-select" name="maintenance_type">{% for value,label in dashboard.maintenance_types.items() %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></div>
+        <div class="col-md-4"><label class="form-label">Prioridade</label><select class="form-select" name="priority">{% for value,label in dashboard.priorities.items() %}<option value="{{ value }}" {% if value == 'normal' %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+        <div class="col-md-3"><label class="form-label">Abertura</label><input class="form-control" type="date" name="opening_date" value="{{ today_iso }}" required></div>
+        <div class="col-md-3"><label class="form-label">Previsão</label><input class="form-control" type="date" name="expected_completion_date"></div>
+        <div class="col-md-3"><label class="form-label">Km de entrada</label><input class="form-control" type="number" min="0" name="entry_mileage" required></div>
+        <div class="col-md-3"><label class="form-label">Plano relacionado</label><select class="form-select" name="maintenance_plan_id"><option value="">Nenhum</option>{% for plan in dashboard.plans %}<option value="{{ plan.id }}">{{ plan.vehicle_plate }} · {{ plan.title }}</option>{% endfor %}</select></div>
+        <div class="col-md-8"><label class="form-label">Problema relatado ou serviço preventivo</label><textarea class="form-control" name="reported_problem" rows="2" required></textarea></div>
+        <div class="col-md-4"><label class="form-label">Fornecedor</label><input class="form-control" name="supplier_name"></div>
+        <div class="col-md-4"><label class="form-label">Responsável interno</label><select class="form-select" name="internal_responsible_user_id"><option value="">Não definido</option>{% for user in users %}<option value="{{ user.id }}">{{ user.nome }}</option>{% endfor %}</select></div>
+        <div class="col-md-4"><label class="form-label">Motorista</label><input class="form-control" name="driver_id"></div>
+        <div class="col-md-4"><label class="form-label">Próximo serviço em</label><input class="form-control" type="date" name="next_service_date"></div>
+        <div class="col-md-3"><label class="form-label">Próximo serviço (km)</label><input class="form-control" type="number" min="0" name="next_service_mileage"></div>
+        <div class="col-md-9"><label class="form-label">Observações</label><input class="form-control" name="notes"></div>
+        <div class="col-md-3 d-flex align-items-end"><button class="btn btn-dark w-100" type="submit">Abrir ordem</button></div>
+      </form>
+    </section>
+    {% endif %}
+
+    <section class="section" id="detalhe">
+      {% if selected_order %}
+      <div class="d-flex flex-wrap justify-content-between gap-3 mb-3"><div><h2 class="section-title">{{ selected_order.order_number }} · {{ selected_order.vehicle_plate }}</h2><div class="small muted">{{ selected_order.maintenance_type_label }} · {{ selected_order.status_label }} · {{ selected_order.priority_label }}</div></div>{% if can_view_costs %}<div class="text-end"><div class="small muted">Total da ordem</div><strong class="fs-5">{{ selected_order.total_cost|currency_br }}</strong></div>{% endif %}</div>
+      <div class="row g-3 mb-3"><div class="col-lg-4"><strong>Problema</strong><div>{{ selected_order.reported_problem }}</div></div><div class="col-lg-4"><strong>Diagnóstico</strong><div>{{ selected_order.diagnosis or 'Pendente' }}</div></div><div class="col-lg-4"><strong>Serviços realizados</strong><div>{{ selected_order.services_performed or 'Pendente' }}</div></div></div>
+
+      <h3 class="h6 mt-4">Itens e serviços</h3>
+      <div class="table-responsive mb-3"><table class="table table-sm mb-0"><thead><tr><th>Tipo</th><th>Descrição</th><th>Quantidade</th>{% if can_view_costs %}<th>Custo</th><th>Total</th>{% endif %}<th></th></tr></thead><tbody>{% for item in selected_order['items'] %}<tr><td>{{ dashboard.item_types.get(item.item_type, item.item_type) }}</td><td>{{ item.description }}{% if item.inventory_item_id %}<div class="small muted">Almoxarifado: {{ item.inventory_item_id }}</div>{% endif %}</td><td>{{ item.quantity }} {{ item.unit }}</td>{% if can_view_costs %}<td>{{ item.unit_cost|currency_br }}</td><td>{{ item.total_cost|currency_br }}</td>{% endif %}<td>{% if permissions['fleet.maintenance.edit'] and selected_order.status in ['aberta','aguardando_diagnostico','aguardando_aprovacao'] %}<form method="post" action="{{ url_for('delete_fleet_service_order_item', order_id=selected_order.id, item_id=item.id) }}"><input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-danger" type="submit">Arquivar</button></form>{% endif %}</td></tr>{% else %}<tr><td colspan="6" class="text-center muted">Nenhum item.</td></tr>{% endfor %}</tbody></table></div>
+
+      {% if permissions['fleet.maintenance.edit'] and selected_order.status in ['aberta','aguardando_diagnostico','aguardando_aprovacao'] %}
+      <details class="action-panel" open><summary>Adicionar peça, material ou serviço</summary><form class="row g-2 mt-2" method="post" action="{{ url_for('save_fleet_service_order_item', order_id=selected_order.id) }}"><input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}"><div class="col-md-2"><select class="form-select" name="item_type">{% for value,label in dashboard.item_types.items() %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></div><div class="col-md-3"><select class="form-select" name="inventory_item_id"><option value="">Fora do almoxarifado</option>{% for item in dashboard.warehouse_items %}<option value="{{ item.id }}">{{ item.name }} · saldo {{ item.quantity_current }} {{ item.unit }}</option>{% endfor %}</select></div><div class="col-md-3"><input class="form-control" name="description" placeholder="Descrição"></div><div class="col-md-1"><input class="form-control" type="number" min="0.01" step="0.01" name="quantity" value="1" required></div><div class="col-md-1"><input class="form-control" name="unit" value="un"></div>{% if can_manage_costs %}<div class="col-md-1"><input class="form-control" type="number" min="0" step="0.01" name="unit_cost" value="0"></div>{% endif %}<div class="col-md-1"><button class="btn btn-dark w-100" type="submit">Incluir</button></div></form></details>
+      {% endif %}
+
+      {% if permissions['fleet.maintenance.approve'] and selected_order.status not in ['concluida','cancelada'] %}<details class="action-panel"><summary>Aprovação</summary><form class="row g-2 mt-2" method="post" action="{{ url_for('approve_fleet_service_order', order_id=selected_order.id) }}"><input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}">{% if can_manage_costs %}<div class="col-md-3"><input class="form-control" type="number" min="0" step=".01" name="manual_total" placeholder="Total manual opcional"></div><div class="col-md-6"><input class="form-control" name="total_override_justification" placeholder="Justificativa obrigatória se substituir o cálculo"></div>{% endif %}<div class="col-md-3"><button class="btn btn-dark w-100" type="submit">Aprovar e reservar peças</button></div></form></details>{% endif %}
+      {% if permissions['fleet.maintenance.execute'] and selected_order.status in ['aprovada','aguardando_pecas','em_execucao'] %}<details class="action-panel"><summary>Execução</summary><form class="row g-2 mt-2" method="post" action="{{ url_for('execute_fleet_service_order', order_id=selected_order.id) }}"><input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}"><div class="col-md-9"><input class="form-control" name="diagnosis" value="{{ selected_order.diagnosis }}" placeholder="Diagnóstico"></div><div class="col-md-3"><button class="btn btn-dark w-100" type="submit">Iniciar ou atualizar execução</button></div></form></details>{% endif %}
+      {% if permissions['fleet.maintenance.complete'] and selected_order.status in ['aprovada','aguardando_pecas','em_execucao'] %}<details class="action-panel"><summary>Conclusão</summary><form class="row g-2 mt-2" method="post" action="{{ url_for('complete_fleet_service_order', order_id=selected_order.id) }}"><input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}"><div class="col-md-6"><textarea class="form-control" name="services_performed" rows="2" placeholder="Serviços realizados" required></textarea></div><div class="col-md-2"><input class="form-control" type="date" name="completion_date" value="{{ today_iso }}" required></div><div class="col-md-2"><input class="form-control" type="number" min="0" name="exit_mileage" placeholder="Km saída" required></div><div class="col-md-2"><label class="form-check mt-2"><input class="form-check-input" type="checkbox" name="release_vehicle" value="1"> Liberar veículo</label></div><div class="col-md-9"><input class="form-control" name="mileage_correction_justification" placeholder="Justificativa administrativa somente para correção de km"></div><div class="col-md-3"><button class="btn btn-dark w-100" type="submit">Concluir e baixar estoque</button></div></form></details>{% endif %}
+      {% if permissions['fleet.maintenance.cancel'] and selected_order.status != 'concluida' %}<details class="action-panel"><summary>Cancelamento</summary><form class="row g-2 mt-2" method="post" action="{{ url_for('cancel_fleet_service_order', order_id=selected_order.id) }}"><input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}"><div class="col-md-9"><input class="form-control" name="cancellation_reason" placeholder="Motivo obrigatório" required></div><div class="col-md-3"><button class="btn btn-outline-danger w-100" type="submit">Cancelar e liberar reserva</button></div></form></details>{% endif %}
+
+      <details class="action-panel" open><summary>Anexos da manutenção</summary>{% if permissions['fleet.maintenance.edit'] %}<form class="row g-2 mt-2 mb-3" method="post" enctype="multipart/form-data" action="{{ url_for('save_fleet_maintenance_attachment', order_id=selected_order.id) }}"><input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}"><div class="col-md-3"><select class="form-select" name="attachment_type">{% for value,label in dashboard.attachment_types.items() %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></div><div class="col-md-5"><input class="form-control" type="file" name="attachment_file" multiple required></div><div class="col-md-2"><input class="form-control" name="notes" placeholder="Observação"></div><div class="col-md-2"><button class="btn btn-dark w-100" type="submit">Anexar</button></div></form>{% endif %}<div class="d-flex flex-wrap gap-2">{% for item in selected_order.attachments %}<a class="btn btn-sm btn-outline-secondary" href="{{ item.file_url }}" target="_blank" rel="noreferrer">{{ item.attachment_type_label or item.attachment_type }} · {{ item.original_name }}</a>{% else %}<span class="small muted">Sem anexos.</span>{% endfor %}</div></details>
+      {% else %}<div class="empty">Selecione uma ordem na lista para abrir detalhes, aprovação, execução e conclusão.</div>{% endif %}
+    </section>
+
+    <section class="section" id="planos">
+      <div class="d-flex justify-content-between gap-3 mb-3"><div><h2 class="section-title">Planos preventivos</h2><div class="small muted">Intervalos devem vir do manual do veículo ou do plano interno.</div></div></div>
+      {% if permissions['fleet.maintenance.plans.manage'] %}<form class="row g-2 mb-4" method="post" action="{{ url_for('save_vehicle_maintenance_plan') }}"><input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}"><div class="col-md-3"><select class="form-select" name="vehicle_id" required><option value="">Veículo</option>{% for vehicle in vehicles %}<option value="{{ vehicle.vehicle_id }}">{{ vehicle.plate }}</option>{% endfor %}</select></div><div class="col-md-3"><input class="form-control" name="title" placeholder="Título" required></div><div class="col-md-2"><select class="form-select" name="category">{% for value,label in dashboard.plan_categories.items() %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></div><div class="col-md-2"><input class="form-control" type="number" min="1" name="interval_mileage" placeholder="Intervalo km"></div><div class="col-md-2"><input class="form-control" type="number" min="1" name="interval_days" placeholder="Intervalo dias"></div><div class="col-md-2"><input class="form-control" type="number" min="0" name="warning_mileage" placeholder="Alerta km"></div><div class="col-md-2"><input class="form-control" type="number" min="0" name="warning_days" placeholder="Alerta dias"></div><div class="col-md-2"><input class="form-control" type="date" name="last_service_date"></div><div class="col-md-2"><input class="form-control" type="number" min="0" name="last_service_mileage" placeholder="Último km"></div><div class="col-md-2"><select class="form-select" name="priority">{% for value,label in dashboard.priorities.items() %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></div><div class="col-md-2"><input type="hidden" name="is_active" value="1"><button class="btn btn-dark w-100" type="submit">Salvar plano</button></div><div class="col-12"><input class="form-control" name="instructions" placeholder="Instruções do fabricante ou da empresa"></div></form>{% endif %}
+      <div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>Veículo</th><th>Plano</th><th>Intervalo</th><th>Próxima revisão</th><th>Status</th><th></th></tr></thead><tbody>{% for plan in dashboard.plans %}<tr><td>{{ plan.vehicle_plate }}</td><td>{{ plan.title }}<div class="small muted">{{ plan.category_label }}</div></td><td>{{ plan.interval_mileage or '—' }} km · {{ plan.interval_days or '—' }} dias</td><td>{{ plan.next_service_date or '—' }} · {{ plan.next_service_mileage or '—' }} km</td><td><span class="badge-state {{ 'badge-critical' if plan.status == 'vencido' else 'badge-warn' if plan.status in ['atencao','proximo_vencimento'] else 'badge-ok' }}">{{ plan.label }}</span></td><td>{% if permissions['fleet.maintenance.plans.manage'] %}<form method="post" action="{{ url_for('delete_vehicle_maintenance_plan', plan_id=plan.id) }}"><input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-danger" type="submit">Arquivar</button></form>{% endif %}</td></tr>{% else %}<tr><td colspan="6" class="text-center muted">Nenhum plano preventivo.</td></tr>{% endfor %}</tbody></table></div>
+    </section>
+
+    <section class="section" id="revisoes"><h2 class="section-title mb-3">Próximas revisões</h2><div class="row g-2">{% for plan in dashboard.plans %}<div class="col-md-6 col-xl-4"><div class="metric"><strong class="fs-6">{{ plan.vehicle_plate }} · {{ plan.title }}</strong><span class="small muted">{{ plan.next_service_date or 'Sem data' }} · {{ plan.next_service_mileage or 'Sem km' }} km · {{ plan.label }}</span></div></div>{% else %}<div class="empty">Sem revisões programadas.</div>{% endfor %}</div></section>
+
+    <section class="section" id="historico">
+      <div class="d-flex flex-wrap justify-content-between gap-2 mb-3"><div><h2 class="section-title">Histórico do veículo</h2><div class="small muted">Alterações, quilometragens, documentos, manutenções, bloqueios e anexos.</div></div><form class="d-flex gap-2" method="get" action="{{ url_for('fleet_maintenance_home') }}"><select class="form-select form-select-sm" name="vehicle" required><option value="">Veículo</option>{% for vehicle in vehicles %}<option value="{{ vehicle.vehicle_id }}" {% if selected_vehicle_id == vehicle.vehicle_id %}selected{% endif %}>{{ vehicle.plate }}</option>{% endfor %}</select><select class="form-select form-select-sm" name="history_type"><option value="">Todos os eventos</option><option value="manutencao">Manutenção</option><option value="quilometragem">Quilometragem</option><option value="documento">Documento</option><option value="anexo">Anexo</option><option value="block">Bloqueio</option><option value="release">Liberação</option></select><button class="btn btn-sm btn-outline-secondary" type="submit">Filtrar</button></form></div>
+      {% if vehicle_history %}<div class="timeline">{% for event in vehicle_history %}<div class="timeline-item"><div class="small muted">{{ event.date }} · {{ event.type }}</div><strong>{{ event.title }}</strong><div>{{ event.detail }}</div>{% if event.order_number %}<div class="small muted">{{ event.order_number }}</div>{% endif %}</div>{% endfor %}</div>{% else %}<div class="empty">Selecione um veículo ou ajuste os filtros.</div>{% endif %}
+    </section>
+
+    <section class="section" id="relatorios"><div class="d-flex flex-wrap justify-content-between gap-2 mb-3"><h2 class="section-title">Relatórios iniciais</h2><div class="d-flex gap-2"><a class="btn btn-sm btn-outline-secondary" href="{{ url_for('download_module_pdf', module='fleet-maintenance') }}">PDF</a><a class="btn btn-sm btn-outline-secondary" href="{{ url_for('download_module_xlsx', module='fleet-maintenance') }}">Excel</a></div></div><div class="row g-3"><div class="col-md-6 col-xl-3"><strong>Manutenções por veículo</strong>{% for item in dashboard.reports.maintenance_by_vehicle %}<div class="d-flex justify-content-between border-bottom py-1"><span>{{ item.label }}</span><span>{{ item.count }}</span></div>{% endfor %}</div><div class="col-md-6 col-xl-3"><strong>Preventivas versus corretivas</strong>{% for item in dashboard.reports.preventive_vs_corrective %}<div class="d-flex justify-content-between border-bottom py-1"><span>{{ item.label }}</span><span>{{ item.count }}</span></div>{% endfor %}</div><div class="col-md-6 col-xl-3"><strong>Peças mais utilizadas</strong>{% for item in dashboard.reports.parts_used[:8] %}<div class="d-flex justify-content-between border-bottom py-1"><span>{{ item.label }}</span><span>{{ item.quantity }}</span></div>{% endfor %}</div><div class="col-md-6 col-xl-3"><strong>Indisponibilidade</strong><div class="fs-4">{{ dashboard.reports.downtime_hours }} h</div><div class="small muted">{{ dashboard.reports.blocked_vehicles|length }} veículo(s) bloqueado(s)</div>{% if can_view_costs %}<div class="mt-2"><strong>{{ dashboard.reports.total_cost|currency_br }}</strong><div class="small muted">custo concluído</div></div>{% endif %}</div></div></section>
+  </main>
+  <script>
+    const search = document.getElementById('order-search'); const status = document.getElementById('order-status');
+    function filterOrders(){ const q=(search?.value||'').toLowerCase(); const s=status?.value||''; document.querySelectorAll('.js-order-row').forEach(row=>{ row.hidden=!(row.dataset.search.toLowerCase().includes(q)&&(!s||row.dataset.status===s)); }); }
+    search?.addEventListener('input',filterOrders); status?.addEventListener('change',filterOrders);
+  </script>
+</body>
+</html>

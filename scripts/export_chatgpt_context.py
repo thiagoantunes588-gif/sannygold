@@ -24,11 +24,19 @@ IGNORE_DIRS = {
     ".venv",
     ".vercel",
     "__pycache__",
+    "backups",
     "data",
     "gestor-de-rota-empresa",
+    "logs",
     "output",
     "tmp",
     "uploads",
+}
+
+IGNORE_FILES = {
+    ".DS_Store",
+    ".env",
+    ".env.local",
 }
 
 SOURCE_DIRS = {
@@ -73,7 +81,13 @@ def rel(path: Path) -> str:
 
 def should_ignore(path: Path) -> bool:
     parts = set(path.relative_to(ROOT).parts)
-    return bool(parts & IGNORE_DIRS)
+    if parts & IGNORE_DIRS:
+        return True
+    if path.name in IGNORE_FILES:
+        return True
+    if path.name.startswith(".env.") and path.name != ".env.example":
+        return True
+    return False
 
 
 def safe_read(path: Path) -> str:
@@ -81,7 +95,17 @@ def safe_read(path: Path) -> str:
 
 
 def sanitize_text(text: str) -> str:
-    text = text.replace("Sanny123Gold", "[SENHA_PADRAO_REMOVIDA]")
+    text = text.replace("troque-esta-senha", "[SENHA_PADRAO_REMOVIDA]")
+    text = re.sub(
+        r"(SANNYGOLD_ADMIN_PASSWORD\s*=\s*)\$\((shell_escape\s+)['\"][^'\"\n]+['\"]\)",
+        r'\1$(\2"[SENHA_REMOVIDA]")',
+        text,
+    )
+    text = re.sub(
+        r"(?m)^((?:export\s+)?SANNYGOLD_ADMIN_PASSWORD\s*=\s*)(['\"]?)[^'\"\n#]+(['\"]?)",
+        r"\1'[SENHA_REMOVIDA]'",
+        text,
+    )
     text = re.sub(
         r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}",
         "[EMAIL_REMOVIDO]",
@@ -94,17 +118,12 @@ def sanitize_text(text: str) -> str:
         text,
     )
     text = re.sub(
-        r"(SANNYGOLD_ADMIN_PASSWORD\s*=\s*)(['\"]?)[^'\"\n]+",
-        r"\1'[SENHA_REMOVIDA]'",
-        text,
-    )
-    text = re.sub(
         r"(default_password\s*=\s*os\.environ\.get\([^,]+,\s*)['\"][^'\"]+['\"]",
         r"\1'[SENHA_PADRAO_REMOVIDA]'",
         text,
     )
     text = re.sub(
-        r"((?:password|senha|secret|token|api_key|SECRET_KEY)[^=\n:]{0,60}[=:]\s*)['\"][^'\"\n]+['\"]",
+        r"((?:password|senha|secret|token|api_key|SECRET_KEY)[^=\n:]{0,60}[=:]\s*)['\"](?!\$\()[^'\"\n]+['\"]",
         r"\1'[REMOVIDO]'",
         text,
         flags=re.IGNORECASE,
@@ -303,6 +322,37 @@ def summarize_ui() -> str:
     return "\n".join(parts)
 
 
+def build_dropbox_doc() -> str:
+    return """
+# Dropbox e backups
+
+Este sistema nao deve rodar com o banco ativo dentro do Dropbox. O Dropbox entra apenas como copia externa de seguranca dos backups `.zip` gerados pelo sistema.
+
+## Como esta desenhado hoje
+
+- Banco local padrao: `data/sannygold.db`.
+- JSON pode continuar como espelho de seguranca durante a migracao para SQLite.
+- Backups locais ficam em `backups/`.
+- Quando `DROPBOX_BACKUP_DIR` aponta para uma pasta existente, cada backup finalizado tambem e copiado para essa pasta Dropbox.
+- A falha da copia Dropbox nao impede o backup local.
+- O painel admin tem acao para testar a pasta Dropbox.
+
+## Configuracao recomendada
+
+```text
+DROPBOX_BACKUP_DIR=/Users/thiago/Dropbox/Sistema SannyGold/Backups
+```
+
+Use uma pasta exclusiva para backups. Nao coloque `data/`, `data/sannygold.db`, `uploads/` ou a pasta inteira do sistema dentro do Dropbox.
+
+## Pergunta especifica para o ChatGPT
+
+```text
+Analise a estrategia de Dropbox deste sistema. Quero saber se devo usar Dropbox apenas para backup, quais riscos existem, como validar restauracao, como organizar retencao de arquivos e quais proximos passos devo seguir antes de depender disso na operacao.
+```
+"""
+
+
 def write_routes_doc(routes: list[dict[str, str]]) -> str:
     parts = ["# Rotas Flask", "", f"Total de rotas encontradas: {len(routes)}", ""]
     parts.append("| Rota | Metodos | Funcao | Linha |")
@@ -355,6 +405,7 @@ Gerado em: {now}
 - Inventario tecnico de funcoes e classes principais.
 - Resumo de telas, secoes e IDs do template principal.
 - Modelo de dados resumido, sem dados reais de clientes.
+- Orientacao especifica sobre Dropbox e backups.
 - Codigo importante em `codigo-sanitizado/`, com e-mails, telefones, senhas e segredos mascarados.
 - Estado atual dos testes.
 
@@ -380,7 +431,7 @@ Foco atual do produto:
 
 - Python Flask.
 - Templates Jinja/HTML em `app/templates/index.html`.
-- Persistencia local em JSON na pasta `data/`.
+- Persistencia local em SQLite (`data/sannygold.db`) com JSON como espelho/fallback durante a migracao.
 - Testes com `unittest`.
 - Deploy preparado por `render.yaml`, `vercel.json` e wrappers em `api/`.
 
@@ -450,6 +501,7 @@ Entregue:
 Para cada sugestao, diga: motivo, impacto, dificuldade, risco e primeiro passo.
 """,
     )
+    write(PACK_DIR / "08_DROPBOX_E_BACKUPS.md", build_dropbox_doc())
 
     copy_sanitized_sources(PACK_DIR / "codigo-sanitizado")
 

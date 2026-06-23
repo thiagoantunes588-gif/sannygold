@@ -58,16 +58,42 @@ def register_finance_routes(app, deps) -> None:
                 raise ValueError("Conta a receber não encontrada.")
             before = dict(target)
             action = deps.clean_text(request.form.get("action"), "paid")
-            received_amount = deps.parse_decimal(request.form.get("amount_received"), deps.parse_decimal(target.get("amount")))
-            target["amount_received"] = min(received_amount, deps.parse_decimal(target.get("amount")))
-            target["received_date"] = deps.clean_text(request.form.get("received_date")) or datetime.now().date().isoformat()
-            target["payment_method"] = deps.clean_text(request.form.get("payment_method")) or deps.clean_text(target.get("payment_method")) or "pix"
-            if action == "partial" and target["amount_received"] < deps.parse_decimal(target.get("amount")):
-                target["status"] = "parcial"
+            total_amount = deps.parse_decimal(target.get("amount"))
+            current_received = min(deps.parse_decimal(target.get("amount_received")), total_amount)
+            received_date = deps.clean_text(request.form.get("received_date")) or datetime.now().date().isoformat()
+            payment_method = deps.clean_text(request.form.get("payment_method")) or deps.clean_text(target.get("payment_method")) or "pix"
+            if action == "cancel":
+                target["status"] = "cancelado"
             else:
-                target["amount_received"] = deps.parse_decimal(target.get("amount"))
-                target["status"] = "pago"
-            target["collection_status"] = "pagamento_registrado"
+                remaining = max(total_amount - current_received, 0.0)
+                payment_amount = deps.parse_decimal(request.form.get("payment_amount") or request.form.get("amount_received"), remaining)
+                if payment_amount <= 0:
+                    raise ValueError("Informe um valor de pagamento maior que zero.")
+                if action != "partial":
+                    payment_amount = remaining if remaining > 0 else total_amount
+                new_received = min(current_received + payment_amount, total_amount)
+                target["amount_received"] = new_received
+                target["received_date"] = received_date
+                target["payment_method"] = payment_method
+                history = target.get("payment_history") if isinstance(target.get("payment_history"), list) else []
+                history.append(
+                    {
+                        "id": f"PGT-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+                        "amount": round(payment_amount, 2),
+                        "payment_method": payment_method,
+                        "received_date": received_date,
+                        "notes": deps.clean_text(request.form.get("payment_notes")),
+                        "created_at": deps.now_iso(),
+                    }
+                )
+                target["payment_history"] = history
+                target["status"] = deps.normalize_receivable_status(
+                    "parcial" if action == "partial" else "pago",
+                    due_date=target.get("due_date"),
+                    amount=total_amount,
+                    amount_received=new_received,
+                )
+                target["collection_status"] = "pagamento_registrado"
             target["updated_at"] = deps.now_iso()
             deps.save_financial_receivables(items)
             deps.record_audit("payment", "finance", receivable_id, "Pagamento registrado.", before=before, after=target)

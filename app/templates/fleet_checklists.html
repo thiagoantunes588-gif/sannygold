@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <title>Frota · Checklists · SannyGold</title>
+  <link href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}" rel="stylesheet">
+  <style>
+    :root { --ink:#211d1a; --muted:#68635c; --line:#dcd7ce; --gold:#b9852d; --teal:#167987; --paper:#fff; --bg:#f3f5f4; --danger:#a52f32; --success:#217651; --warning:#8a610c; }
+    * { letter-spacing:0; }
+    body { background:var(--bg); color:var(--ink); }
+    .app-shell { max-width:1440px; margin:0 auto; }
+    .topbar { background:#171717; color:#fff; border-bottom:4px solid var(--gold); }
+    .topbar a { color:#fff; }
+    .subnav { overflow-x:auto; white-space:nowrap; border-bottom:1px solid var(--line); background:#fff; position:sticky; top:0; z-index:10; }
+    .subnav a { display:inline-block; padding:.8rem 1rem; color:var(--ink); text-decoration:none; }
+    .section { background:var(--paper); border-bottom:1px solid var(--line); padding:1.25rem; }
+    .section-title { font-size:1.15rem; margin:0; }
+    .muted { color:var(--muted); }
+    .metric { border-left:3px solid var(--teal); padding:.65rem .8rem; min-height:76px; background:#f8faf9; }
+    .metric strong { display:block; font-size:1.55rem; }
+    .badge-state { display:inline-block; padding:.22rem .5rem; border:1px solid var(--line); border-radius:4px; font-size:.8rem; background:#f7f6f3; }
+    .badge-danger { color:var(--danger); border-color:#ddb0b1; background:#fff3f3; }
+    .badge-warning { color:var(--warning); border-color:#dbc38f; background:#fff9eb; }
+    .badge-success { color:var(--success); border-color:#acd2c0; background:#f0faf5; }
+    .list-row { display:grid; grid-template-columns:minmax(150px,.8fr) minmax(220px,1.5fr) minmax(150px,.8fr) auto; gap:1rem; align-items:center; padding:.9rem 0; border-bottom:1px solid var(--line); }
+    .list-row:last-child { border-bottom:0; }
+    .check-item { border:1px solid var(--line); border-left:4px solid var(--teal); padding:1rem; margin-bottom:.75rem; background:#fff; }
+    .check-item.critical { border-left-color:var(--danger); }
+    .touch-choice { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.5rem; }
+    .touch-choice input { position:absolute; opacity:0; }
+    .touch-choice label { min-height:48px; border:1px solid var(--line); border-radius:5px; display:flex; align-items:center; justify-content:center; padding:.5rem; text-align:center; cursor:pointer; }
+    .touch-choice input:checked + label { border-color:var(--teal); background:#eaf7f8; font-weight:700; }
+    .touch-choice input[value="nao_conforme"]:checked + label,.touch-choice input[value="nao"]:checked + label { border-color:var(--danger); background:#fff0f0; color:var(--danger); }
+    .stepper { display:grid; grid-template-columns:repeat(4,1fr); gap:.4rem; }
+    .step-button { border:0; border-bottom:3px solid var(--line); background:transparent; padding:.65rem .25rem; font-size:.85rem; }
+    .step-button.active { border-color:var(--teal); font-weight:700; color:var(--teal); }
+    .step-panel[hidden] { display:none !important; }
+    .notice { border-left:4px solid var(--warning); background:#fff9ec; padding:.8rem 1rem; }
+    .critical-notice { border-left-color:var(--danger); background:#fff2f2; }
+    .form-control,.form-select,.btn { border-radius:5px; min-height:42px; }
+    .btn-dark { background:#222; border-color:#222; }
+    details.config { border-top:1px solid var(--line); padding:.85rem 0; }
+    summary { cursor:pointer; font-weight:650; }
+    .empty { padding:1.5rem; text-align:center; color:var(--muted); border:1px dashed var(--line); }
+    .evidence-thumb { width:88px; height:66px; object-fit:cover; border:1px solid var(--line); border-radius:4px; }
+    .draft-state { font-size:.82rem; color:var(--muted); }
+    @media (max-width: 800px) {
+      .section { padding:1rem; }
+      .list-row { grid-template-columns:1fr; gap:.3rem; }
+      .touch-choice { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .step-button { font-size:.75rem; }
+      .mobile-sticky { position:sticky; bottom:0; z-index:8; background:#fff; border-top:1px solid var(--line); padding:.75rem; margin:1rem -1rem -1rem; }
+      .btn { min-height:46px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="app-shell px-3 py-3 d-flex flex-wrap justify-content-between align-items-center gap-3">
+      <div><div class="small text-uppercase">SannyGold</div><h1 class="h4 mb-0">Frota · Checklists e operação</h1></div>
+      <div class="d-flex gap-2 align-items-center"><span class="small">{{ current_user.nome }}</span><a class="btn btn-sm btn-outline-light" href="{{ url_for('index') }}#fleet-pane">Voltar à Frota</a></div>
+    </div>
+  </header>
+  <nav class="subnav"><div class="app-shell"><a href="#painel">Painel</a><a href="#novo">Novo checklist</a><a href="#preenchimento">Preenchimento</a><a href="#ocorrencias">Ocorrências</a><a href="#bloqueios">Bloqueios</a><a href="#entregas">Entregas</a>{% if permissions['fleet.checklist.templates.manage'] %}<a href="#modelos">Modelos</a><a href="#motoristas">Motoristas</a>{% endif %}</div></nav>
+
+  <main class="app-shell pb-5">
+    {% with messages = get_flashed_messages(with_categories=true) %}{% for category, message in messages %}
+    <div class="alert alert-{{ 'danger' if category == 'danger' else 'warning' if category == 'warning' else 'success' }} m-3 mb-0">{% if message is mapping %}<strong>{{ message.title }}</strong> {{ message.intro }}{% else %}{{ message }}{% endif %}</div>
+    {% endfor %}{% endwith %}
+
+    <section class="section" id="painel">
+      <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3"><div><h2 class="section-title">Situação operacional</h2><div class="small muted">Pendências calculadas a partir dos checklists, entregas, ocorrências e bloqueios.</div></div></div>
+      <div class="row g-2">
+        {% set metrics = [
+          ('departures_today','Saídas hoje'),('pending_returns','Retornos pendentes'),('pending_checklists','Checklists pendentes'),
+          ('failed_checklists','Reprovados'),('blocked_vehicles','Veículos bloqueados'),('delivered_vehicles','Veículos entregues'),
+          ('open_occurrences','Ocorrências abertas'),('critical_occurrences','Ocorrências críticas'),('routes_without_checklist','Rotas sem checklist'),('stale_mileage','Km desatualizada')
+        ] %}
+        {% for key,label in metrics %}<div class="col-6 col-md-4 col-xl"><div class="metric"><strong>{{ dashboard.counts.get(key, 0) }}</strong><span class="small muted">{{ label }}</span></div></div>{% endfor %}
+      </div>
+      {% for note in dashboard.notifications %}<div class="notice {{ 'critical-notice' if note.level == 'danger' else '' }} mt-2"><strong>{{ note.title }}</strong><div>{{ note.detail }}</div></div>{% endfor %}
+    </section>
+
+    <section class="section" aria-label="Filtros">
+      <form class="row g-2" method="get" action="{{ url_for('fleet_checklists_home') }}">
+        <div class="col-6 col-lg-2"><label class="form-label small">Data</label><input class="form-control form-control-sm" type="date" name="date" value="{{ filters.date }}"></div>
+        <div class="col-6 col-lg-2"><label class="form-label small">Veículo</label><select class="form-select form-select-sm" name="vehicle"><option value="">Todos</option>{% for vehicle in vehicles %}<option value="{{ vehicle.vehicle_id }}" {% if filters.vehicle == vehicle.vehicle_id %}selected{% endif %}>{{ vehicle.plate }}</option>{% endfor %}</select></div>
+        <div class="col-6 col-lg-2"><label class="form-label small">Motorista</label><select class="form-select form-select-sm" name="driver"><option value="">Todos</option>{% for user in users %}<option value="{{ user.id }}" {% if filters.driver == user.id %}selected{% endif %}>{{ user.nome }}</option>{% endfor %}</select></div>
+        <div class="col-6 col-lg-2"><label class="form-label small">Rota</label><select class="form-select form-select-sm" name="route"><option value="">Todas</option>{% for event in events %}<option value="{{ event.event_id }}" {% if filters.route == event.event_id %}selected{% endif %}>{{ event.event_name or event.event_id }}</option>{% endfor %}</select></div>
+        <div class="col-6 col-lg-2"><label class="form-label small">Status</label><select class="form-select form-select-sm" name="status"><option value="">Todos</option>{% for value,label in checklist_statuses.items() %}<option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+        <div class="col-6 col-lg-2"><label class="form-label small">Severidade</label><select class="form-select form-select-sm" name="severity"><option value="">Todas</option>{% for value,label in occurrence_severities.items() %}<option value="{{ value }}" {% if filters.severity == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+        <div class="col-6 col-lg-2"><label class="form-label small">Empresa</label><select class="form-select form-select-sm" name="company"><option value="">Todas</option>{% for value in companies %}<option value="{{ value }}" {% if filters.company == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select></div>
+        <div class="col-6 col-lg-2"><label class="form-label small">Centro de custo</label><select class="form-select form-select-sm" name="cost_center"><option value="">Todos</option>{% for value in cost_centers %}<option value="{{ value }}" {% if filters.cost_center == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select></div>
+        <div class="col-12 col-lg-2 d-flex align-items-end gap-2"><button class="btn btn-dark w-100" type="submit">Filtrar</button><a class="btn btn-outline-secondary" href="{{ url_for('fleet_checklists_home') }}">Limpar</a></div>
+      </form>
+    </section>
+
+    <section class="section" id="novo">
+      <h2 class="section-title mb-3">Iniciar checklist</h2>
+      <form class="row g-3" method="post" action="{{ url_for('create_fleet_checklist') }}" id="new-checklist-form">
+        <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}">
+        <div class="col-md-4"><label class="form-label">Veículo</label><select class="form-select" name="vehicle_id" id="checklist-vehicle" required><option value="">Selecione</option>{% for vehicle in vehicles %}<option value="{{ vehicle.vehicle_id }}" data-type="{{ vehicle.vehicle_type }}" {% if selected_vehicle_id == vehicle.vehicle_id %}selected{% endif %}>{{ vehicle.plate }} · {{ vehicle.brand }} {{ vehicle.model }} · {{ vehicle.current_mileage or 0 }} km</option>{% endfor %}</select></div>
+        <div class="col-md-4"><label class="form-label">Modelo</label><select class="form-select" name="template_id" id="checklist-template" required><option value="">Selecione</option>{% for template in templates %}<option value="{{ template.id }}" data-vehicle-type="{{ template.vehicle_type }}">{{ template.name }} · v{{ template.version }} · {{ template.item_count }} itens</option>{% endfor %}</select></div>
+        <div class="col-md-4"><label class="form-label">Motorista responsável</label><select class="form-select" name="driver_id" required><option value="">Selecione</option>{% for user in users %}<option value="{{ user.id }}" {% if driver_only and user.id == current_user.id %}selected{% endif %}>{{ user.nome }}</option>{% endfor %}</select></div>
+        <div class="col-md-4"><label class="form-label">Rota ou evento</label><select class="form-select" name="route_id"><option value="">Sem vínculo</option>{% for event in events %}<option value="{{ event.event_id }}">{{ event.event_name or event.event_id }} · {{ event.event_date }}</option>{% endfor %}</select></div>
+        <div class="col-md-4"><label class="form-label">Operação</label><input class="form-control" name="operation_id" placeholder="Código da operação, se houver"></div>
+        <div class="col-md-4"><label class="form-label">Ordem de serviço</label><input class="form-control" name="service_order_id" placeholder="Opcional"></div>
+        <div class="col-12"><button class="btn btn-dark w-100" type="submit">Iniciar e salvar rascunho</button></div>
+      </form>
+    </section>
+
+    <section class="section" id="preenchimento">
+      {% if selected_checklist %}
+      {% set is_final = selected_checklist.status in ['concluido','concluido_com_ressalvas','reprovado','cancelado'] %}
+      <div class="d-flex flex-wrap justify-content-between gap-2 mb-3"><div><h2 class="section-title">{{ selected_template.name }} · v{{ selected_checklist.template_version }}</h2><div class="small muted">{{ selected_checklist.vehicle_plate or selected_checklist.vehicle_id }} · {{ selected_checklist.id }} · <span class="badge-state {{ 'badge-danger' if selected_checklist.status == 'reprovado' else 'badge-success' if selected_checklist.status == 'concluido' else 'badge-warning' }}">{{ checklist_statuses.get(selected_checklist.status, selected_checklist.status) }}</span></div></div><div class="draft-state" id="draft-state">{% if not is_final %}Rascunho no servidor{% else %}Registro final preservado{% endif %}</div></div>
+      <div class="stepper mb-3" role="tablist"><button class="step-button active" type="button" data-step="1">1. Dados</button><button class="step-button" type="button" data-step="2">2. Itens</button><button class="step-button" type="button" data-step="3">3. Fotos</button><button class="step-button" type="button" data-step="4">4. Confirmar</button></div>
+
+      <form id="checklist-form" method="post" action="{{ url_for('save_fleet_checklist_draft', checklist_id=selected_checklist.id) }}" data-draft-url="{{ url_for('save_fleet_checklist_draft', checklist_id=selected_checklist.id) }}" data-complete-url="{{ url_for('complete_fleet_checklist', checklist_id=selected_checklist.id) }}" data-final="{{ '1' if is_final else '0' }}">
+        <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}">
+        <div class="step-panel" data-panel="1">
+          <div class="row g-3">
+            <div class="col-6"><label class="form-label">Quilometragem de saída</label><input class="form-control" type="number" min="0" name="start_mileage" value="{{ selected_checklist.start_mileage if selected_checklist.start_mileage is not none else '' }}" {% if is_final %}readonly{% endif %}></div>
+            <div class="col-6"><label class="form-label">Quilometragem de retorno</label><input class="form-control" type="number" min="0" name="end_mileage" value="{{ selected_checklist.end_mileage if selected_checklist.end_mileage is not none else '' }}" {% if is_final %}readonly{% endif %}></div>
+            <div class="col-md-4"><label class="form-label">Combustível</label><select class="form-select" name="fuel_level" {% if is_final %}disabled{% endif %}><option value="">Não informado</option>{% for value in ['reserva','1/4','1/2','3/4','cheio'] %}<option value="{{ value }}" {% if selected_checklist.fuel_level == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select></div>
+            <div class="col-md-8"><label class="form-label">Local</label><div class="input-group"><input class="form-control" name="location_text" value="{{ selected_checklist.location_text }}" {% if is_final %}readonly{% endif %}><button class="btn btn-outline-secondary" type="button" id="location-button" {% if is_final %}disabled{% endif %}>Usar localização</button></div><input type="hidden" name="latitude" value="{{ selected_checklist.latitude or '' }}"><input type="hidden" name="longitude" value="{{ selected_checklist.longitude or '' }}"></div>
+            <div class="col-12"><label class="form-label">Observações gerais</label><textarea class="form-control" name="notes" rows="3" {% if is_final %}readonly{% endif %}>{{ selected_checklist.notes }}</textarea></div>
+          </div>
+        </div>
+        <div class="step-panel" data-panel="2" hidden>
+          {% for item in selected_items|sort(attribute='display_order') %}{% set answer = selected_responses.get(item.id, {}) %}
+          <article class="check-item {{ 'critical' if item.is_critical else '' }}" data-required="{{ '1' if item.is_required else '0' }}">
+            <div class="d-flex justify-content-between gap-2 mb-2"><div><strong>{{ item.title }}</strong><div class="small muted">{{ categories.get(item.category, item.category) }}{% if item.description %} · {{ item.description }}{% endif %}</div></div><div>{% if item.is_required %}<span class="badge-state">Obrigatório</span>{% endif %}{% if item.is_critical %}<span class="badge-state badge-danger">Crítico</span>{% endif %}</div></div>
+            {% if item.response_type == 'conformidade' %}<div class="touch-choice">{% for value,label in [('conforme','Conforme'),('atencao','Atenção'),('nao_conforme','Não conforme'),('nao_aplicavel','Não aplicável')] %}<div><input id="r-{{ item.id }}-{{ value }}" type="radio" name="response_{{ item.id }}" value="{{ value }}" {% if answer.response_value == value %}checked{% endif %} {% if is_final %}disabled{% endif %}><label for="r-{{ item.id }}-{{ value }}">{{ label }}</label></div>{% endfor %}</div>
+            {% elif item.response_type == 'sim_nao' %}<div class="touch-choice">{% for value,label in [('sim','Sim'),('nao','Não')] %}<div><input id="r-{{ item.id }}-{{ value }}" type="radio" name="response_{{ item.id }}" value="{{ value }}" {% if answer.response_value == value %}checked{% endif %} {% if is_final %}disabled{% endif %}><label for="r-{{ item.id }}-{{ value }}">{{ label }}</label></div>{% endfor %}</div>
+            {% elif item.response_type == 'numero' %}<input class="form-control" type="number" step="any" name="response_{{ item.id }}" value="{{ answer.response_value or '' }}" {% if is_final %}readonly{% endif %}>
+            {% elif item.response_type == 'selecao' %}<select class="form-select" name="response_{{ item.id }}" {% if is_final %}disabled{% endif %}><option value="">Selecione</option>{% for value in item.selection_options %}<option value="{{ value }}" {% if answer.response_value == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select>
+            {% elif item.response_type == 'confirmacao' %}<input class="form-control" name="response_{{ item.id }}" value="{{ answer.response_value or '' }}" placeholder="Nome ou confirmação" {% if is_final %}readonly{% endif %}>
+            {% elif item.response_type == 'foto' %}<input type="hidden" name="response_{{ item.id }}" value="{{ answer.response_value or 'evidencia' }}"><div class="notice">Anexe a foto na etapa 3 e vincule a este item.</div>
+            {% else %}<textarea class="form-control" name="response_{{ item.id }}" rows="2" {% if is_final %}readonly{% endif %}>{{ answer.response_value or '' }}</textarea>{% endif %}
+            <label class="form-label small mt-2">Observação{% if item.requires_note_on_failure %} obrigatória em falha{% endif %}</label><textarea class="form-control" name="note_{{ item.id }}" rows="2" {% if is_final %}readonly{% endif %}>{{ answer.note or '' }}</textarea>
+          </article>{% else %}<div class="empty">Este modelo não possui itens ativos.</div>{% endfor %}
+        </div>
+        <div class="step-panel" data-panel="3" hidden>
+          <div class="notice mb-3">Fotos escolhidas são reduzidas no navegador antes do envio. O rascunho local nunca inclui arquivos.</div>
+          <div class="d-flex flex-wrap gap-2">{% for evidence in selected_evidence %}<a href="{{ evidence.file_url }}" target="_blank" rel="noreferrer"><img class="evidence-thumb" src="{{ evidence.file_url }}" alt="{{ evidence.evidence_type }}"></a>{% else %}<span class="muted">Nenhuma evidência enviada.</span>{% endfor %}</div>
+        </div>
+        <div class="step-panel" data-panel="4" hidden>
+          <div class="notice mb-3">Revise todos os itens. Depois de concluído, o checklist e a versão utilizada ficam preservados.</div>
+          <label class="form-label">Nome para confirmação</label><input class="form-control" name="signature_name" value="{{ selected_checklist.signature_name }}" {% if is_final %}readonly{% endif %}>
+          {% if selected_checklist.checklist_type in ['saida','entrega_motorista'] %}<label class="form-label mt-3">Justificativa para substituir entrega aberta</label><input class="form-control" name="assignment_override_justification" placeholder="Somente com autorização administrativa" {% if is_final %}readonly{% endif %}>{% endif %}
+          <label class="form-label mt-3">Justificativa para correção de quilometragem</label><input class="form-control" name="mileage_correction_justification" placeholder="Somente quando houver correção administrativa" {% if is_final %}readonly{% endif %}>
+        </div>
+        {% if not is_final %}<div class="mobile-sticky d-flex gap-2"><button class="btn btn-outline-secondary flex-fill" type="submit">Salvar rascunho</button><button class="btn btn-dark flex-fill" type="submit" formaction="{{ url_for('complete_fleet_checklist', checklist_id=selected_checklist.id) }}" onclick="return confirm('Confirma a conclusão? Depois disso o registro ficará preservado.')">Concluir</button></div>{% endif %}
+      </form>
+
+      {% if not is_final %}<form class="row g-2 mt-4" method="post" enctype="multipart/form-data" action="{{ url_for('save_fleet_checklist_evidence', checklist_id=selected_checklist.id) }}" id="evidence-form">
+        <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}">
+        <div class="col-md-3"><label class="form-label">Tipo</label><select class="form-select" name="evidence_type"><option>Frente</option><option>Traseira</option><option>Lateral direita</option><option>Lateral esquerda</option><option>Painel</option><option>Hodômetro</option><option>Combustível</option><option>Pneus</option><option>Avarias</option><option>Não conformidade</option><option>Outras</option></select></div>
+        <div class="col-md-4"><label class="form-label">Item relacionado</label><select class="form-select" name="template_item_id"><option value="">Evidência geral</option>{% for item in selected_items %}<option value="{{ item.id }}">{{ item.title }}</option>{% endfor %}</select></div>
+        <div class="col-md-3"><label class="form-label">Foto</label><input class="form-control" type="file" name="evidence_file" id="evidence-file" accept="image/*" capture="environment" required></div>
+        <div class="col-md-2 d-flex align-items-end"><button class="btn btn-dark w-100" type="submit">Enviar foto</button></div>
+      </form>
+      {% if permissions['fleet.checklist.cancel'] or driver_only %}<form class="mt-3" method="post" action="{{ url_for('cancel_fleet_checklist', checklist_id=selected_checklist.id) }}"><input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}"><div class="input-group"><input class="form-control" name="cancellation_reason" placeholder="Motivo do cancelamento" required><button class="btn btn-outline-danger" type="submit">Cancelar checklist</button></div></form>{% endif %}{% endif %}
+      {% else %}<div class="empty">Inicie um checklist ou selecione um registro no histórico abaixo.</div>{% endif %}
+    </section>
+
+    <section class="section" id="historico"><h2 class="section-title mb-3">Histórico de checklists</h2>{% for item in dashboard.recent_checklists %}<div class="list-row"><div><a class="fw-semibold text-dark" href="{{ url_for('fleet_checklists_home', checklist=item.id) }}#preenchimento">{{ item.id }}</a><div class="small muted">{{ item.started_at[:16]|replace('T',' ') }}</div></div><div>{{ item.vehicle_plate or item.vehicle_id }} · {{ checklist_types.get(item.checklist_type, item.checklist_type) }}<div class="small muted">Versão {{ item.template_version }} · {{ item.driver_name }}</div></div><div><span class="badge-state {{ 'badge-danger' if item.status == 'reprovado' else 'badge-success' if item.status == 'concluido' else 'badge-warning' }}">{{ checklist_statuses.get(item.status, item.status) }}</span></div><div>{{ item.start_mileage or item.end_mileage or '—' }} km</div></div>{% else %}<div class="empty">Nenhum checklist encontrado.</div>{% endfor %}</section>
+
+    <section class="section" id="ocorrencias">
+      <h2 class="section-title mb-3">Ocorrências</h2>
+      {% if permissions['fleet.occurrence.create'] or driver_only %}<form class="row g-2 mb-4" method="post" action="{{ url_for('create_fleet_occurrence') }}"><input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}"><div class="col-md-3"><select class="form-select" name="vehicle_id" required><option value="">Veículo</option>{% for vehicle in vehicles %}<option value="{{ vehicle.vehicle_id }}">{{ vehicle.plate }}</option>{% endfor %}</select></div><div class="col-md-3"><select class="form-select" name="occurrence_type">{% for value,label in occurrence_types.items() %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></div><div class="col-md-2"><select class="form-select" name="severity">{% for value,label in occurrence_severities.items() %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></div><div class="col-md-4"><input class="form-control" name="title" placeholder="Título" required></div><div class="col-md-9"><textarea class="form-control" name="description" rows="2" placeholder="Descreva o fato observado" required></textarea></div><div class="col-md-3"><button class="btn btn-dark w-100" type="submit">Registrar ocorrência</button></div></form>{% endif %}
+      {% for item in occurrences|sort(attribute='created_at', reverse=true) %}{% if not item.deleted_at %}<div class="list-row"><div><strong>{{ item.occurrence_number }}</strong><div class="small muted">{{ item.occurrence_date }} · {{ item.vehicle_plate or item.vehicle_id }}</div></div><div>{{ item.title }}<div class="small muted">{{ item.description }}</div></div><div><span class="badge-state {{ 'badge-danger' if item.severity == 'critica' else 'badge-warning' }}">{{ occurrence_severities.get(item.severity, item.severity) }}</span><div class="small muted">{{ occurrence_statuses.get(item.status, item.status) }}</div></div><div class="d-flex flex-column gap-1">{% if permissions['fleet.occurrence.assign'] and item.status not in ['resolvida','cancelada'] %}<form method="post" action="{{ url_for('assign_fleet_occurrence', occurrence_id=item.id) }}"><input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}"><div class="input-group input-group-sm"><select class="form-select" name="assigned_user_id">{% for user in users %}<option value="{{ user.id }}">{{ user.nome }}</option>{% endfor %}</select><button class="btn btn-outline-secondary">Atribuir</button></div></form>{% endif %}{% if permissions['fleet.occurrence.resolve'] and item.status not in ['resolvida','cancelada'] %}<form method="post" action="{{ url_for('resolve_fleet_occurrence', occurrence_id=item.id) }}"><input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}"><div class="input-group input-group-sm"><input class="form-control" name="resolution" placeholder="Resolução" required><button class="btn btn-outline-success">Resolver</button></div></form>{% endif %}</div></div>{% endif %}{% else %}<div class="empty">Nenhuma ocorrência no filtro atual.</div>{% endfor %}
+    </section>
+
+    <section class="section" id="bloqueios"><h2 class="section-title mb-3">Bloqueios operacionais</h2>{% if permissions['fleet.vehicle.block'] %}<form class="row g-2 mb-4" method="post" id="manual-block-form"><input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}"><div class="col-md-3"><select class="form-select" id="block-vehicle" required><option value="">Veículo</option>{% for vehicle in vehicles %}<option value="{{ vehicle.vehicle_id }}">{{ vehicle.plate }}</option>{% endfor %}</select></div><div class="col-md-3"><select class="form-select" name="block_type">{% for value,label in block_types.items() %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></div><div class="col-md-4"><input class="form-control" name="reason" placeholder="Motivo do bloqueio" required></div><div class="col-md-2"><button class="btn btn-dark w-100" type="submit">Bloquear</button></div></form>{% endif %}{% for item in blocks|sort(attribute='blocked_at', reverse=true) %}{% if not item.deleted_at %}<div class="list-row"><div><strong>{{ item.vehicle_plate or item.vehicle_id }}</strong><div class="small muted">{{ item.blocked_at[:16]|replace('T',' ') }}</div></div><div>{{ item.reason }}<div class="small muted">{{ block_types.get(item.block_type, item.block_type) }}</div></div><div><span class="badge-state {{ 'badge-danger' if item.status in ['ativo','aguardando_avaliacao'] else 'badge-success' }}">{{ item.status }}</span></div><div>{% if permissions['fleet.vehicle.release'] and item.status in ['ativo','aguardando_avaliacao'] %}<form method="post" action="{{ url_for('release_vehicle_operational_block', block_id=item.id) }}"><input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}"><label class="form-check small"><input class="form-check-input" type="checkbox" name="resolution_confirmed" value="1" required> Resolução confirmada</label><div class="input-group input-group-sm"><input class="form-control" name="release_reason" placeholder="Justificativa" required><button class="btn btn-outline-success">Liberar</button></div></form>{% endif %}</div></div>{% endif %}{% else %}<div class="empty">Nenhum bloqueio registrado.</div>{% endfor %}</section>
+
+    <section class="section" id="entregas"><h2 class="section-title mb-3">Entrega e devolução</h2>{% for item in assignments|sort(attribute='delivered_at', reverse=true) %}{% if not item.deleted_at %}<div class="list-row"><div><strong>{{ item.vehicle_plate or item.vehicle_id }}</strong><div class="small muted">{{ item.delivered_at[:16]|replace('T',' ') }}</div></div><div>{{ item.driver_name or item.driver_id }}<div class="small muted">Rota {{ item.route_id or 'sem vínculo' }} · {{ item.start_mileage }} km</div></div><div><span class="badge-state {{ 'badge-warning' if item.status == 'entregue' else 'badge-success' }}">{{ item.status }}</span></div><div>{% if item.returned_at %}Devolvido {{ item.returned_at[:16]|replace('T',' ') }} · {{ item.end_mileage }} km{% else %}Retorno pendente{% endif %}</div></div>{% endif %}{% else %}<div class="empty">Nenhuma entrega registrada.</div>{% endfor %}</section>
+
+    {% if permissions['fleet.checklist.templates.manage'] %}<section class="section" id="modelos"><h2 class="section-title mb-3">Modelos configuráveis</h2><form class="row g-2 mb-4" method="post" action="{{ url_for('save_fleet_checklist_template') }}"><input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}"><div class="col-md-3"><select class="form-select" name="template_id"><option value="">Novo modelo</option>{% for template in templates %}<option value="{{ template.id }}">Nova versão de {{ template.name }} v{{ template.version }}</option>{% endfor %}</select></div><div class="col-md-3"><input class="form-control" name="name" placeholder="Nome do modelo"></div><div class="col-md-2"><select class="form-select" name="checklist_type">{% for value,label in checklist_types.items() %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></div><div class="col-md-2"><input class="form-control" name="vehicle_type" value="geral" placeholder="Tipo de veículo"></div><div class="col-md-2"><button class="btn btn-dark w-100">Salvar versão</button></div><div class="col-12"><input class="form-control" name="description" placeholder="Descrição"></div></form>
+      {% for template in templates %}<details class="config"><summary>{{ template.name }} · v{{ template.version }} · {{ template.item_count }} itens</summary><form class="row g-2 mt-3" method="post" action="{{ url_for('save_fleet_checklist_template_item', template_id=template.id) }}"><input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}"><div class="col-md-3"><input class="form-control" name="title" placeholder="Título do item" required></div><div class="col-md-2"><select class="form-select" name="category">{% for value,label in categories.items() %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></div><div class="col-md-2"><select class="form-select" name="response_type">{% for value,label in response_types.items() %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></div><div class="col-md-2"><input class="form-control" name="selection_options" placeholder="Opção A|Opção B"></div><div class="col-md-3"><button class="btn btn-dark w-100">Adicionar em nova versão se necessário</button></div><div class="col-12 d-flex flex-wrap gap-3 small"><label><input type="checkbox" name="is_required" value="1"> Obrigatório</label><label><input type="checkbox" name="is_critical" value="1"> Crítico</label><label><input type="checkbox" name="requires_photo" value="1"> Exige foto</label><label><input type="checkbox" name="requires_note_on_failure" value="1"> Exige observação na falha</label><label><input type="checkbox" name="creates_occurrence_on_failure" value="1"> Cria ocorrência</label><label><input type="checkbox" name="blocks_vehicle_on_failure" value="1"> Bloqueia veículo</label></div></form><div class="mt-3">{% for item in template_items if item.template_id == template.id and not item.deleted_at %}<div class="d-flex justify-content-between gap-2 border-top py-2"><span>{{ item.display_order }}. {{ item.title }} <span class="small muted">{{ categories.get(item.category, item.category) }}</span></span><form method="post" action="{{ url_for('archive_fleet_checklist_template_item', template_id=template.id, item_id=item.id) }}"><input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-danger">Arquivar</button></form></div>{% endfor %}</div></details>{% endfor %}
+    </section>
+
+    <section class="section" id="motoristas"><h2 class="section-title mb-3">Autorizações de motoristas</h2><form class="row g-2" method="post" action="{{ url_for('save_fleet_driver_authorization') }}"><input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}"><div class="col-md-3"><select class="form-select" name="user_id" required><option value="">Usuário ativo</option>{% for user in users %}<option value="{{ user.id }}">{{ user.nome }}</option>{% endfor %}</select></div><div class="col-md-4"><select class="form-select" name="authorized_vehicle_ids" multiple>{% for vehicle in vehicles %}<option value="{{ vehicle.vehicle_id }}">{{ vehicle.plate }} · {{ vehicle.vehicle_type }}</option>{% endfor %}</select></div><div class="col-md-2"><input class="form-control" name="authorized_vehicle_types" placeholder="Tipos separados por |"></div><div class="col-md-2"><select class="form-select" name="status"><option value="ativo">Ativo</option><option value="inativo">Inativo</option></select></div><div class="col-md-1"><button class="btn btn-dark w-100">Salvar</button></div><div class="col-12 small muted">Sem seleção de veículo ou tipo, o usuário fica autorizado para toda a frota. O cadastro de usuário existente é reutilizado.</div></form></section>{% endif %}
+  </main>
+
+  <script>
+    const checklistForm = document.getElementById('checklist-form');
+    const draftState = document.getElementById('draft-state');
+    const localKey = checklistForm ? `sannygold:fleet-draft:{{ selected_checklist.id if selected_checklist else '' }}` : '';
+    document.querySelectorAll('.step-button').forEach(button => button.addEventListener('click', () => {
+      document.querySelectorAll('.step-button').forEach(item => item.classList.toggle('active', item === button));
+      document.querySelectorAll('.step-panel').forEach(panel => panel.hidden = panel.dataset.panel !== button.dataset.step);
+    }));
+    let saveTimer;
+    function safeDraftPayload() {
+      const payload = {};
+      if (!checklistForm) return payload;
+      new FormData(checklistForm).forEach((value, key) => { if (!(value instanceof File) && key !== '{{ csrf_field_name }}') payload[key] = String(value); });
+      return payload;
+    }
+    async function autoSave() {
+      if (!checklistForm || checklistForm.dataset.final === '1') return;
+      const payload = safeDraftPayload();
+      localStorage.setItem(localKey, JSON.stringify({ payload, savedAt: new Date().toISOString(), submitted: false }));
+      draftState.textContent = 'Rascunho local aguardando envio';
+      try {
+        const response = await fetch(checklistForm.dataset.draftUrl, { method:'POST', body:new FormData(checklistForm), headers:{ Accept:'application/json' } });
+        const result = await response.json();
+        if (!response.ok || !result.ok) throw new Error(result.error || 'Falha ao salvar');
+        localStorage.removeItem(localKey);
+        draftState.textContent = `Rascunho salvo no servidor · ${new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'})}`;
+      } catch (_error) { draftState.textContent = 'Sem conexão: rascunho apenas neste aparelho, ainda não enviado'; }
+    }
+    checklistForm?.addEventListener('input', () => { clearTimeout(saveTimer); saveTimer = setTimeout(autoSave, 1200); });
+    checklistForm?.addEventListener('change', () => { clearTimeout(saveTimer); saveTimer = setTimeout(autoSave, 500); });
+    checklistForm?.addEventListener('submit', () => clearTimeout(saveTimer));
+    window.addEventListener('offline', () => { if (draftState) draftState.textContent = 'Sem conexão: alterações ainda não foram enviadas'; });
+    const savedLocal = localKey && localStorage.getItem(localKey);
+    if (checklistForm?.dataset.final === '1' && localKey) localStorage.removeItem(localKey);
+    else if (savedLocal) draftState.textContent = 'Existe rascunho local não enviado neste aparelho';
+
+    document.getElementById('location-button')?.addEventListener('click', () => {
+      if (!navigator.geolocation) return alert('Localização não disponível neste navegador.');
+      navigator.geolocation.getCurrentPosition(position => {
+        checklistForm.elements.latitude.value = position.coords.latitude.toFixed(6);
+        checklistForm.elements.longitude.value = position.coords.longitude.toFixed(6);
+        checklistForm.elements.location_text.value = 'Localização autorizada pelo usuário';
+        autoSave();
+      }, () => alert('A localização não foi autorizada. O checklist pode continuar sem ela.'), { enableHighAccuracy:false, timeout:8000 });
+    });
+
+    const vehicleSelect = document.getElementById('checklist-vehicle');
+    const templateSelect = document.getElementById('checklist-template');
+    function filterTemplates() {
+      const type = vehicleSelect?.selectedOptions[0]?.dataset.type || '';
+      [...(templateSelect?.options || [])].forEach(option => { if (!option.value) return; const expected=(option.dataset.vehicleType||'geral').toLowerCase(); option.hidden = !['','geral','todos'].includes(expected) && expected !== type.toLowerCase(); });
+      if (templateSelect?.selectedOptions[0]?.hidden) templateSelect.value='';
+    }
+    vehicleSelect?.addEventListener('change', filterTemplates); filterTemplates();
+
+    document.getElementById('manual-block-form')?.addEventListener('submit', event => {
+      const vehicleId = document.getElementById('block-vehicle').value;
+      if (!vehicleId) { event.preventDefault(); return; }
+      event.currentTarget.action = `/fleet/vehicles/${encodeURIComponent(vehicleId)}/operational-blocks`;
+    });
+
+    document.getElementById('evidence-file')?.addEventListener('change', async event => {
+      const file = event.target.files[0];
+      if (!file || !file.type.startsWith('image/') || file.size < 900000) return;
+      const bitmap = await createImageBitmap(file); const max=1600; const scale=Math.min(1,max/Math.max(bitmap.width,bitmap.height));
+      const canvas=document.createElement('canvas'); canvas.width=Math.round(bitmap.width*scale); canvas.height=Math.round(bitmap.height*scale);
+      canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);
+      const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.82)); if (!blob) return;
+      const transfer=new DataTransfer(); transfer.items.add(new File([blob], file.name.replace(/\.[^.]+$/,'.jpg'), {type:'image/jpeg'})); event.target.files=transfer.files;
+    });
+  </script>
+</body>
+</html>

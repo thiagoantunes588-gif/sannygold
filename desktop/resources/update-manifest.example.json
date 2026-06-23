@@ -1,0 +1,14 @@
+{
+  "channel": "stable",
+  "latestVersion": "2.0.0",
+  "publishedAt": "2026-06-07T00:00:00.000Z",
+  "notes": "Manifesto exemplo para publicar atualizacoes via provedor generic do electron-updater.",
+  "windows": {
+    "file": "SannySystem-Setup-2.0.0.exe",
+    "sha512": ""
+  },
+  "mac": {
+    "file": "SannySystem-2.0.0-arm64.dmg",
+    "sha512": ""
+  }
+}

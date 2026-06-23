@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 from app.services.sqlite_migration import MigrationOptions, migrate_json_to_sqlite
+from app.services.sqlite_store import load_dict_from_sqlite, load_list_from_sqlite, save_dict_to_sqlite, save_list_to_sqlite
 
 
 class SqliteMigrationTest(unittest.TestCase):
@@ -68,6 +69,22 @@ class SqliteMigrationTest(unittest.TestCase):
         self.assertTrue(self.report_path.exists())
         self.assertEqual(report["summary"]["errors"], 0)
         self.assertGreaterEqual(report["summary"]["imported"], 1)
+
+    def test_sqlite_store_reads_and_writes_list_and_document_payloads(self):
+        clients_path = self.data_dir / "clients.json"
+        settings_path = self.data_dir / "settings.json"
+        clients = [{"client_id": "CLI-010", "customer_name": "Cliente SQLite", "phone": "21988887777"}]
+        settings = {"cost_per_km": 4.25, "last_backup_file": "backup.zip"}
+
+        self.assertTrue(save_list_to_sqlite(self.db_path, clients_path, clients))
+        self.assertTrue(save_dict_to_sqlite(self.db_path, settings_path, settings))
+
+        self.assertEqual(load_list_from_sqlite(self.db_path, clients_path), clients)
+        self.assertEqual(load_dict_from_sqlite(self.db_path, settings_path), settings)
+
+        updated_clients = [{"client_id": "CLI-011", "customer_name": "Cliente Novo"}]
+        self.assertTrue(save_list_to_sqlite(self.db_path, clients_path, updated_clients))
+        self.assertEqual(load_list_from_sqlite(self.db_path, clients_path), updated_clients)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,24 @@
+{
+  "name": "SannyGold Sistema",
+  "short_name": "SannyGold",
+  "description": "Sistema interno operacional, financeiro e administrativo da SannyGold.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f7f4ed",
+  "theme_color": "#c9a227",
+  "icons": [
+    {
+      "src": "/static/sannygold-logo.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/sannygold-logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}

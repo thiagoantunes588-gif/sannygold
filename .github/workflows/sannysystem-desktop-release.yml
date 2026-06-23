@@ -1,0 +1,93 @@
+name: SannySystem Desktop Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "sannysystem-v*"
+
+jobs:
+  windows:
+    name: Windows installer
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate
+        run: npm run check
+
+      - name: Build Windows EXE
+        run: npm run build:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SANNYSYSTEM_UPDATE_URL: ${{ vars.SANNYSYSTEM_UPDATE_URL }}
+
+      - name: Checksums
+        run: npm run release:checksums
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: SannySystem-Windows
+          path: |
+            desktop/release/*.exe
+            desktop/release/*.blockmap
+            desktop/release/latest.yml
+            desktop/release/CHECKSUMS-SHA256.txt
+
+  mac:
+    name: Mac DMG
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate
+        run: npm run check
+
+      - name: Build Mac DMG
+        run: npm run build:mac
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SANNYSYSTEM_UPDATE_URL: ${{ vars.SANNYSYSTEM_UPDATE_URL }}
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Checksums
+        run: npm run release:checksums
+
+      - name: Upload Mac artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: SannySystem-Mac
+          path: |
+            desktop/release/*.dmg
+            desktop/release/*.blockmap
+            desktop/release/latest-mac.yml
+            desktop/release/CHECKSUMS-SHA256.txt

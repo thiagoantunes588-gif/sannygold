@@ -5,14 +5,14 @@ import os
 import tempfile
 import unittest
 import zipfile
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 from werkzeug.security import generate_password_hash
 
 os.environ.setdefault("ROTAFLOW_STORAGE_DIR", tempfile.mkdtemp(prefix="sannygold-core-flow-test-"))
 os.environ.setdefault("SANNYGOLD_ADMIN_EMAIL", "admin@sannygold.local")
-os.environ.setdefault("SANNYGOLD_ADMIN_PASSWORD", "Sanny123Gold")
+os.environ.setdefault("SANNYGOLD_ADMIN_PASSWORD", "troque-esta-senha")
 
 from app.main import (  # noqa: E402
     AUDIT_LOG_PATH,
@@ -27,10 +27,12 @@ from app.main import (  # noqa: E402
     ROUTE_JSON_PATH,
     ROUTE_PDF_PATH,
     SETTINGS_PATH,
+    UPLOADS_DIR,
     USERS_PATH,
     VEHICLES_PATH,
     app,
     ensure_storage_dirs,
+    run_automatic_backup_if_due,
 )
 
 
@@ -372,6 +374,11 @@ class CoreBusinessFlowsTest(unittest.TestCase):
 
     def test_10_geracao_de_backup(self):
         self.login()
+        ROUTE_PDF_PATH.parent.mkdir(parents=True, exist_ok=True)
+        ROUTE_PDF_PATH.write_bytes(b"%PDF-1.4\n% teste\n")
+        uploads_assets = UPLOADS_DIR / "assets"
+        uploads_assets.mkdir(parents=True, exist_ok=True)
+        (uploads_assets / "anexo-teste.txt").write_text("Anexo falso para backup.\n", encoding="utf-8")
 
         response = self.client.post("/backup/generate", follow_redirects=True)
         backup_files = sorted(BACKUPS_DIR.glob("sannygold-data-backup-*.zip"))
@@ -379,9 +386,149 @@ class CoreBusinessFlowsTest(unittest.TestCase):
         self.assertIn("Backup gerado", response.get_data(as_text=True))
         self.assertTrue(backup_files)
         with zipfile.ZipFile(backup_files[-1]) as archive:
-            self.assertIn("manifest.json", archive.namelist())
-            self.assertIn("data/clients.json", archive.namelist())
+            names = archive.namelist()
+            self.assertIn("manifest.json", names)
+            self.assertIn("config/backup-config.json", names)
+            self.assertIn("config/runtime-config.json", names)
+            self.assertIn("data/", names)
+            self.assertIn("preview/", names)
+            self.assertIn("uploads/", names)
+            self.assertIn("data/sannygold.db", names)
+            self.assertIn("data/clients.json", names)
+            self.assertIn("preview/route-plan.pdf", names)
+            self.assertIn("uploads/assets/anexo-teste.txt", names)
+            self.assertFalse(any(name.startswith("backups/") for name in names))
+            self.assertFalse(any(name.startswith("logs/") for name in names))
+            self.assertFalse(any(name.endswith(".env") or "/.env" in name for name in names))
+            manifest = json.loads(archive.read("manifest.json").decode("utf-8"))
+            runtime_config = json.loads(archive.read("config/runtime-config.json").decode("utf-8"))
+            self.assertEqual(manifest["app"], "SannyGold")
+            self.assertEqual(manifest["backup_format"], "sannygold-data-backup-v1")
+            self.assertNotIn("SANNYGOLD_SECRET_KEY", runtime_config)
+            self.assertNotIn("SANNYGOLD_ADMIN_PASSWORD", runtime_config)
         self.assertTrue(self.audit_entries(action="create", module="backup"))
+
+    def test_backup_copia_para_dropbox_quando_configurado(self):
+        self.login()
+        old_value = os.environ.get("DROPBOX_BACKUP_DIR")
+        with tempfile.TemporaryDirectory(prefix="sannygold-dropbox-test-") as dropbox_root:
+            dropbox_dir = Path(dropbox_root) / "Backups"
+            dropbox_dir.mkdir(parents=True, exist_ok=True)
+            os.environ["DROPBOX_BACKUP_DIR"] = str(dropbox_dir)
+            try:
+                response = self.client.post("/backup/generate", follow_redirects=True)
+                backup_files = sorted(BACKUPS_DIR.glob("sannygold-data-backup-*.zip"))
+                copied_files = sorted(dropbox_dir.glob("sannygold-data-backup-*.zip"))
+                settings = read_json(SETTINGS_PATH)
+            finally:
+                if old_value is None:
+                    os.environ.pop("DROPBOX_BACKUP_DIR", None)
+                else:
+                    os.environ["DROPBOX_BACKUP_DIR"] = old_value
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(backup_files)
+        self.assertTrue(copied_files)
+        self.assertEqual(copied_files[-1].name, backup_files[-1].name)
+        self.assertEqual(settings.get("last_backup_copy_file"), backup_files[-1].name)
+        self.assertEqual(settings.get("last_backup_copy_path"), str(copied_files[-1]))
+        self.assertFalse(settings.get("last_backup_copy_warning"))
+        self.assertTrue(self.audit_entries(action="copy", module="backup"))
+
+    def test_backup_local_nao_depende_de_dropbox_inexistente(self):
+        self.login()
+        old_value = os.environ.get("DROPBOX_BACKUP_DIR")
+        with tempfile.TemporaryDirectory(prefix="sannygold-dropbox-missing-") as dropbox_root:
+            missing_dropbox = Path(dropbox_root) / "Backups"
+            os.environ["DROPBOX_BACKUP_DIR"] = str(missing_dropbox)
+            try:
+                response = self.client.post("/backup/generate", follow_redirects=True)
+                backup_files = sorted(BACKUPS_DIR.glob("sannygold-data-backup-*.zip"))
+                settings = read_json(SETTINGS_PATH)
+                missing_exists = missing_dropbox.exists()
+            finally:
+                if old_value is None:
+                    os.environ.pop("DROPBOX_BACKUP_DIR", None)
+                else:
+                    os.environ["DROPBOX_BACKUP_DIR"] = old_value
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(backup_files)
+        self.assertFalse(missing_exists)
+        self.assertIn("Pasta Dropbox não encontrada", settings.get("last_backup_copy_warning", ""))
+        self.assertIn("backup gerado", response.get_data(as_text=True).lower())
+        self.assertTrue(self.audit_entries(action="copy_warning", module="backup"))
+
+    def test_admin_consegue_testar_pasta_dropbox(self):
+        self.login()
+        old_value = os.environ.get("DROPBOX_BACKUP_DIR")
+        with tempfile.TemporaryDirectory(prefix="sannygold-dropbox-test-ok-") as dropbox_root:
+            dropbox_dir = Path(dropbox_root) / "Backups"
+            dropbox_dir.mkdir(parents=True, exist_ok=True)
+            os.environ["DROPBOX_BACKUP_DIR"] = str(dropbox_dir)
+            try:
+                response = self.client.post("/backup/dropbox/test", follow_redirects=True)
+                temp_files = list(dropbox_dir.glob(".sannygold-backup-test-*.tmp"))
+            finally:
+                if old_value is None:
+                    os.environ.pop("DROPBOX_BACKUP_DIR", None)
+                else:
+                    os.environ["DROPBOX_BACKUP_DIR"] = old_value
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Pasta Dropbox testada com sucesso", response.get_data(as_text=True))
+        self.assertFalse(temp_files)
+
+    def test_admin_consegue_testar_restauracao_sem_alterar_dados_reais(self):
+        self.login()
+        CLIENTS_PATH.write_text('[{"client_id": "ANTES"}]', encoding="utf-8")
+        self.client.post("/backup/generate", follow_redirects=True)
+        CLIENTS_PATH.write_text('[{"client_id": "DEPOIS"}]', encoding="utf-8")
+
+        response = self.client.post("/backup/latest/test-restore", follow_redirects=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Teste de restauração concluído", response.get_data(as_text=True))
+        self.assertIn("DEPOIS", CLIENTS_PATH.read_text(encoding="utf-8"))
+        self.assertTrue(self.audit_entries(action="validate", module="backup"))
+
+    def test_admin_configura_agendamento_de_backup(self):
+        self.login()
+        response = self.client.post(
+            "/backup/schedule",
+            data={"automatic_backup_enabled": "1", "automatic_backup_time": "21:30"},
+            follow_redirects=True,
+        )
+        settings = read_json(SETTINGS_PATH)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(settings.get("automatic_backup_enabled"))
+        self.assertEqual(settings.get("automatic_backup_time"), "21:30")
+        self.assertIn("Agendamento de backup atualizado", response.get_data(as_text=True))
+        self.assertTrue(self.audit_entries(action="save", module="backup", target_id="automatic_schedule"))
+
+    def test_backup_automatico_roda_uma_vez_por_dia(self):
+        self.login()
+        settings = read_json(SETTINGS_PATH)
+        settings["automatic_backup_enabled"] = True
+        settings["automatic_backup_time"] = "08:00"
+        settings["last_automatic_backup_attempt_date"] = "2026-05-25"
+        write_json(SETTINGS_PATH, settings)
+
+        first = run_automatic_backup_if_due(now=datetime(2026, 5, 26, 8, 1))
+        backup_files_after_first = sorted(BACKUPS_DIR.glob("sannygold-data-backup-*.zip"))
+        second = run_automatic_backup_if_due(now=datetime(2026, 5, 26, 8, 2))
+        backup_files_after_second = sorted(BACKUPS_DIR.glob("sannygold-data-backup-*.zip"))
+        settings = read_json(SETTINGS_PATH)
+
+        self.assertTrue(first["ran"])
+        self.assertEqual(first["status"], "sucesso")
+        self.assertFalse(second["ran"])
+        self.assertEqual(len(backup_files_after_first), len(backup_files_after_second))
+        self.assertEqual(settings.get("last_automatic_backup_attempt_date"), "2026-05-26")
+        self.assertEqual(settings.get("last_automatic_backup_status"), "sucesso")
+        self.assertTrue(settings.get("last_automatic_backup_file"))
+        self.assertTrue(self.audit_entries(action="automatic", module="backup"))
 
     def test_11_registro_de_auditoria_em_acao_critica(self):
         self.login()
@@ -402,8 +549,10 @@ class CoreBusinessFlowsTest(unittest.TestCase):
         html = response.get_data(as_text=True)
 
         self.assertIn("Acesso restrito para o seu perfil", html)
+        mobile_access = self.client.get("/admin/acesso-celular", follow_redirects=True)
+        self.assertIn("Acesso restrito para o seu perfil", mobile_access.get_data(as_text=True))
         denied = self.audit_entries(action="access_denied", module="permissions", target_id="settings.manage")
-        self.assertTrue(denied)
+        self.assertGreaterEqual(len(denied), 2)
         self.assertEqual(denied[-1]["user_email"], "operacao@sannygold.local")
 
     def test_13_duplicar_locacao_cria_novo_evento_sem_alterar_original(self):

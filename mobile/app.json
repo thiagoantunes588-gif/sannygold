@@ -1,0 +1,52 @@
+{
+  "expo": {
+    "name": "SannySystem Operação",
+    "slug": "sannysystem-operacao",
+    "scheme": "sannysystem",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.sannygold.sannysystem.mobile",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Usado para anexar fotos às ordens de serviço.",
+        "NSLocationWhenInUseUsageDescription": "Usado para registrar GPS no check-in e check-out.",
+        "NSFaceIDUsageDescription": "Usado para liberar login biométrico no aplicativo."
+      }
+    },
+    "android": {
+      "package": "com.sannygold.sannysystem.mobile",
+      "permissions": [
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "POST_NOTIFICATIONS",
+        "USE_BIOMETRIC"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permitir que o SannySystem registre fotos da operação."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Permitir que o SannySystem registre GPS no check-in e check-out."
+        }
+      ],
+      "expo-notifications"
+    ],
+    "extra": {
+      "defaultApiUrl": "http://127.0.0.1:3000/api",
+      "eas": {
+        "projectId": ""
+      }
+    }
+  }
+}

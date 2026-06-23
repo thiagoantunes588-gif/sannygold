@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SannySystem Recovery</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="recovery-shell">
+      <header class="recovery-header">
+        <div class="brand">
+          <div class="brand-mark">S</div>
+          <div>
+            <h1>SannySystem</h1>
+            <p id="recoveryVersion">Recovery mode</p>
+          </div>
+        </div>
+        <div class="button-row">
+          <button id="restartNormalButton" type="button">Reiniciar</button>
+          <button id="restartSafeButton" type="button">Safe mode</button>
+        </div>
+      </header>
+
+      <section class="recovery-grid">
+        <section class="panel">
+          <h2>Inicialização interrompida</h2>
+          <p id="recoveryReason" class="recovery-reason"></p>
+          <div class="button-row recovery-actions">
+            <button id="openLogsButton" type="button">Abrir logs</button>
+            <button id="openDataButton" type="button">Abrir dados</button>
+            <button id="reloadDiagnosticsButton" type="button">Atualizar diagnóstico</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Diagnóstico</h2>
+          <pre id="diagnosticsOutput">Carregando...</pre>
+        </section>
+      </section>
+    </main>
+    <script src="./recovery.js"></script>
+  </body>
+</html>

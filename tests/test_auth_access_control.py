@@ -9,7 +9,7 @@ from werkzeug.security import generate_password_hash
 
 os.environ["ROTAFLOW_STORAGE_DIR"] = tempfile.mkdtemp(prefix="sannygold-auth-test-")
 os.environ["SANNYGOLD_ADMIN_EMAIL"] = "admin@sannygold.local"
-os.environ["SANNYGOLD_ADMIN_PASSWORD"] = "Sanny123Gold"
+os.environ["SANNYGOLD_ADMIN_PASSWORD"] = "troque-esta-senha"
 
 from app.main import AUDIT_LOG_PATH, LOGIN_ATTEMPTS, USERS_PATH, app, ensure_storage_dirs, has_permission, invitation_url, password_reset_url  # noqa: E402
 from app.security import is_production_environment, validate_secret_key_value  # noqa: E402
@@ -25,7 +25,7 @@ class AuthAccessControlTest(unittest.TestCase):
                         "id": "USR-001",
                         "nome": "Administrador SannyGold",
                         "email": "admin@sannygold.local",
-                        "senha_hash": generate_password_hash("Sanny123Gold", method="pbkdf2:sha256"),
+                        "senha_hash": generate_password_hash("troque-esta-senha", method="pbkdf2:sha256"),
                         "status": "ativo",
                         "role": "admin",
                         "must_change_password": True,
@@ -42,7 +42,7 @@ class AuthAccessControlTest(unittest.TestCase):
         LOGIN_ATTEMPTS.clear()
         self.client = app.test_client()
 
-    def login(self, email="admin@sannygold.local", password="Sanny123Gold"):
+    def login(self, email="admin@sannygold.local", password="troque-esta-senha"):
         return self.client.post(
             "/auth/login",
             data={"email": email, "password": password},
@@ -175,7 +175,7 @@ class AuthAccessControlTest(unittest.TestCase):
 
         response = self.client.post(
             "/auth/login",
-            data={"email": "admin@sannygold.local", "password": "Sanny123Gold"},
+            data={"email": "admin@sannygold.local", "password": "troque-esta-senha"},
             follow_redirects=True,
         )
 
@@ -275,9 +275,10 @@ class AuthAccessControlTest(unittest.TestCase):
         self.assertIn('id="events-tab"', financial)
         self.assertIn("Recebimentos", financial)
         self.assertIn("Painel Financeiro", financial)
+        self.assertIn('id="fleet-tab"', financial)
+        self.assertIn("Documentos da frota", financial)
         self.assertNotIn("Ordens de Serviço", financial)
         self.assertNotIn('id="operations-tab"', financial)
-        self.assertNotIn('id="fleet-tab"', financial)
         forbidden_route = self.client.post("/generate", follow_redirects=True)
         self.assertIn("Acesso restrito para o seu perfil", forbidden_route.get_data(as_text=True))
 
@@ -468,7 +469,7 @@ class AuthAccessControlTest(unittest.TestCase):
 
         response = self.client.post(
             "/account/password",
-            data={"current_password": "Sanny123Gold", "new_password": "NovaSenha2026"},
+            data={"current_password": "troque-esta-senha", "new_password": "NovaSenha2026"},
             follow_redirects=True,
         )
         users = json.loads(USERS_PATH.read_text(encoding="utf-8"))

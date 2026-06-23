@@ -30,7 +30,7 @@ class HelpAssistantTest(unittest.TestCase):
                         "id": "USR-001",
                         "nome": "Administrador SannyGold",
                         "email": "admin@sannygold.local",
-                        "senha_hash": generate_password_hash("Sanny123Gold", method="pbkdf2:sha256"),
+                        "senha_hash": generate_password_hash("troque-esta-senha", method="pbkdf2:sha256"),
                         "status": "ativo",
                         "role": "admin",
                         "must_change_password": False,
@@ -62,7 +62,7 @@ class HelpAssistantTest(unittest.TestCase):
         self.client = app.test_client()
         self.client.post(
             "/auth/login",
-            data={"email": "admin@sannygold.local", "password": "Sanny123Gold"},
+            data={"email": "admin@sannygold.local", "password": "troque-esta-senha"},
             follow_redirects=True,
         )
 

@@ -1,0 +1,12 @@
+Instale o Sistema SannyGold para operação local com backup seguro no Dropbox.
+
+O Dropbox será usado apenas para backups e instaladores.
+O banco ativo do sistema ficará protegido no computador.
+
+Local recomendado da instalação:
+%LOCALAPPDATA%\SannyGold Sistema
+
+Local esperado para backups externos:
+%USERPROFILE%\Dropbox\Sistema SannyGold\Backups
+
+Não instale nem mova a pasta data, uploads, preview ou sannygold.db para dentro do Dropbox.

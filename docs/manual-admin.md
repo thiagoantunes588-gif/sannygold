@@ -69,6 +69,28 @@ Use a auditoria para responder perguntas como:
 3. Clique em `Gerar backup agora`.
 4. Baixe o ultimo backup se for fazer manutencao, migracao ou grande alteracao.
 
+Se a empresa usa Dropbox no computador servidor:
+
+1. Crie uma pasta exclusiva para backups, por exemplo `/Users/thiago/Dropbox/Sistema SannyGold/Backups`.
+2. Configure `DROPBOX_BACKUP_DIR` no arquivo `.env.local`.
+3. Reinicie o sistema.
+4. Clique em `Testar pasta Dropbox`.
+5. Gere um backup e confira o campo `Ultima copia` no painel.
+
+O Dropbox recebe apenas arquivos `.zip` ja prontos. O banco ativo e os arquivos de trabalho continuam fora do Dropbox.
+
+Se aparecer aviso de pasta nao encontrada, o backup local continua valido. Corrija o caminho, crie a pasta no Dropbox ou siga usando apenas o backup local ate resolver.
+
+## Agendar backup automático
+
+1. Abra o painel administrativo de backup.
+2. Marque ou desmarque `Backup automático`.
+3. Informe o horário desejado, por exemplo `20:00`.
+4. Clique em `Salvar agendamento`.
+5. Confira `Próxima execução`, `Última execução` e `Erro`, se houver.
+
+O agendamento roda diariamente enquanto o sistema estiver aberto no computador servidor. Ele tem proteção para não iniciar dois backups ao mesmo tempo e não tenta repetir sem parar no mesmo dia se houver falha.
+
 Regra pratica:
 
 - backup antes de mexer em dados;
@@ -137,3 +159,12 @@ Corrija ou delegue antes de gerar rota, OS ou PDF.
 - Nao envie backup por conversa sem necessidade.
 - Nao altere `SANNYGOLD_SECRET_KEY` em producao sem planejar, pois usuarios podem precisar entrar novamente.
 - Nao ligue `FLASK_DEBUG` em producao.
+# Frota
+
+Na aba `Frota`, o administrador pode cadastrar a ficha completa do veículo, anexar documentos, configurar alertas e arquivar registros sem apagar o histórico.
+
+Placa, Renavam e chassi não podem se repetir. Proprietário legal, empresa responsável pela operação e centro de custo são campos separados.
+
+Os arquivos ficam em `uploads/Frota/Veiculos/PLACA/` e entram no backup ZIP existente. O Dropbox recebe somente a cópia do backup, nunca o banco ativo.
+
+Aplicação e rollback da migration estão documentados em `docs/frota-fase1.md`.

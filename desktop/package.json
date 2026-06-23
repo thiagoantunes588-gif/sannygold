@@ -1,0 +1,152 @@
+{
+  "name": "sannysystem-desktop",
+  "version": "2.0.0",
+  "description": "SannySystem desktop multiusuario com Electron, PostgreSQL e Prisma.",
+  "main": "dist/main.js",
+  "author": "SannyGold",
+  "private": true,
+  "license": "UNLICENSED",
+  "scripts": {
+    "assets:generate": "node scripts/generate-brand-assets.mjs",
+    "build": "npm run assets:generate && npm run prisma:generate && tsc && npm run copy:renderer",
+    "build:mac": "npm run build && electron-builder --mac dmg --arm64 --x64",
+    "build:mac:arm64": "npm run build && electron-builder --mac dmg --arm64",
+    "build:mac:x64": "npm run build && electron-builder --mac dmg --x64",
+    "build:win": "npm run build && electron-builder --win nsis --x64",
+    "build:all": "npm run build:mac && npm run build:win && npm run release:checksums",
+    "check": "npm run prisma:generate && tsc --noEmit",
+    "check:setup": "tsx src/scripts/check-setup.ts",
+    "copy:renderer": "node scripts/copy-renderer.mjs",
+    "data:migrate": "tsx src/scripts/migrate-json.ts",
+    "db:backup": "tsx src/scripts/backup-postgres.ts",
+    "db:deploy": "tsx src/scripts/deploy-migrations.ts",
+    "db:doctor": "tsx src/scripts/db-doctor.ts",
+    "db:migrate": "prisma migrate dev",
+    "db:push": "prisma db push",
+    "db:seed": "tsx src/backend/seed.ts",
+    "dev": "npm run build && electron .",
+    "prisma:generate": "prisma generate",
+    "release:checksums": "node scripts/create-release-checksums.mjs",
+    "start": "electron ."
+  },
+  "dependencies": {
+    "@prisma/client": "^6.8.2",
+    "bcryptjs": "^3.0.2",
+    "compression": "^1.8.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
+    "electron-log": "^5.4.0",
+    "electron-updater": "^6.6.2",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "prisma": "^6.8.2",
+    "winston": "^3.17.0",
+    "zod": "^3.25.46"
+  },
+  "devDependencies": {
+    "@types/compression": "^1.7.5",
+    "@types/cors": "^2.8.18",
+    "@types/express": "^5.0.2",
+    "@types/node": "^22.15.29",
+    "electron": "^42.3.3",
+    "electron-builder": "^26.0.12",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  },
+  "build": {
+    "appId": "com.sannygold.sannysystem",
+    "productName": "SannySystem",
+    "icon": "resources/icons/icon",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "node_modules/**/*",
+      "prisma/schema.prisma",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "prisma/schema.prisma",
+        "to": "prisma/schema.prisma"
+      },
+      {
+        "from": "resources/update-manifest.example.json",
+        "to": "update-manifest.example.json"
+      },
+      {
+        "from": "resources/icons",
+        "to": "icons"
+      }
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/prisma/**/*",
+      "node_modules/@prisma/**/*",
+      "node_modules/.prisma/**/*"
+    ],
+    "win": {
+      "icon": "resources/icons/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "SannySystem-Setup-${version}.${ext}",
+      "requestedExecutionLevel": "requireAdministrator"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "SannySystem",
+      "include": "installer/windows/installer.nsh"
+    },
+    "mac": {
+      "icon": "resources/icons/icon.icns",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "category": "public.app-category.business",
+      "artifactName": "SannySystem-${version}-${arch}.${ext}",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false
+    },
+    "dmg": {
+      "artifactName": "SannySystem-${version}-${arch}.${ext}",
+      "background": "resources/dmg-background.png",
+      "iconSize": 96,
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://updates.sannysystem.local/releases/"
+      }
+    ]
+  }
+}

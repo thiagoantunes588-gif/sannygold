@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <title>Acesso pelo Celular | SannyGold</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}">
+  <style>
+    :root {
+      --sg-bg: #f6f3ed;
+      --sg-ink: #17211f;
+      --sg-muted: #60706a;
+      --sg-card: #fffefa;
+      --sg-border: rgba(23, 33, 31, 0.12);
+      --sg-good: #176b4d;
+      --sg-warn: #8b5a00;
+    }
+    body {
+      background: var(--sg-bg);
+      color: var(--sg-ink);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .shell {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 32px 16px;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .panel {
+      background: var(--sg-card);
+      border: 1px solid var(--sg-border);
+      border-radius: 8px;
+      box-shadow: 0 18px 40px rgba(23, 33, 31, 0.06);
+      padding: 24px;
+    }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      padding: 8px 12px;
+      border: 1px solid var(--sg-border);
+      font-size: 0.875rem;
+      font-weight: 700;
+      background: #ffffff;
+    }
+    .status-pill::before {
+      content: "";
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--sg-warn);
+    }
+    .status-pill.is-ready::before {
+      background: var(--sg-good);
+    }
+    .qr-box {
+      width: 220px;
+      min-height: 220px;
+      display: grid;
+      place-items: center;
+      background: #ffffff;
+      border: 1px solid var(--sg-border);
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .qr-box canvas,
+    .qr-box img {
+      max-width: 100%;
+      height: auto;
+    }
+    .url-box {
+      background: #ffffff;
+      border: 1px solid var(--sg-border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      font-size: 1.15rem;
+      font-weight: 800;
+    }
+    .info-list {
+      display: grid;
+      gap: 10px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .info-list li {
+      background: rgba(255, 255, 255, 0.62);
+      border: 1px solid var(--sg-border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      overflow-wrap: anywhere;
+    }
+    .muted {
+      color: var(--sg-muted);
+    }
+    .alert-soft {
+      background: #fff8e6;
+      border: 1px solid rgba(139, 90, 0, 0.24);
+      color: #503600;
+      border-radius: 8px;
+      padding: 12px 14px;
+    }
+    .btn-touch {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    @media (max-width: 720px) {
+      .shell {
+        padding: 18px 12px;
+      }
+      .topbar {
+        align-items: stretch;
+        flex-direction: column;
+      }
+      .panel {
+        padding: 16px;
+      }
+      .qr-box {
+        width: 100%;
+        min-height: 240px;
+      }
+      .qr-box canvas,
+      .qr-box img {
+        max-width: min(188px, 100%);
+      }
+      .url-box {
+        font-size: 1rem;
+      }
+      .btn-touch {
+        width: 100%;
+      }
+      .status-pill {
+        width: 100%;
+        justify-content: center;
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <div class="topbar">
+      <div>
+        <div class="text-uppercase small fw-bold muted">SannyGold</div>
+        <h1 class="h3 mb-1">Acesso pelo Celular</h1>
+        <div class="muted">Abra o sistema em celulares conectados ao mesmo Wi-Fi do computador servidor.</div>
+      </div>
+      <div class="d-flex gap-2 flex-wrap">
+        <a class="btn btn-outline-secondary btn-touch" href="{{ url_for('index') }}#wifi-access-panel">Voltar para o painel</a>
+      </div>
+    </div>
+
+    <section class="panel mb-3">
+      <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-4">
+        <div>
+          <h2 class="h5 mb-1">Endereço local do sistema</h2>
+          <div class="muted">Use o QR Code ou digite o endereço abaixo no navegador do celular.</div>
+        </div>
+        <span class="status-pill {{ 'is-ready' if local_network_status.cell_access_ready else '' }}">
+          {{ local_network_status.status_label }}
+        </span>
+      </div>
+
+      <div class="row g-4 align-items-start">
+        <div class="col-md-auto">
+          <div
+            class="qr-box"
+            id="mobile-access-qr"
+            data-url="{{ local_network_status.url if local_network_status.qr_enabled else '' }}"
+            aria-label="QR Code para abrir o sistema SannyGold no celular"
+          >
+            <span class="small muted text-center">Gerando QR Code...</span>
+          </div>
+        </div>
+        <div class="col">
+          <div class="small fw-bold muted mb-1">Endereço para abrir no celular</div>
+          <div class="url-box" id="local-mobile-url">{{ local_network_status.url }}</div>
+          <div class="mt-3">{{ local_network_status.next_step }}</div>
+          {% if local_network_status.fallback_instruction %}
+          <div class="alert-soft mt-3">{{ local_network_status.fallback_instruction }}</div>
+          {% endif %}
+          <div class="d-flex gap-2 flex-wrap mt-3">
+            <span class="status-pill is-ready">{{ local_network_status.server_label }}</span>
+            <span class="status-pill {{ 'is-ready' if system_status.health.storage_ready else '' }}">
+              {{ "Dados locais disponíveis" if system_status.health.storage_ready else "Verifique a pasta de dados" }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="row g-3">
+      <div class="col-lg-6">
+        <div class="panel h-100">
+          <h2 class="h5 mb-3">Como usar no celular</h2>
+          <ul class="info-list">
+            <li>Conecte o celular no mesmo Wi-Fi deste computador.</li>
+            <li>Escaneie o QR Code ou digite o endereço local no navegador.</li>
+            <li>Entre com usuário e senha normalmente. Login continua obrigatório.</li>
+            <li>{{ local_network_status.computer_notice }}</li>
+          </ul>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="panel h-100">
+          <h2 class="h5 mb-3">Segurança e status</h2>
+          <ul class="info-list">
+            <li>{{ local_network_status.security_notice }}</li>
+            <li>Não abra portas automaticamente no roteador. Este acesso é apenas pela rede local.</li>
+            <li>IP detectado: <strong>{{ local_network_status.ip }}</strong> • porta <strong>{{ local_network_status.port }}</strong>.</li>
+            <li>Último backup: <strong>{{ backup_status.last_backup_label or "sem backup registrado" }}</strong>.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel mt-3">
+      <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+        <div>
+          <h2 class="h5 mb-1">Acesso externo seguro com Tailscale</h2>
+          <div class="muted">Use apenas para acesso privado fora da empresa. O sistema não abre portas públicas.</div>
+        </div>
+        <span class="status-pill {{ 'is-ready' if local_network_status.tailscale_configured else '' }}">
+          {{ local_network_status.tailscale_status_label }}
+        </span>
+      </div>
+      {% if local_network_status.tailscale_configured %}
+      <div class="small fw-bold muted mb-1">Endereço Tailscale configurado manualmente</div>
+      <div class="url-box">{{ local_network_status.tailscale_url }}</div>
+      <div class="mt-3">{{ local_network_status.tailscale_next_step }}</div>
+      {% else %}
+      <div class="alert-soft">
+        Nenhum endereço Tailscale foi configurado. Depois de instalar e entrar no Tailscale, coloque
+        <strong>SANNYGOLD_TAILSCALE_URL=http://IP_TAILSCALE:{{ local_network_status.port }}/</strong>
+        no arquivo <strong>.env.local</strong> e reinicie o launcher.
+      </div>
+      {% endif %}
+      <ul class="info-list mt-3">
+        <li>Computador e celular precisam estar na mesma conta/rede Tailscale.</li>
+        <li>Não compartilhe este endereço com pessoas fora da equipe autorizada.</li>
+        <li>Use senha forte, mantenha backup ativo e revise usuários periodicamente.</li>
+        <li>Login do sistema continua obrigatório, mesmo usando Tailscale.</li>
+      </ul>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='vendor/qrcode/qrcode.min.js') }}"></script>
+  <script>
+    (function renderMobileAccessQr() {
+      const box = document.getElementById("mobile-access-qr");
+      if (!box) return;
+      const url = box.dataset.url;
+      if (!url) {
+        box.innerHTML = '<span class="small muted text-center">IP local não detectado. Use a instrução alternativa abaixo.</span>';
+        return;
+      }
+      if (!window.QRCode) {
+        box.innerHTML = '<span class="small muted text-center">QR Code indisponível. Digite o endereço no celular.</span>';
+        return;
+      }
+      box.innerHTML = "";
+      new QRCode(box, {
+        text: url,
+        width: 188,
+        height: 188,
+        correctLevel: QRCode.CorrectLevel.M,
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,7 +1,9 @@
+import io
 import json
 import os
 import tempfile
 import unittest
+import zipfile
 from datetime import datetime, timedelta
 
 from werkzeug.security import generate_password_hash
@@ -10,6 +12,7 @@ os.environ["ROTAFLOW_STORAGE_DIR"] = tempfile.mkdtemp(prefix="sannygold-finance-
 
 from app.main import (  # noqa: E402
     AUDIT_LOG_PATH,
+    build_financial_management_dashboard,
     CLIENTS_PATH,
     CONTRACTS_PATH,
     EVENTS_PATH,
@@ -45,7 +48,7 @@ class FinancialManagementTest(unittest.TestCase):
                         "id": "USR-001",
                         "nome": "Administrador SannyGold",
                         "email": "admin@sannygold.local",
-                        "senha_hash": generate_password_hash("Sanny123Gold", method="pbkdf2:sha256"),
+                        "senha_hash": generate_password_hash("troque-esta-senha", method="pbkdf2:sha256"),
                         "status": "ativo",
                         "role": "admin",
                         "must_change_password": True,
@@ -62,7 +65,7 @@ class FinancialManagementTest(unittest.TestCase):
         self.client = app.test_client()
         self.client.post(
             "/auth/login",
-            data={"email": "admin@sannygold.local", "password": "Sanny123Gold"},
+            data={"email": "admin@sannygold.local", "password": "troque-esta-senha"},
             follow_redirects=True,
         )
 
@@ -97,6 +100,11 @@ class FinancialManagementTest(unittest.TestCase):
             "Receita por serviço",
             "Notas fiscais",
             "Modelos de orçamento",
+            "Sem cobrança",
+            "A receber",
+            "Parcialmente pago",
+            "Pago",
+            "Cancelado",
         ):
             self.assertIn(expected, html)
         self.assertIn('value="custom"', html)
@@ -193,11 +201,12 @@ class FinancialManagementTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         for expected in (
             "Painel financeiro gerencial",
-            "Total previsto no mês",
+            "Total a receber no mês",
             "Total recebido no mês",
-            "Total em aberto",
-            "Total vencido",
-            "Vencem em 7 dias",
+            "Valor vencido",
+            "Valor a vencer nos próximos 7 dias",
+            "Clientes em aberto",
+            "Eventos sem cobrança cadastrada",
             "Eventos/locações sem valor definido",
             "Evento Sem Valor",
             "Clientes com maior valor em aberto",
@@ -248,8 +257,12 @@ class FinancialManagementTest(unittest.TestCase):
             "/financial/receivables",
             data={
                 "client_name": "Cliente Financeiro",
+                "client_id": "CLI-FIN",
                 "client_phone": "(21) 99999-0000",
+                "event_id": "EVT-FIN",
                 "event_title": "Evento Financeiro",
+                "contract_id": "CTR-FIN",
+                "billing_period": "2026-04",
                 "service_type": "Banheiro Químico",
                 "amount": "1500.75",
                 "due_date": "2026-04-10",
@@ -268,8 +281,128 @@ class FinancialManagementTest(unittest.TestCase):
         self.assertEqual(saved[0]["amount"], 1500.75)
         self.assertEqual(saved[0]["attachment_url"], "https://example.com/comprovante.pdf")
         self.assertEqual(saved[0]["status"], "vencido")
+        self.assertEqual(saved[0]["client_id"], "CLI-FIN")
+        self.assertEqual(saved[0]["event_id"], "EVT-FIN")
+        self.assertEqual(saved[0]["contract_id"], "CTR-FIN")
+        self.assertEqual(saved[0]["billing_period"], "2026-04")
         self.assertEqual(saved[0]["service_type"], "Banheiro Químico")
         self.assertEqual(saved[0]["invoice_status"], "com_nota")
+
+    def test_partial_payment_accumulates_and_keeps_history(self):
+        self.client.post(
+            "/financial/receivables",
+            data={
+                "client_name": "Cliente Parcial",
+                "event_title": "Evento Parcial",
+                "amount": "1000",
+                "due_date": (datetime.now().date() + timedelta(days=2)).isoformat(),
+                "status": "a_receber",
+            },
+            follow_redirects=True,
+        )
+        receivable_id = json.loads(FINANCIAL_RECEIVABLES_PATH.read_text(encoding="utf-8"))[0]["id"]
+
+        first = self.client.post(
+            f"/financial/receivables/{receivable_id}/payment",
+            data={"action": "partial", "amount_received": "400", "payment_method": "pix", "received_date": "2026-04-20"},
+            follow_redirects=True,
+        )
+        after_first = json.loads(FINANCIAL_RECEIVABLES_PATH.read_text(encoding="utf-8"))[0]
+        self.assertIn("Pagamento registrado.", first.get_data(as_text=True))
+        self.assertEqual(after_first["status"], "parcial")
+        self.assertEqual(after_first["amount_received"], 400)
+        self.assertEqual(after_first["payment_history"][0]["amount"], 400)
+
+        self.client.post(
+            f"/financial/receivables/{receivable_id}/payment",
+            data={"action": "partial", "amount_received": "600", "payment_method": "boleto", "received_date": "2026-04-25"},
+            follow_redirects=True,
+        )
+        paid = json.loads(FINANCIAL_RECEIVABLES_PATH.read_text(encoding="utf-8"))[0]
+        self.assertEqual(paid["status"], "pago")
+        self.assertEqual(paid["amount_received"], 1000)
+        self.assertEqual(len(paid["payment_history"]), 2)
+
+    def test_financial_dashboard_filters_by_period_client_status_and_payment_method(self):
+        today = datetime.now().date()
+        receivables = [
+            {
+                "id": "REC-FILTRO-1",
+                "client_id": "CLI-FILTRO",
+                "client_name": "Cliente Filtro",
+                "event_title": "Evento Filtrado",
+                "amount": 1200,
+                "amount_received": 300,
+                "due_date": today.isoformat(),
+                "received_date": today.isoformat(),
+                "status": "parcial",
+                "payment_method": "pix",
+            },
+            {
+                "id": "REC-FILTRO-2",
+                "client_id": "CLI-OUTRO",
+                "client_name": "Cliente Fora",
+                "event_title": "Evento Fora",
+                "amount": 700,
+                "amount_received": 0,
+                "due_date": today.isoformat(),
+                "received_date": "",
+                "status": "a_receber",
+                "payment_method": "boleto",
+            },
+        ]
+
+        dashboard = build_financial_management_dashboard(
+            [],
+            receivables,
+            [],
+            [],
+            "custom",
+            today.isoformat(),
+            today.isoformat(),
+            "Cliente Filtro",
+            "parcial",
+            "pix",
+        )
+
+        self.assertEqual(len(dashboard["receivables"]), 1)
+        self.assertEqual(dashboard["receivables"][0]["id"], "REC-FILTRO-1")
+        self.assertEqual(dashboard["receivables"][0]["status_label"], "Parcialmente pago")
+        self.assertEqual(dashboard["expected_in"], 900)
+        self.assertEqual(dashboard["received"], 300)
+
+    def test_financial_excel_export_contains_receivable_columns(self):
+        FINANCIAL_RECEIVABLES_PATH.write_text(
+            json.dumps(
+                [
+                    {
+                        "id": "REC-XLSX",
+                        "client_name": "Cliente Excel",
+                        "event_title": "Evento Excel",
+                        "contract_id": "CTR-XLSX",
+                        "billing_period": "2026-04",
+                        "amount": 880,
+                        "amount_received": 80,
+                        "due_date": "2026-04-10",
+                        "received_date": "2026-04-12",
+                        "status": "parcial",
+                        "payment_method": "pix",
+                    }
+                ],
+                ensure_ascii=False,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        response = self.client.get("/exports/financial.xlsx")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.mimetype, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        with zipfile.ZipFile(io.BytesIO(response.get_data())) as workbook:
+            shared_strings = workbook.read("xl/sharedStrings.xml").decode("utf-8")
+        self.assertIn("Cliente Excel", shared_strings)
+        self.assertIn("Em aberto", shared_strings)
+        self.assertIn("Parcialmente pago", shared_strings)
 
     def test_receivable_can_be_deleted_with_audit(self):
         self.client.post(
@@ -360,6 +493,8 @@ class FinancialManagementTest(unittest.TestCase):
         self.assertEqual(paid["amount_received"], 1800)
         self.assertEqual(receipt_response.status_code, 200)
         self.assertIn(b"SannyGold - Recibo", receipt_response.get_data())
+        self.assertIn(b"Contrato: CTR-CLI-FIXO", receipt_response.get_data())
+        self.assertIn(b"Status: Pago", receipt_response.get_data())
 
     def test_quote_models_are_saved(self):
         response = self.client.post(

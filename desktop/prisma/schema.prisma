@@ -1,0 +1,518 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMINISTRADOR
+  OPERACAO
+  MOTORISTA
+  FINANCEIRO
+  ALMOXARIFADO
+}
+
+enum UserStatus {
+  ATIVO
+  INATIVO
+  CONVITE_PENDENTE
+  TROCA_SENHA
+}
+
+enum AuditAction {
+  LOGIN
+  LOGOUT
+  TOKEN_REFRESH
+  PASSWORD_RESET
+  STATUS_CHANGE
+  CREATE
+  UPDATE
+  DELETE
+  ACCESS_DENIED
+  OFFLINE_QUEUE
+  OFFLINE_SYNC
+  OFFLINE_CONFLICT
+  SYNC_EXPORT
+  SYNC_IMPORT
+  SYNC_CONFLICT
+  SYNC_RESOLVE
+  UPDATE_CHECK
+  SYSTEM
+}
+
+enum AccessAction {
+  LOGIN_SUCCESS
+  LOGIN_FAILURE
+  TOKEN_REFRESH
+  LOGOUT
+  SESSION_EXPIRED
+  ACCESS_DENIED
+}
+
+enum LogLevel {
+  DEBUG
+  INFO
+  WARN
+  ERROR
+}
+
+enum SyncDirection {
+  EXPORT
+  IMPORT
+}
+
+enum SyncStatus {
+  PENDING
+  DONE
+  WARNING
+  ERROR
+}
+
+enum ConflictStatus {
+  OPEN
+  LOCAL_ACCEPTED
+  REMOTE_ACCEPTED
+  MANUAL_MERGE
+  IGNORED
+}
+
+enum BackupStatus {
+  RUNNING
+  SUCCESS
+  WARNING
+  FAILED
+}
+
+enum BackupProvider {
+  LOCAL
+  DROPBOX
+  SUPABASE
+  NEON
+  RAILWAY
+  CUSTOM_POSTGRES
+}
+
+enum OfflineActionType {
+  CHECKLIST
+  CHECK_IN
+  CHECK_OUT
+  PHOTO
+  SIGNATURE
+  SERVICE_ORDER
+  OCCURRENCE
+}
+
+enum OfflineQueueStatus {
+  PENDING
+  SYNCING
+  DONE
+  FAILED
+  CONFLICT
+}
+
+enum OfflineAttachmentKind {
+  PHOTO
+  SIGNATURE
+  DOCUMENT
+}
+
+model User {
+  id                 String       @id @default(cuid())
+  name               String
+  login              String       @unique
+  email              String       @unique
+  passwordHash       String
+  legacyPasswordHash String?
+  role               Role         @default(OPERACAO)
+  status             UserStatus   @default(TROCA_SENHA)
+  mustChangePassword Boolean      @default(true)
+  lastLoginAt        DateTime?
+  failedLoginCount   Int          @default(0)
+  lockedUntil        DateTime?
+  passwordChangedAt  DateTime?
+  deletedAt          DateTime?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  sessions           Session[]
+  auditLogs          AuditLog[]
+  accessLogs         AccessLog[]
+  backupRuns         DatabaseBackup[]
+  resolvedConflicts  SyncConflict[] @relation("ConflictResolver")
+  offlineQueueItems  OfflineQueueItem[]
+
+  @@index([login])
+  @@index([role])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model Permission {
+  key             String           @id
+  module          String
+  description     String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  rolePermissions RolePermission[]
+
+  @@index([module])
+}
+
+model RolePermission {
+  role          Role
+  permissionKey String
+  permission    Permission @relation(fields: [permissionKey], references: [key], onDelete: Cascade)
+  createdAt     DateTime   @default(now())
+
+  @@id([role, permissionKey])
+  @@index([permissionKey])
+}
+
+model Session {
+  id             String    @id @default(cuid())
+  tokenHash      String    @unique
+  accessTokenId  String?   @unique
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ipAddress      String?
+  userAgent      String?
+  workstation    String?
+  createdAt      DateTime  @default(now())
+  lastSeenAt     DateTime?
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  revokedReason  String?
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([revokedAt])
+}
+
+model AccessLog {
+  id          String       @id @default(cuid())
+  createdAt   DateTime     @default(now())
+  userId      String?
+  user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userEmail   String?
+  userRole    Role?
+  action      AccessAction
+  success     Boolean      @default(false)
+  sessionId   String?
+  ipAddress   String?
+  userAgent   String?
+  workstation String?
+  message     String?
+
+  @@index([createdAt])
+  @@index([userEmail])
+  @@index([action])
+  @@index([success])
+  @@index([sessionId])
+}
+
+model Client {
+  id          String    @id @default(cuid())
+  legacyId    String?   @unique
+  customerName String
+  contactName String?
+  cpfCnpj     String?
+  email       String?
+  phone       String?
+  address     String?
+  city        String?
+  state       String?
+  lat         Float?
+  lng         Float?
+  payload     Json?
+  version     Int       @default(1)
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([customerName])
+  @@index([updatedAt])
+}
+
+model Event {
+  id        String    @id @default(cuid())
+  legacyId  String?   @unique
+  title     String
+  eventDate DateTime?
+  status    String    @default("planejado")
+  notes     String?
+  payload   Json?
+  version   Int       @default(1)
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([eventDate])
+  @@index([status])
+  @@index([updatedAt])
+}
+
+model Equipment {
+  id            String    @id @default(cuid())
+  legacyId      String?   @unique
+  equipmentType String
+  status        String    @default("disponivel")
+  condition     String?
+  notes         String?
+  payload       Json?
+  version       Int       @default(1)
+  deletedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([equipmentType])
+  @@index([status])
+  @@index([updatedAt])
+}
+
+model Vehicle {
+  id          String    @id @default(cuid())
+  legacyId    String?   @unique
+  plate       String?
+  vehicleType String?
+  model       String?
+  driverName  String?
+  payload     Json?
+  version     Int       @default(1)
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([plate])
+  @@index([updatedAt])
+}
+
+model FinancialEntry {
+  id          String    @id @default(cuid())
+  legacyId    String?   @unique
+  entryType   String
+  category    String?
+  description String?
+  amount      Float     @default(0)
+  entryDate   DateTime?
+  status      String    @default("aberto")
+  payload     Json?
+  version     Int       @default(1)
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([entryDate])
+  @@index([entryType])
+  @@index([status])
+  @@index([updatedAt])
+}
+
+model ServiceOrder {
+  id          String    @id @default(cuid())
+  legacyId    String?   @unique
+  eventId     String?
+  clientId    String?
+  driverId    String?
+  status      String    @default("aberta")
+  scheduledAt DateTime?
+  payload     Json?
+  version     Int       @default(1)
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([updatedAt])
+}
+
+model GenericRecord {
+  id        String    @id @default(cuid())
+  entity    String
+  legacyId  String
+  label     String?
+  payload   Json
+  version   Int       @default(1)
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([entity, legacyId])
+  @@index([entity])
+  @@index([updatedAt])
+}
+
+model AuditLog {
+  id          String      @id @default(cuid())
+  createdAt   DateTime    @default(now())
+  userId      String?
+  user        User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userEmail   String?
+  userRole    Role?
+  action      AuditAction
+  module      String
+  targetId    String?
+  ipAddress   String?
+  userAgent   String?
+  workstation String?
+  requestId   String?
+  before      Json?
+  after       Json?
+  detail      String?
+
+  @@index([createdAt])
+  @@index([module])
+  @@index([action])
+  @@index([userEmail])
+}
+
+model OperationalLog {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  level       LogLevel
+  module      String
+  message     String
+  metadata    Json?
+  workstation String?
+
+  @@index([createdAt])
+  @@index([level])
+  @@index([module])
+}
+
+model Workstation {
+  id          String   @id
+  hostname    String
+  platform    String
+  dataDir     String
+  lastSeenAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SyncSnapshot {
+  id            String        @id @default(cuid())
+  workstationId String
+  direction     SyncDirection
+  status        SyncStatus    @default(PENDING)
+  fileName      String
+  filePath      String
+  checksum      String
+  recordCount   Int           @default(0)
+  message       String?
+  createdAt     DateTime      @default(now())
+  completedAt   DateTime?
+
+  @@index([workstationId])
+  @@index([createdAt])
+  @@index([status])
+}
+
+model SyncCursor {
+  id                  String   @id @default(cuid())
+  sourceWorkstationId  String
+  entity              String
+  recordId            String
+  remoteChecksum      String
+  remoteUpdatedAt     DateTime
+  appliedAt           DateTime @default(now())
+
+  @@unique([sourceWorkstationId, entity, recordId])
+  @@index([entity, recordId])
+}
+
+model SyncConflict {
+  id                  String         @id @default(cuid())
+  entity              String
+  recordId            String
+  sourceWorkstationId  String
+  localChecksum       String
+  remoteChecksum      String
+  localPayload        Json
+  remotePayload       Json
+  status              ConflictStatus @default(OPEN)
+  resolution          String?
+  resolvedById        String?
+  resolvedBy          User?          @relation("ConflictResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+  createdAt           DateTime       @default(now())
+  resolvedAt          DateTime?
+
+  @@index([status])
+  @@index([entity, recordId])
+}
+
+model OfflineQueueItem {
+  id               String             @id @default(cuid())
+  clientMutationId String             @unique
+  actionType       OfflineActionType
+  entity           String
+  entityId         String?
+  operation        String
+  payload          Json
+  baseVersion      Int?
+  status           OfflineQueueStatus @default(PENDING)
+  attempts         Int                @default(0)
+  maxAttempts      Int                @default(5)
+  nextRetryAt      DateTime?
+  lastError        String?
+  conflictId       String?
+  createdById      String?
+  createdBy        User?              @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  syncedAt         DateTime?
+  attachments      OfflineAttachment[]
+
+  @@index([status, nextRetryAt])
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@index([createdById])
+}
+
+model OfflineAttachment {
+  id           String                @id @default(cuid())
+  queueItemId  String
+  queueItem    OfflineQueueItem      @relation(fields: [queueItemId], references: [id], onDelete: Cascade)
+  kind         OfflineAttachmentKind
+  fileName     String
+  mimeType     String?
+  sizeBytes    Int                   @default(0)
+  checksum     String?
+  storagePath  String?
+  dataBase64   String?
+  createdAt    DateTime              @default(now())
+
+  @@index([queueItemId])
+  @@index([kind])
+}
+
+model DatabaseBackup {
+  id             String         @id @default(cuid())
+  provider       BackupProvider @default(LOCAL)
+  status         BackupStatus   @default(RUNNING)
+  fileName       String
+  filePath       String
+  sizeBytes      Int            @default(0)
+  checksum       String?
+  databaseHost   String?
+  databaseName   String?
+  startedAt      DateTime       @default(now())
+  finishedAt     DateTime?
+  retentionDays  Int            @default(30)
+  message        String?
+  createdById    String?
+  createdBy      User?          @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([startedAt])
+  @@index([status])
+  @@index([provider])
+}
+
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}

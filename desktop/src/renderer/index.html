@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SannySystem</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <section class="loading-screen" id="loadingScreen">
+      <div class="loading-brand">
+        <div class="brand-mark">S</div>
+        <div>
+          <h1>SannySystem</h1>
+          <p id="loadingMessage">Preparando ambiente...</p>
+        </div>
+      </div>
+      <div class="loading-bar"><span></span></div>
+    </section>
+    <main class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">S</div>
+          <div>
+            <h1>SannySystem</h1>
+            <p>Command center</p>
+          </div>
+        </div>
+        <nav class="nav">
+          <span class="nav-group">Operação</span>
+          <button class="nav-item active" data-view="dashboard"><span>●</span>Painel operacional</button>
+          <button class="nav-item" data-view="offline"><span>●</span>Campo offline</button>
+          <span class="nav-group">Cadastros</span>
+          <button class="nav-item" data-view="clients">Clientes</button>
+          <button class="nav-item" data-view="users">Usuários</button>
+          <span class="nav-group">Sistema</span>
+          <button class="nav-item" data-view="sync">Sincronização</button>
+          <button class="nav-item" data-view="audit">Auditoria</button>
+        </nav>
+        <div class="app-version" id="appVersion">SannySystem</div>
+        <div class="session-box" id="sessionBox"></div>
+      </aside>
+
+      <section class="workspace">
+        <section class="login-view" id="loginView">
+          <form class="login-panel" id="loginForm">
+            <h2>Entrar no sistema</h2>
+            <label>
+              Login ou e-mail
+              <input id="loginEmail" type="text" autocomplete="username" required />
+            </label>
+            <label>
+              Senha
+              <input id="loginPassword" type="password" autocomplete="current-password" required />
+            </label>
+            <button type="submit">Entrar</button>
+            <p class="form-message" id="loginMessage"></p>
+          </form>
+        </section>
+
+        <section class="app-view hidden" id="appView">
+          <header class="topbar">
+            <div>
+              <h2 id="viewTitle">Painel</h2>
+              <p id="viewSubtitle">Base PostgreSQL local/rede com sincronização segura por Dropbox.</p>
+            </div>
+            <div class="topbar-actions">
+              <input id="globalSearch" class="global-search" placeholder="Buscar OS, cliente, evento..." />
+              <span class="connection-pill" id="connectionPill">Conexão</span>
+              <span class="sync-pill" id="syncPill">Fila 0</span>
+              <span class="role-pill" id="roleTopbar">perfil</span>
+              <span class="mode-pill hidden" id="safeModePill">Safe mode</span>
+              <button id="checkUpdatesButton" type="button">Atualizações</button>
+              <button id="installUpdateButton" class="hidden" type="button">Instalar update</button>
+              <button id="logoutButton" type="button">Sair</button>
+            </div>
+          </header>
+
+          <section class="view dashboard-surface" id="dashboardView">
+            <section class="command-panel executive-hero">
+              <div class="command-copy">
+                <span class="section-label" id="todayLabel">Operação de hoje</span>
+                <h3>Central operacional SannySystem</h3>
+                <p>Eventos, frota, estrutura, estoque, OS e sincronização em uma tela rápida para decisão de campo.</p>
+              </div>
+              <div class="quick-strip hero-actions">
+                <button type="button" data-view-jump="offline">Check-in rápido</button>
+                <button class="secondary" type="button" data-view-jump="offline">Checklist</button>
+                <button class="secondary" type="button" data-view-jump="sync">Resolver conflitos</button>
+              </div>
+            </section>
+
+            <div class="metric-row premium">
+              <article class="metric metric-hot">
+                <span>Ordens ativas</span>
+                <strong id="activeOrdersMetric">0</strong>
+                <small>em execução ou abertas</small>
+              </article>
+              <article class="metric">
+                <span>Eventos hoje</span>
+                <strong id="eventTodayMetric">0</strong>
+                <small><b id="simultaneousEventsMetric">0</b> simultâneos</small>
+              </article>
+              <article class="metric">
+                <span>Fila offline</span>
+                <strong id="dashboardQueueMetric">0</strong>
+                <small>ações aguardando envio</small>
+              </article>
+              <article class="metric metric-risk">
+                <span>Conflitos</span>
+                <strong id="conflictMetric">0</strong>
+                <small>exigem decisão</small>
+              </article>
+            </div>
+
+            <div class="ops-snapshot-grid">
+              <article class="snapshot-card">
+                <span>Equipamentos disponíveis</span>
+                <strong id="equipmentAvailableMetric">0</strong>
+                <small>prontos para escala</small>
+              </article>
+              <article class="snapshot-card">
+                <span>Equipamentos em uso</span>
+                <strong id="equipmentInUseMetric">0</strong>
+                <small>em rota, instalados ou reservados</small>
+              </article>
+              <article class="snapshot-card warning">
+                <span>Manutenção</span>
+                <strong id="equipmentMaintenanceMetric">0</strong>
+                <small>indisponíveis ou baixados</small>
+              </article>
+              <article class="snapshot-card">
+                <span>Veículos ativos</span>
+                <strong id="vehicleActiveMetric">0</strong>
+                <small>cadastrados para operação</small>
+              </article>
+              <article class="snapshot-card">
+                <span>Eventos futuros</span>
+                <strong id="futureEventsMetric">0</strong>
+                <small>agenda operacional</small>
+              </article>
+              <article class="snapshot-card warning">
+                <span>Risco de estoque</span>
+                <strong id="stockRiskMetric">0</strong>
+                <small>itens abaixo do mínimo</small>
+              </article>
+              <article class="snapshot-card">
+                <span>Financeiro aberto</span>
+                <strong id="financialPendingMetric">0</strong>
+                <small>lançamentos pendentes</small>
+              </article>
+              <article class="snapshot-card">
+                <span>Dropbox</span>
+                <strong id="dropboxMetric">Verificando</strong>
+                <small>sincronização de dados</small>
+              </article>
+            </div>
+
+            <div class="ops-layout">
+              <section class="panel priority-panel">
+                <div class="panel-head">
+                  <div>
+                    <span class="section-label">Linha do tempo</span>
+                    <h3>Operações em andamento</h3>
+                  </div>
+                  <button class="secondary" type="button" data-view-jump="offline">Nova ação</button>
+                </div>
+                <div class="operation-timeline" id="dashboardTimeline"></div>
+              </section>
+
+              <section class="panel availability-panel">
+                <div class="panel-head">
+                  <div>
+                    <span class="section-label">Disponibilidade</span>
+                    <h3>Equipamentos</h3>
+                  </div>
+                </div>
+                <div class="availability-grid" id="dashboardEquipmentGrid"></div>
+              </section>
+
+              <section class="panel alert-panel">
+                <div class="panel-head">
+                  <div>
+                    <span class="section-label">Alertas</span>
+                    <h3>Riscos agora</h3>
+                  </div>
+                </div>
+                <div class="alert-stack" id="dashboardAlerts"></div>
+              </section>
+
+              <section class="panel table-panel">
+                <div class="panel-head">
+                  <div>
+                    <span class="section-label">Pendências</span>
+                    <h3>Ordens de serviço</h3>
+                  </div>
+                  <button id="reloadDashboardButton" class="secondary" type="button">Atualizar</button>
+                </div>
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>OS / Evento</th>
+                        <th>Status</th>
+                        <th>Agendamento</th>
+                        <th>Versão</th>
+                      </tr>
+                    </thead>
+                    <tbody id="dashboardOrdersTable"></tbody>
+                  </table>
+                </div>
+              </section>
+
+              <section class="panel quick-actions-panel">
+                <div class="panel-head">
+                  <div>
+                    <span class="section-label">Ações rápidas</span>
+                    <h3>Execução</h3>
+                  </div>
+                </div>
+                <div class="action-grid">
+                  <button type="button" data-view-jump="offline">Check-in</button>
+                  <button class="secondary" type="button" data-view-jump="offline">Check-out</button>
+                  <button class="secondary" type="button" data-view-jump="offline">Foto</button>
+                  <button class="secondary" type="button" data-view-jump="offline">Assinatura</button>
+                  <button class="secondary" type="button" data-view-jump="users">Usuários</button>
+                  <button class="secondary" type="button" data-view-jump="audit">Auditoria</button>
+                </div>
+              </section>
+
+              <section class="panel system-panel">
+                <div class="panel-head">
+                  <div>
+                    <span class="section-label">Sistema</span>
+                    <h3>Saúde técnica</h3>
+                  </div>
+                </div>
+                <div class="system-grid">
+                  <div>
+                    <span>Banco</span>
+                    <strong>PostgreSQL</strong>
+                  </div>
+                  <div>
+                    <span>Instalação</span>
+                    <strong>Local</strong>
+                  </div>
+                </div>
+                <details>
+                  <summary>Status completo</summary>
+                  <pre id="healthOutput"></pre>
+                </details>
+                <details>
+                  <summary>Atualizações</summary>
+                  <div id="updateStatus" class="status-list">Nenhuma verificação executada.</div>
+                </details>
+                <details>
+                  <summary>Aplicação</summary>
+                  <pre id="appInfoOutput"></pre>
+                </details>
+              </section>
+            </div>
+          </section>
+
+          <section class="view hidden" id="offlineView">
+            <div class="metric-row">
+              <article class="metric">
+                <span>Conexão</span>
+                <strong id="offlineConnectionMetric">Verificando</strong>
+              </article>
+              <article class="metric">
+                <span>Fila local</span>
+                <strong id="offlineLocalMetric">0</strong>
+              </article>
+              <article class="metric">
+                <span>Fila servidor</span>
+                <strong id="offlineServerMetric">0</strong>
+              </article>
+              <article class="metric">
+                <span>Última sync</span>
+                <strong id="offlineLastSyncMetric">-</strong>
+              </article>
+            </div>
+
+            <div class="offline-grid">
+              <section class="panel">
+                <div class="panel-head">
+                  <h3>Registro operacional</h3>
+                  <button id="flushOfflineButton" type="button">Sincronizar agora</button>
+                </div>
+                <form class="offline-form" id="offlineForm">
+                  <label>
+                    Ordem de serviço
+                    <select id="offlineServiceOrder"></select>
+                  </label>
+                  <label>
+                    Título / evento
+                    <input id="offlineTitle" placeholder="Ex.: Montagem Evento Centro" />
+                  </label>
+                  <label>
+                    Checklist
+                    <textarea id="offlineChecklist" rows="5" placeholder="Um item por linha"></textarea>
+                  </label>
+                  <label>
+                    Observações
+                    <textarea id="offlineNotes" rows="5" placeholder="Ocorrências, pendências ou detalhes da operação"></textarea>
+                  </label>
+                  <label>
+                    Fotos
+                    <input id="offlinePhotoInput" type="file" accept="image/*" multiple />
+                  </label>
+                  <div class="signature-box">
+                    <div class="panel-head">
+                      <h4>Assinatura</h4>
+                      <button id="clearSignatureButton" class="secondary" type="button">Limpar</button>
+                    </div>
+                    <canvas id="signatureCanvas" width="720" height="220"></canvas>
+                    <input id="signatureName" placeholder="Nome de quem assinou" />
+                  </div>
+                  <div class="button-grid">
+                    <button id="offlineSaveOrderButton" type="button">Salvar OS</button>
+                    <button id="offlineChecklistButton" type="button">Checklist</button>
+                    <button id="offlineCheckInButton" type="button">Check-in</button>
+                    <button id="offlineCheckOutButton" type="button">Check-out</button>
+                    <button id="offlinePhotoButton" type="button">Fotos</button>
+                    <button id="offlineSignatureButton" type="button">Assinatura</button>
+                    <button id="offlineOccurrenceButton" type="button">Ocorrência</button>
+                  </div>
+                  <p class="form-message" id="offlineMessage"></p>
+                </form>
+              </section>
+
+              <section class="panel">
+                <div class="panel-head">
+                  <h3>Fila e conflitos</h3>
+                  <button id="reloadOfflineButton" type="button">Recarregar</button>
+                </div>
+                <div id="offlineQueueList" class="status-list"></div>
+                <div class="conflict-log">
+                  <h4>Conflitos offline</h4>
+                  <div id="offlineConflictLog" class="status-list"></div>
+                </div>
+              </section>
+            </div>
+          </section>
+
+          <section class="view hidden" id="clientsView">
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Clientes</h3>
+                <button id="reloadClientsButton" type="button">Recarregar</button>
+              </div>
+              <form class="inline-form" id="clientForm">
+                <input id="clientName" placeholder="Nome do cliente" required />
+                <input id="clientPhone" placeholder="Telefone" />
+                <input id="clientAddress" placeholder="Endereço" />
+                <button type="submit">Salvar</button>
+              </form>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Cliente</th>
+                      <th>Telefone</th>
+                      <th>Endereço</th>
+                      <th>Atualizado</th>
+                    </tr>
+                  </thead>
+                  <tbody id="clientsTable"></tbody>
+                </table>
+              </div>
+            </section>
+          </section>
+
+          <section class="view hidden" id="usersView">
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Usuários e permissões</h3>
+                <button id="reloadUsersButton" type="button">Recarregar</button>
+              </div>
+              <form class="inline-form" id="userForm">
+                <input id="userId" type="hidden" />
+                <input id="userName" placeholder="Nome" required />
+                <input id="userLogin" placeholder="Login" />
+                <input id="userEmail" type="email" placeholder="email@sannygold.com" required />
+                <select id="userRole">
+                  <option value="operacao">operação</option>
+                  <option value="motorista">motorista</option>
+                  <option value="financeiro">financeiro</option>
+                  <option value="almoxarifado">almoxarifado</option>
+                  <option value="administrador">administrador</option>
+                </select>
+                <select id="userStatus">
+                  <option value="ativo">ativo</option>
+                  <option value="troca_senha">troca de senha</option>
+                  <option value="convite">convite pendente</option>
+                  <option value="inativo">inativo</option>
+                </select>
+                <input id="userPassword" type="password" placeholder="Senha temporária opcional" />
+                <button type="submit">Salvar usuário</button>
+                <button id="clearUserFormButton" type="button">Limpar</button>
+              </form>
+              <p class="form-message" id="userMessage"></p>
+              <div class="user-admin-grid">
+                <section class="status-list" id="permissionMatrix"></section>
+                <section class="status-list" id="userHistory"></section>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Nome</th>
+                      <th>Login</th>
+                      <th>E-mail</th>
+                      <th>Perfil</th>
+                      <th>Status</th>
+                      <th>Último acesso</th>
+                      <th>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="usersTable"></tbody>
+                </table>
+              </div>
+            </section>
+          </section>
+
+          <section class="view hidden" id="syncView">
+            <div class="panel">
+              <div class="panel-head">
+                <h3>Dropbox / SannySystemData</h3>
+                <div class="button-row">
+                  <button id="exportSyncButton" type="button">Exportar snapshot</button>
+                  <button id="importSyncButton" type="button">Importar snapshots</button>
+                </div>
+              </div>
+              <pre id="syncOutput"></pre>
+            </div>
+            <div class="panel">
+              <div class="panel-head">
+                <h3>Conflitos pendentes</h3>
+                <button id="reloadConflictsButton" type="button">Recarregar</button>
+              </div>
+              <div id="conflictList" class="status-list"></div>
+            </div>
+          </section>
+
+          <section class="view hidden" id="auditView">
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Auditoria</h3>
+                <button id="reloadAuditButton" type="button">Recarregar</button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Data</th>
+                      <th>Usuário</th>
+                      <th>Ação</th>
+                      <th>Módulo</th>
+                      <th>Detalhe</th>
+                    </tr>
+                  </thead>
+                  <tbody id="auditTable"></tbody>
+                </table>
+              </div>
+            </section>
+          </section>
+        </section>
+      </section>
+    </main>
+    <script src="./offline.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

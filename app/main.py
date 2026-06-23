@@ -8,20 +8,23 @@ import io
 import json
 import os
 import secrets
+import socket
 import sys
 import tempfile
+import threading
+import time as time_module
 import unicodedata
 import urllib.parse
 import urllib.request
 import zipfile
-from datetime import datetime, timedelta
+from datetime import datetime, time as datetime_time, timedelta
 from functools import wraps
 from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 from xml.etree import ElementTree as ET
 
-from flask import Flask, flash, has_request_context, jsonify, redirect, render_template, request, send_file, send_from_directory, session, url_for
+from flask import Flask, flash, has_request_context, jsonify, redirect, render_template, render_template_string, request, send_file, send_from_directory, session, url_for
 from itsdangerous import BadSignature, URLSafeSerializer
 from werkzeug.datastructures import MultiDict
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -37,6 +40,11 @@ from app.help_assistant import (
 )
 from app.routes.backup import register_backup_routes
 from app.routes.finance import register_finance_routes
+from app.routes.fleet import register_fleet_routes
+from app.routes.fleet_checklists import register_fleet_checklist_routes
+from app.routes.fleet_fines import register_fleet_fines_routes
+from app.services.fleet_fines import build_dashboard as build_fines_dashboard
+from app.repositories.sqlite_repository import connect as sqlite_connect, initialize_database
 from app.security import (
     DEFAULT_SECRET_KEY,
     build_security_posture,
@@ -53,7 +61,35 @@ from app.services.backup import (
     list_backup_files as backup_service_list_files,
     prune_old_backups as backup_service_prune_old,
     restore_data_backup as backup_service_restore,
+    test_external_backup_dir as backup_service_test_external_dir,
+    test_restore_backup as backup_service_test_restore,
     write_data_backup_archive as backup_service_write_archive,
+)
+from app.services.fleet import (
+    BLOCKED_VEHICLE_STATUSES,
+    DEFAULT_DOCUMENT_ALERT_DAYS,
+    build_document_record as fleet_build_document_record,
+    build_fleet_phase1_view,
+    build_vehicle_record as fleet_build_vehicle_record,
+    document_status_view,
+    normalize_alert_days as normalize_fleet_alert_days,
+    normalize_document_record as normalize_fleet_document_record,
+    normalize_vehicle_status,
+    normalize_vehicle_record,
+    required_vehicle_change_permissions,
+)
+from app.services.fleet_checklists import active_blocks_for_vehicle, route_departure_status
+from app.services.fleet_maintenance import maintenance_plan_status
+from app.services.sqlite_store import (
+    load_dict_from_sqlite,
+    load_list_from_sqlite,
+    save_dict_to_sqlite,
+    save_list_to_sqlite,
+)
+from app.services.warehouse_pdf import (
+    build_warehouse_pdf_bytes,
+    warehouse_pdf_filename,
+    warehouse_stock_info,
 )
 
 
@@ -63,8 +99,40 @@ DEFAULT_STORAGE_ROOT = Path("/tmp/rotaflow") if os.environ.get("VERCEL") else BA
 STORAGE_ROOT = Path(os.environ.get("ROTAFLOW_STORAGE_DIR", str(DEFAULT_STORAGE_ROOT)))
 DATA_DIR = STORAGE_ROOT / "data"
 BACKUPS_DIR = STORAGE_ROOT / "backups"
+LOGS_DIR = STORAGE_ROOT / "logs"
+BACKUP_LOG_PATH = LOGS_DIR / "backup.log"
+DEFAULT_DROPBOX_BACKUP_DIR = Path.home() / "Dropbox" / "Sistema SannyGold" / "Backups"
+BACKUP_COPY_DIR_ENV = os.environ.get("DROPBOX_BACKUP_DIR") or os.environ.get("SANNYGOLD_BACKUP_COPY_DIR")
+BACKUP_COPY_DIR = Path(BACKUP_COPY_DIR_ENV).expanduser() if BACKUP_COPY_DIR_ENV else DEFAULT_DROPBOX_BACKUP_DIR
 CLIENTS_PATH = DATA_DIR / "clients.json"
 VEHICLES_PATH = DATA_DIR / "vehicles.json"
+FLEET_DOCUMENTS_PATH = DATA_DIR / "fleet_documents.json"
+FLEET_SERVICE_ORDERS_PATH = DATA_DIR / "fleet_service_orders.json"
+FLEET_SERVICE_ORDER_ITEMS_PATH = DATA_DIR / "fleet_service_order_items.json"
+VEHICLE_MAINTENANCE_PLANS_PATH = DATA_DIR / "vehicle_maintenance_plans.json"
+FLEET_MAINTENANCE_ATTACHMENTS_PATH = DATA_DIR / "fleet_maintenance_attachments.json"
+FLEET_INVENTORY_RESERVATIONS_PATH = DATA_DIR / "fleet_inventory_reservations.json"
+FLEET_CHECKLIST_TEMPLATES_PATH = DATA_DIR / "fleet_checklist_templates.json"
+FLEET_CHECKLIST_TEMPLATE_ITEMS_PATH = DATA_DIR / "fleet_checklist_template_items.json"
+FLEET_CHECKLISTS_PATH = DATA_DIR / "fleet_checklists.json"
+FLEET_CHECKLIST_RESPONSES_PATH = DATA_DIR / "fleet_checklist_responses.json"
+FLEET_CHECKLIST_EVIDENCE_PATH = DATA_DIR / "fleet_checklist_evidence.json"
+FLEET_OCCURRENCES_PATH = DATA_DIR / "fleet_occurrences.json"
+VEHICLE_OPERATIONAL_BLOCKS_PATH = DATA_DIR / "vehicle_operational_blocks.json"
+FLEET_VEHICLE_ASSIGNMENTS_PATH = DATA_DIR / "fleet_vehicle_assignments.json"
+FLEET_DRIVER_AUTHORIZATIONS_PATH = DATA_DIR / "fleet_driver_authorizations.json"
+FLEET_TRAFFIC_INFRACTIONS_PATH = DATA_DIR / "fleet_traffic_infractions.json"
+FLEET_INFRACTION_DEADLINES_PATH = DATA_DIR / "fleet_infraction_deadlines.json"
+FLEET_INFRACTION_DRIVER_IDENTIFICATIONS_PATH = DATA_DIR / "fleet_infraction_driver_identifications.json"
+FLEET_INFRACTION_DOCUMENT_TEMPLATES_PATH = DATA_DIR / "fleet_infraction_document_templates.json"
+FLEET_INFRACTION_DOCUMENT_TEMPLATE_ITEMS_PATH = DATA_DIR / "fleet_infraction_document_template_items.json"
+FLEET_INFRACTION_DOCUMENTS_PATH = DATA_DIR / "fleet_infraction_documents.json"
+FLEET_INFRACTION_PROCEEDINGS_PATH = DATA_DIR / "fleet_infraction_proceedings.json"
+FLEET_INFRACTION_PROTOCOLS_PATH = DATA_DIR / "fleet_infraction_protocols.json"
+FLEET_INFRACTION_PAYMENTS_PATH = DATA_DIR / "fleet_infraction_payments.json"
+FLEET_INFRACTION_ATTACHMENTS_PATH = DATA_DIR / "fleet_infraction_attachments.json"
+FLEET_INFRACTION_DECISIONS_PATH = DATA_DIR / "fleet_infraction_decisions.json"
+FLEET_INFRACTION_AUDIT_LOGS_PATH = DATA_DIR / "fleet_infraction_audit_logs.json"
 EQUIPMENT_PATH = DATA_DIR / "equipment.json"
 CONTRACTS_PATH = DATA_DIR / "contracts.json"
 QUOTES_PATH = DATA_DIR / "quotes.json"
@@ -81,16 +149,63 @@ FINANCIAL_RECEIVABLES_PATH = DATA_DIR / "financial_receivables.json"
 FINANCIAL_ENTRIES_PATH = DATA_DIR / "financial_entries.json"
 FINANCIAL_CLOSEOUTS_PATH = DATA_DIR / "financial_closeouts.json"
 FIELD_CONFIRMATIONS_PATH = DATA_DIR / "field_confirmations.json"
+SERVICE_ORDERS_PATH = DATA_DIR / "service_orders.json"
 OPERATION_VALIDATION_PATH = DATA_DIR / "operation_validation.json"
 FORECAST_AUDIT_PATH = DATA_DIR / "forecast_audit.json"
 HELP_KNOWLEDGE_BASE_PATH = DATA_DIR / "help_knowledge_base.json"
 HELP_UNANSWERED_PATH = DATA_DIR / "help_unanswered_questions.json"
 HELP_SUPPORT_TICKETS_PATH = DATA_DIR / "help_support_tickets.json"
 HELP_METRICS_PATH = DATA_DIR / "help_metrics.json"
-BACKUP_RETENTION_LIMIT = 30
+SQLITE_DB_PATH = Path(os.environ.get("SANNYGOLD_SQLITE_PATH", str(DATA_DIR / "sannygold.db"))).expanduser()
+
+
+def int_env(name: str, default: int, *, minimum: int = 1, maximum: int = 365) -> int:
+    try:
+        value = int(str(os.environ.get(name, default)).strip())
+    except (TypeError, ValueError):
+        return default
+    return min(max(value, minimum), maximum)
+
+
+BACKUP_RETENTION_LIMIT = int_env("SANNYGOLD_BACKUP_RETENTION_LIMIT", 30)
+DROPBOX_BACKUP_RETENTION_LIMIT = int_env("SANNYGOLD_DROPBOX_BACKUP_RETENTION_LIMIT", BACKUP_RETENTION_LIMIT)
+DEFAULT_AUTOMATIC_BACKUP_TIME = "20:00"
+BACKUP_SCHEDULER_CHECK_SECONDS = int(os.environ.get("SANNYGOLD_BACKUP_SCHEDULER_INTERVAL_SECONDS", "60") or 60)
+BACKUP_RUN_LOCK = threading.Lock()
+BACKUP_SCHEDULER_LOCK = threading.Lock()
+BACKUP_SCHEDULER_THREAD: threading.Thread | None = None
+BACKUP_SCHEDULER_STARTED = False
 IMPORTANT_DATA_PATHS = (
+    SQLITE_DB_PATH,
     CLIENTS_PATH,
     VEHICLES_PATH,
+    FLEET_DOCUMENTS_PATH,
+    FLEET_SERVICE_ORDERS_PATH,
+    FLEET_SERVICE_ORDER_ITEMS_PATH,
+    VEHICLE_MAINTENANCE_PLANS_PATH,
+    FLEET_MAINTENANCE_ATTACHMENTS_PATH,
+    FLEET_INVENTORY_RESERVATIONS_PATH,
+    FLEET_CHECKLIST_TEMPLATES_PATH,
+    FLEET_CHECKLIST_TEMPLATE_ITEMS_PATH,
+    FLEET_CHECKLISTS_PATH,
+    FLEET_CHECKLIST_RESPONSES_PATH,
+    FLEET_CHECKLIST_EVIDENCE_PATH,
+    FLEET_OCCURRENCES_PATH,
+    VEHICLE_OPERATIONAL_BLOCKS_PATH,
+    FLEET_VEHICLE_ASSIGNMENTS_PATH,
+    FLEET_DRIVER_AUTHORIZATIONS_PATH,
+    FLEET_TRAFFIC_INFRACTIONS_PATH,
+    FLEET_INFRACTION_DEADLINES_PATH,
+    FLEET_INFRACTION_DRIVER_IDENTIFICATIONS_PATH,
+    FLEET_INFRACTION_DOCUMENT_TEMPLATES_PATH,
+    FLEET_INFRACTION_DOCUMENT_TEMPLATE_ITEMS_PATH,
+    FLEET_INFRACTION_DOCUMENTS_PATH,
+    FLEET_INFRACTION_PROCEEDINGS_PATH,
+    FLEET_INFRACTION_PROTOCOLS_PATH,
+    FLEET_INFRACTION_PAYMENTS_PATH,
+    FLEET_INFRACTION_ATTACHMENTS_PATH,
+    FLEET_INFRACTION_DECISIONS_PATH,
+    FLEET_INFRACTION_AUDIT_LOGS_PATH,
     EQUIPMENT_PATH,
     CONTRACTS_PATH,
     QUOTES_PATH,
@@ -107,6 +222,7 @@ IMPORTANT_DATA_PATHS = (
     FINANCIAL_ENTRIES_PATH,
     FINANCIAL_CLOSEOUTS_PATH,
     FIELD_CONFIRMATIONS_PATH,
+    SERVICE_ORDERS_PATH,
     OPERATION_VALIDATION_PATH,
     FORECAST_AUDIT_PATH,
     HELP_KNOWLEDGE_BASE_PATH,
@@ -115,6 +231,7 @@ IMPORTANT_DATA_PATHS = (
     HELP_METRICS_PATH,
 )
 UPLOADS_DIR = STORAGE_ROOT / "uploads"
+FLEET_UPLOADS_DIR = UPLOADS_DIR / "Frota" / "Veiculos"
 PREVIEW_DIR = STORAGE_ROOT / "preview"
 ROUTE_JSON_PATH = PREVIEW_DIR / "route-plan-mobile.json"
 ROUTE_PDF_PATH = PREVIEW_DIR / "route-plan.pdf"
@@ -132,6 +249,8 @@ CSRF_FIELD_NAME = "_csrf_token"
 CSRF_HEADER_NAMES = ("X-CSRFToken", "X-CSRF-Token")
 UPLOAD_MAX_BYTES = 10 * 1024 * 1024
 IMAGE_UPLOAD_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+FLEET_DOCUMENT_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png", ".webp", ".doc", ".docx", ".xls", ".xlsx"}
+FLEET_MAINTENANCE_EXTENSIONS = FLEET_DOCUMENT_EXTENSIONS | {".mp4", ".mov", ".m4v"}
 ROUTE_UPLOAD_EXTENSIONS = {".csv"}
 EXCEL_UPLOAD_EXTENSIONS = {".xlsx"}
 HQ_ADDRESS = "Estrada Bento Pestana, 932 - Baldeador, Niterói - RJ"
@@ -141,13 +260,50 @@ GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "").strip()
 EQUIPMENT_STATUS_OPTIONS = {
     "disponivel",
     "reservado",
+    "em_operacao",
+    "manutencao",
+    "aguardando_limpeza",
+    "indisponivel",
+    "baixado",
     "carregado",
     "em_rota",
     "instalado",
     "retirada_pendente",
     "retornado",
-    "manutencao",
-    "indisponivel",
+}
+EQUIPMENT_STATUS_ALIASES = {
+    "": "disponivel",
+    "disponivel": "disponivel",
+    "disponível": "disponivel",
+    "reservado": "reservado",
+    "carregado": "em_operacao",
+    "em_rota": "em_operacao",
+    "em rota": "em_operacao",
+    "instalado": "em_operacao",
+    "em_operacao": "em_operacao",
+    "em operação": "em_operacao",
+    "manutencao": "manutencao",
+    "manutenção": "manutencao",
+    "retirada_pendente": "aguardando_limpeza",
+    "retornado": "aguardando_limpeza",
+    "aguardando limpeza": "aguardando_limpeza",
+    "aguardando_limpeza": "aguardando_limpeza",
+    "indisponivel": "indisponivel",
+    "indisponível": "indisponivel",
+    "baixado": "baixado",
+}
+EQUIPMENT_STATUS_LABELS = {
+    "disponivel": "Disponível",
+    "reservado": "Reservado",
+    "em_operacao": "Em operação",
+    "manutencao": "Em manutenção",
+    "aguardando_limpeza": "Aguardando limpeza",
+    "indisponivel": "Indisponível",
+    "baixado": "Baixado",
+}
+WAREHOUSE_ITEM_KIND_LABELS = {
+    "consumivel": "Material consumível",
+    "acessorio_operacional": "Acessório operacional",
 }
 EQUIPMENT_TYPE_SUGGESTIONS = [
     "Banheiro Trailer Luxo",
@@ -168,8 +324,8 @@ QUICK_RENTAL_SERVICE_OPTIONS = [
     {"value": "outro", "label": "Outro serviço", "equipment_type": ""},
 ]
 QUICK_RENTAL_SERVICE_BY_VALUE = {item["value"]: item for item in QUICK_RENTAL_SERVICE_OPTIONS}
-BLOCKED_EQUIPMENT_STATUSES = {"manutencao", "indisponivel"}
-COMMITTED_EQUIPMENT_STATUSES = {"reservado", "carregado", "em_rota", "instalado", "retirada_pendente"}
+BLOCKED_EQUIPMENT_STATUSES = {"manutencao", "aguardando_limpeza", "indisponivel", "baixado"}
+COMMITTED_EQUIPMENT_STATUSES = {"reservado", "em_operacao"}
 PENDING_REASON_LABELS = {
     "sem_equipamento_disponivel": "Sem equipamento disponível",
     "equipamento_em_conflito": "Equipamento em conflito",
@@ -237,6 +393,52 @@ EVENT_STATUS_BADGE_CLASSES = {
     "pago": "badge-success",
     "cancelado": "badge-danger",
 }
+SERVICE_ORDER_STATUS_FLOW = [
+    {"key": "rascunho", "label": "Rascunho", "badge_class": "badge-fixed"},
+    {"key": "liberada", "label": "Liberada", "badge_class": "badge-success"},
+    {"key": "em_execucao", "label": "Em execução", "badge_class": "badge-avulso"},
+    {"key": "concluida", "label": "Concluída", "badge_class": "badge-success"},
+    {"key": "cancelada", "label": "Cancelada", "badge_class": "badge-danger"},
+]
+SERVICE_ORDER_STATUS_LABELS = {item["key"]: item["label"] for item in SERVICE_ORDER_STATUS_FLOW}
+SERVICE_ORDER_STATUS_BADGE_CLASSES = {item["key"]: item["badge_class"] for item in SERVICE_ORDER_STATUS_FLOW}
+SERVICE_ORDER_STATUSES = set(SERVICE_ORDER_STATUS_LABELS)
+SERVICE_ORDER_STATUS_ALIASES = {
+    "rascunho": "rascunho",
+    "draft": "rascunho",
+    "liberada": "liberada",
+    "liberado": "liberada",
+    "gerada": "liberada",
+    "gerado": "liberada",
+    "em_execucao": "em_execucao",
+    "em_andamento": "em_execucao",
+    "concluida": "concluida",
+    "concluido": "concluida",
+    "finalizada": "concluida",
+    "cancelada": "cancelada",
+    "cancelado": "cancelada",
+}
+SERVICE_ORDER_CONFIRMATION_STEPS = [
+    {"key": "saida_base", "label": "Saída da base"},
+    {"key": "chegada_local", "label": "Chegada ao local"},
+    {"key": "instalacao_concluida", "label": "Instalação concluída"},
+    {"key": "retirada_concluida", "label": "Retirada concluída"},
+    {"key": "retorno_base", "label": "Retorno à base"},
+]
+SERVICE_ORDER_CHECKLIST_SAIDA = [
+    "Confirmar cliente, local e contato antes da saída.",
+    "Conferir veículos, motorista/responsável e combustível.",
+    "Conferir equipamentos, placas/IDs e quantidades.",
+    "Separar acessórios, materiais e itens de apoio.",
+    "Enviar mapa e resumo da OS para a equipe.",
+]
+SERVICE_ORDER_CHECKLIST_RETORNO = [
+    "Confirmar retirada ou permanência combinada com cliente.",
+    "Conferir todos os equipamentos retornados.",
+    "Registrar avarias, limpeza pendente e fotos/anexos.",
+    "Baixar materiais usados ou perdidos no estoque.",
+    "Encerrar status da OS e avisar financeiro se houver pendência.",
+]
 EVENT_STATUS_NEXT_STEPS = {
     "rascunho": {
         "message": "Revise os dados principais e confirme a locação quando o cliente aprovar.",
@@ -331,6 +533,8 @@ app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = IS_PRODUCTION or os.environ.get("SANNYGOLD_SESSION_COOKIE_SECURE", "").strip().lower() in {"1", "true", "yes", "on"}
 app.config["CSRF_ENABLED"] = os.environ.get("SANNYGOLD_CSRF_DISABLED", "").strip().lower() not in {"1", "true", "yes", "on"}
+app.config["STORAGE_BACKEND"] = os.environ.get("SANNYGOLD_STORAGE_BACKEND", "json").strip().lower()
+app.config["SQLITE_MIRROR_JSON"] = os.environ.get("SANNYGOLD_SQLITE_MIRROR_JSON", "1").strip().lower() not in {"0", "false", "no", "off"}
 
 
 ROLES = {"guest", "admin", "operacional", "financeiro", "leitura"}
@@ -342,6 +546,9 @@ ROLE_PERMISSIONS = {
         "clients.view",
         "events.view",
         "fleet.view",
+        "fleet.maintenance.view",
+        "fleet.checklist.view",
+        "fleet.fines.view",
         "inventory.view",
         "routes.view",
         "warehouse.view",
@@ -357,7 +564,40 @@ ROLE_PERMISSIONS = {
         "events.close",
         "events.service_order",
         "fleet.view",
+        "fleet.create",
         "fleet.edit",
+        "fleet.vehicle.create",
+        "fleet.vehicle.edit",
+        "fleet.mileage.edit",
+        "fleet.checklist.fill",
+        "fleet.maintenance.open",
+        "fleet.maintenance.view",
+        "fleet.maintenance.create",
+        "fleet.maintenance.edit",
+        "fleet.maintenance.execute",
+        "fleet.maintenance.inventory.manage",
+        "fleet.checklist.view",
+        "fleet.checklist.create",
+        "fleet.checklist.complete",
+        "fleet.checklist.cancel",
+        "fleet.occurrence.view",
+        "fleet.occurrence.create",
+        "fleet.occurrence.assign",
+        "fleet.occurrence.resolve",
+        "fleet.vehicle.block",
+        "fleet.fines.view",
+        "fleet.fines.create",
+        "fleet.fines.edit",
+        "fleet.fines.assign",
+        "fleet.fines.driver_identify",
+        "fleet.fines.documents.manage",
+        "fleet.fines.proceedings.manage",
+        "fleet.fines.protocol.manage",
+        "fleet.fines.decide",
+        "fleet.fines.payments.view",
+        "fleet.fines.financial_responsibility.manage",
+        "fleet.fines.reports.view",
+        "fleet.fines.audit.view",
         "inventory.view",
         "inventory.edit",
         "routes.view",
@@ -372,6 +612,15 @@ ROLE_PERMISSIONS = {
         "clients.view",
         "events.view",
         "fleet.view",
+        "fleet.documents.view",
+        "fleet.values.view",
+        "fleet.costs.edit",
+        "fleet.maintenance.view",
+        "fleet.maintenance.costs.view",
+        "fleet.fines.view",
+        "fleet.fines.payments.view",
+        "fleet.fines.payments.manage",
+        "fleet.fines.reports.view",
         "inventory.view",
         "routes.view",
         "finance.view",
@@ -387,11 +636,14 @@ AUDIT_ACTION_LABELS = {
     "access_denied": "Acesso bloqueado",
     "accept_invitation": "Convite aceito",
     "automatic": "Backup automático",
+    "automatic_error": "Erro no backup automático",
     "bulk_import": "Importação em lote",
     "cancel_invitation": "Convite cancelado",
     "change_password": "Senha alterada",
     "cleaning": "Limpeza registrada",
     "close": "Fechamento gerado",
+    "copy": "Copiou",
+    "copy_warning": "Aviso de cópia",
     "create": "Criou",
     "create_password_reset": "Redefinição criada",
     "delete": "Excluiu",
@@ -434,6 +686,7 @@ AUDIT_MODULE_LABELS = {
     "exports": "Exportações",
     "finance": "Financeiro",
     "fleet": "Veículos",
+    "fleet_documents": "Documentos da frota",
     "help_assistant": "Assistente",
     "help_knowledge": "Ajuda",
     "help_support": "Suporte",
@@ -449,11 +702,17 @@ AUDIT_MODULE_LABELS = {
 }
 AUDIT_SENSITIVE_KEYS = {
     "api_key",
+    "acquisition_value",
     "authorization",
     "cookie",
     "csrf",
+    "chassi",
+    "chassis",
     "invitation_token",
+    "insurance_policy_number",
+    "insurer",
     "password",
+    "renavam",
     "reset_token",
     "secret",
     "senha",
@@ -465,12 +724,42 @@ LOGIN_ATTEMPTS: dict[str, dict] = {}
 
 def ensure_storage_dirs() -> None:
     UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    FLEET_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
     PREVIEW_DIR.mkdir(parents=True, exist_ok=True)
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
+    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    SQLITE_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     for path in (
         CLIENTS_PATH,
         VEHICLES_PATH,
+        FLEET_DOCUMENTS_PATH,
+        FLEET_SERVICE_ORDERS_PATH,
+        FLEET_SERVICE_ORDER_ITEMS_PATH,
+        VEHICLE_MAINTENANCE_PLANS_PATH,
+        FLEET_MAINTENANCE_ATTACHMENTS_PATH,
+        FLEET_INVENTORY_RESERVATIONS_PATH,
+        FLEET_CHECKLIST_TEMPLATES_PATH,
+        FLEET_CHECKLIST_TEMPLATE_ITEMS_PATH,
+        FLEET_CHECKLISTS_PATH,
+        FLEET_CHECKLIST_RESPONSES_PATH,
+        FLEET_CHECKLIST_EVIDENCE_PATH,
+        FLEET_OCCURRENCES_PATH,
+        VEHICLE_OPERATIONAL_BLOCKS_PATH,
+        FLEET_VEHICLE_ASSIGNMENTS_PATH,
+        FLEET_DRIVER_AUTHORIZATIONS_PATH,
+        FLEET_TRAFFIC_INFRACTIONS_PATH,
+        FLEET_INFRACTION_DEADLINES_PATH,
+        FLEET_INFRACTION_DRIVER_IDENTIFICATIONS_PATH,
+        FLEET_INFRACTION_DOCUMENT_TEMPLATES_PATH,
+        FLEET_INFRACTION_DOCUMENT_TEMPLATE_ITEMS_PATH,
+        FLEET_INFRACTION_DOCUMENTS_PATH,
+        FLEET_INFRACTION_PROCEEDINGS_PATH,
+        FLEET_INFRACTION_PROTOCOLS_PATH,
+        FLEET_INFRACTION_PAYMENTS_PATH,
+        FLEET_INFRACTION_ATTACHMENTS_PATH,
+        FLEET_INFRACTION_DECISIONS_PATH,
+        FLEET_INFRACTION_AUDIT_LOGS_PATH,
         EQUIPMENT_PATH,
         CONTRACTS_PATH,
         QUOTES_PATH,
@@ -479,6 +768,7 @@ def ensure_storage_dirs() -> None:
         ROUTE_HISTORY_PATH,
         EVENTS_PATH,
         FIELD_CONFIRMATIONS_PATH,
+        SERVICE_ORDERS_PATH,
         WAREHOUSE_ITEMS_PATH,
         WAREHOUSE_MOVEMENTS_PATH,
         AUDIT_LOG_PATH,
@@ -488,6 +778,7 @@ def ensure_storage_dirs() -> None:
         HELP_UNANSWERED_PATH,
         HELP_SUPPORT_TICKETS_PATH,
     ):
+        path.parent.mkdir(parents=True, exist_ok=True)
         if not path.exists():
             path.write_text("[]\n", encoding="utf-8")
     ensure_users_file()
@@ -520,7 +811,7 @@ def ensure_users_file() -> None:
         return
     now = datetime.now().isoformat(timespec="seconds")
     default_email = clean_text(os.environ.get("SANNYGOLD_ADMIN_EMAIL"), "contato@sannygold.com").lower()
-    default_password = os.environ.get("SANNYGOLD_ADMIN_PASSWORD", "Sanny123Gold")
+    default_password = os.environ.get("SANNYGOLD_ADMIN_PASSWORD", "troque-esta-senha")
     users = [
         {
             "id": "USR-001",
@@ -598,8 +889,38 @@ def event_status_label(value: str | None) -> str:
     return EVENT_STATUS_LABELS.get(status, status.replace("_", " ").title())
 
 
+def normalize_service_order_status(value: str | None, fallback: str = "rascunho") -> str:
+    status = normalize_status_key(value, fallback)
+    status = SERVICE_ORDER_STATUS_ALIASES.get(status, status)
+    normalized_fallback = SERVICE_ORDER_STATUS_ALIASES.get(normalize_status_key(fallback, "rascunho"), "rascunho")
+    return status if status in SERVICE_ORDER_STATUSES else normalized_fallback
+
+
+def service_order_status_label(value: str | None) -> str:
+    status = normalize_service_order_status(value)
+    return SERVICE_ORDER_STATUS_LABELS.get(status, status.replace("_", " ").title())
+
+
+def service_order_badge_class(value: str | None) -> str:
+    status = normalize_service_order_status(value)
+    return SERVICE_ORDER_STATUS_BADGE_CLASSES.get(status, "badge-fixed")
+
+
+def sqlite_storage_enabled() -> bool:
+    backend = str(app.config.get("STORAGE_BACKEND") or os.environ.get("SANNYGOLD_STORAGE_BACKEND", "json")).strip().lower()
+    return backend in {"sqlite", "sqlite_mirror", "local_sqlite"}
+
+
+def sqlite_json_mirror_enabled() -> bool:
+    return bool(app.config.get("SQLITE_MIRROR_JSON", True))
+
+
 def load_json_list(path: Path) -> list[dict]:
     ensure_storage_dirs()
+    if sqlite_storage_enabled():
+        sqlite_items = load_list_from_sqlite(SQLITE_DB_PATH, path)
+        if sqlite_items is not None:
+            return sqlite_items
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
@@ -609,11 +930,21 @@ def load_json_list(path: Path) -> list[dict]:
 
 def save_json_list(path: Path, items: list[dict]) -> None:
     ensure_storage_dirs()
+    if sqlite_storage_enabled():
+        sqlite_result = save_list_to_sqlite(SQLITE_DB_PATH, path, items)
+        if sqlite_result is False:
+            raise RuntimeError(f"Não foi possível gravar {path.name} no SQLite. Nenhum espelho JSON foi alterado.")
+        if sqlite_result is True and not sqlite_json_mirror_enabled():
+            return
     path.write_text(json.dumps(items, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
 def load_json_dict(path: Path) -> dict:
     ensure_storage_dirs()
+    if sqlite_storage_enabled():
+        sqlite_payload = load_dict_from_sqlite(SQLITE_DB_PATH, path)
+        if sqlite_payload is not None:
+            return sqlite_payload
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
@@ -623,6 +954,12 @@ def load_json_dict(path: Path) -> dict:
 
 def save_json_dict(path: Path, payload: dict) -> None:
     ensure_storage_dirs()
+    if sqlite_storage_enabled():
+        sqlite_result = save_dict_to_sqlite(SQLITE_DB_PATH, path, payload)
+        if sqlite_result is False:
+            raise RuntimeError(f"Não foi possível gravar {path.name} no SQLite. Nenhum espelho JSON foi alterado.")
+        if sqlite_result is True and not sqlite_json_mirror_enabled():
+            return
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
@@ -665,12 +1002,283 @@ def save_clients(clients: list[dict]) -> None:
     save_json_list(CLIENTS_PATH, sort_by_label(clients, "customer_name", "client_id"))
 
 
-def load_vehicles_registry() -> list[dict]:
-    return load_json_list(VEHICLES_PATH)
+def load_vehicles_registry(*, include_archived: bool = False) -> list[dict]:
+    vehicles = [
+        normalize_vehicle_record(item, hq_lat=HQ_LAT, hq_lng=HQ_LNG)
+        for item in load_json_list(VEHICLES_PATH)
+        if isinstance(item, dict)
+    ]
+    if include_archived:
+        return vehicles
+    return [item for item in vehicles if not clean_text(item.get("deleted_at"))]
 
 
 def save_vehicles_registry(vehicles: list[dict]) -> None:
     save_json_list(VEHICLES_PATH, sort_by_label(vehicles, "vehicle_id", "plate"))
+
+
+def load_fleet_documents(*, include_archived: bool = False) -> list[dict]:
+    documents = [
+        normalize_fleet_document_record(item) for item in load_json_list(FLEET_DOCUMENTS_PATH)
+        if isinstance(item, dict)
+    ]
+    if include_archived:
+        return documents
+    return [item for item in documents if not clean_text(item.get("deleted_at"))]
+
+
+def save_fleet_documents(documents: list[dict]) -> None:
+    ordered = sorted(
+        documents,
+        key=lambda item: (
+            clean_text(item.get("expires_at")) or "9999-12-31",
+            clean_text(item.get("vehicle_id")),
+            clean_text(item.get("id")),
+        ),
+    )
+    save_json_list(FLEET_DOCUMENTS_PATH, ordered)
+
+
+def load_fleet_service_orders(*, include_archived: bool = False) -> list[dict]:
+    records = [item for item in load_json_list(FLEET_SERVICE_ORDERS_PATH) if isinstance(item, dict)]
+    return records if include_archived else [item for item in records if not clean_text(item.get("deleted_at"))]
+
+
+def save_fleet_service_orders(records: list[dict]) -> None:
+    save_json_list(
+        FLEET_SERVICE_ORDERS_PATH,
+        sorted(records, key=lambda item: (clean_text(item.get("opening_date")), clean_text(item.get("order_number")))),
+    )
+
+
+def load_fleet_service_order_items(*, include_archived: bool = False) -> list[dict]:
+    records = [item for item in load_json_list(FLEET_SERVICE_ORDER_ITEMS_PATH) if isinstance(item, dict)]
+    return records if include_archived else [item for item in records if not clean_text(item.get("deleted_at"))]
+
+
+def save_fleet_service_order_items(records: list[dict]) -> None:
+    save_json_list(FLEET_SERVICE_ORDER_ITEMS_PATH, sort_by_label(records, "service_order_id", "id"))
+
+
+def load_vehicle_maintenance_plans(*, include_archived: bool = False) -> list[dict]:
+    records = [item for item in load_json_list(VEHICLE_MAINTENANCE_PLANS_PATH) if isinstance(item, dict)]
+    return records if include_archived else [item for item in records if not clean_text(item.get("deleted_at"))]
+
+
+def save_vehicle_maintenance_plans(records: list[dict]) -> None:
+    save_json_list(VEHICLE_MAINTENANCE_PLANS_PATH, sort_by_label(records, "vehicle_id", "title", "id"))
+
+
+def load_fleet_maintenance_attachments(*, include_archived: bool = False) -> list[dict]:
+    records = [item for item in load_json_list(FLEET_MAINTENANCE_ATTACHMENTS_PATH) if isinstance(item, dict)]
+    return records if include_archived else [item for item in records if not clean_text(item.get("deleted_at"))]
+
+
+def save_fleet_maintenance_attachments(records: list[dict]) -> None:
+    save_json_list(FLEET_MAINTENANCE_ATTACHMENTS_PATH, sort_by_label(records, "service_order_id", "created_at", "id"))
+
+
+def load_fleet_inventory_reservations() -> list[dict]:
+    return [item for item in load_json_list(FLEET_INVENTORY_RESERVATIONS_PATH) if isinstance(item, dict)]
+
+
+def save_fleet_inventory_reservations(records: list[dict]) -> None:
+    save_json_list(FLEET_INVENTORY_RESERVATIONS_PATH, sort_by_label(records, "service_order_id", "id"))
+
+
+def _load_fleet_phase3(path: Path, *, include_archived: bool = False) -> list[dict]:
+    records = [item for item in load_json_list(path) if isinstance(item, dict)]
+    return records if include_archived else [item for item in records if not clean_text(item.get("deleted_at"))]
+
+
+def load_fleet_checklist_templates(*, include_archived: bool = False) -> list[dict]:
+    return _load_fleet_phase3(FLEET_CHECKLIST_TEMPLATES_PATH, include_archived=include_archived)
+
+
+def save_fleet_checklist_templates(records: list[dict]) -> None:
+    save_json_list(FLEET_CHECKLIST_TEMPLATES_PATH, sort_by_label(records, "logical_id", "version", "id"))
+
+
+def load_fleet_checklist_template_items(*, include_archived: bool = False) -> list[dict]:
+    return _load_fleet_phase3(FLEET_CHECKLIST_TEMPLATE_ITEMS_PATH, include_archived=include_archived)
+
+
+def save_fleet_checklist_template_items(records: list[dict]) -> None:
+    save_json_list(FLEET_CHECKLIST_TEMPLATE_ITEMS_PATH, sorted(records, key=lambda item: (clean_text(item.get("template_id")), int(item.get("display_order") or 0), clean_text(item.get("id")))))
+
+
+def load_fleet_checklists(*, include_archived: bool = False) -> list[dict]:
+    return _load_fleet_phase3(FLEET_CHECKLISTS_PATH, include_archived=include_archived)
+
+
+def save_fleet_checklists(records: list[dict]) -> None:
+    save_json_list(FLEET_CHECKLISTS_PATH, sort_by_label(records, "created_at", "id"))
+
+
+def load_fleet_checklist_responses(*, include_archived: bool = False) -> list[dict]:
+    return _load_fleet_phase3(FLEET_CHECKLIST_RESPONSES_PATH, include_archived=include_archived)
+
+
+def save_fleet_checklist_responses(records: list[dict]) -> None:
+    save_json_list(FLEET_CHECKLIST_RESPONSES_PATH, sort_by_label(records, "checklist_id", "category_snapshot", "id"))
+
+
+def load_fleet_checklist_evidence(*, include_archived: bool = False) -> list[dict]:
+    return _load_fleet_phase3(FLEET_CHECKLIST_EVIDENCE_PATH, include_archived=include_archived)
+
+
+def save_fleet_checklist_evidence(records: list[dict]) -> None:
+    save_json_list(FLEET_CHECKLIST_EVIDENCE_PATH, sort_by_label(records, "checklist_id", "created_at", "id"))
+
+
+def load_fleet_occurrences(*, include_archived: bool = False) -> list[dict]:
+    return _load_fleet_phase3(FLEET_OCCURRENCES_PATH, include_archived=include_archived)
+
+
+def save_fleet_occurrences(records: list[dict]) -> None:
+    save_json_list(FLEET_OCCURRENCES_PATH, sort_by_label(records, "occurrence_date", "occurrence_number"))
+
+
+def load_vehicle_operational_blocks(*, include_archived: bool = False) -> list[dict]:
+    return _load_fleet_phase3(VEHICLE_OPERATIONAL_BLOCKS_PATH, include_archived=include_archived)
+
+
+def save_vehicle_operational_blocks(records: list[dict]) -> None:
+    save_json_list(VEHICLE_OPERATIONAL_BLOCKS_PATH, sort_by_label(records, "blocked_at", "id"))
+
+
+def load_fleet_vehicle_assignments(*, include_archived: bool = False) -> list[dict]:
+    return _load_fleet_phase3(FLEET_VEHICLE_ASSIGNMENTS_PATH, include_archived=include_archived)
+
+
+def save_fleet_vehicle_assignments(records: list[dict]) -> None:
+    save_json_list(FLEET_VEHICLE_ASSIGNMENTS_PATH, sort_by_label(records, "delivered_at", "id"))
+
+
+def load_fleet_driver_authorizations(*, include_archived: bool = False) -> list[dict]:
+    records = _load_fleet_phase3(FLEET_DRIVER_AUTHORIZATIONS_PATH, include_archived=include_archived)
+    for record in records:
+        for key, json_key in (("authorized_vehicle_ids", "authorized_vehicle_ids_json"), ("authorized_vehicle_types", "authorized_vehicle_types_json")):
+            if not isinstance(record.get(key), list):
+                try:
+                    record[key] = json.loads(clean_text(record.get(json_key), "[]"))
+                except json.JSONDecodeError:
+                    record[key] = []
+    return records
+
+
+def save_fleet_driver_authorizations(records: list[dict]) -> None:
+    normalized = []
+    for record in records:
+        vehicle_ids = record.get("authorized_vehicle_ids") if isinstance(record.get("authorized_vehicle_ids"), list) else []
+        vehicle_types = record.get("authorized_vehicle_types") if isinstance(record.get("authorized_vehicle_types"), list) else []
+        normalized.append({**record, "authorized_vehicle_ids_json": json.dumps(vehicle_ids, ensure_ascii=False), "authorized_vehicle_types_json": json.dumps(vehicle_types, ensure_ascii=False)})
+    save_json_list(FLEET_DRIVER_AUTHORIZATIONS_PATH, sort_by_label(normalized, "user_id", "id"))
+
+
+def _load_fleet_fines(path: Path, *, include_archived: bool = False) -> list[dict]:
+    return _load_fleet_phase3(path, include_archived=include_archived)
+
+
+def _save_fleet_fines(path: Path, records: list[dict], *fields: str) -> None:
+    save_json_list(path, sort_by_label(records, *(fields or ("created_at", "id"))))
+
+
+def load_fleet_traffic_infractions(*, include_archived: bool = False) -> list[dict]: return _load_fleet_fines(FLEET_TRAFFIC_INFRACTIONS_PATH, include_archived=include_archived)
+def save_fleet_traffic_infractions(records: list[dict]) -> None: _save_fleet_fines(FLEET_TRAFFIC_INFRACTIONS_PATH, records, "infraction_date", "internal_number")
+def load_fleet_infraction_deadlines(*, include_archived: bool = False) -> list[dict]: return _load_fleet_fines(FLEET_INFRACTION_DEADLINES_PATH, include_archived=include_archived)
+def save_fleet_infraction_deadlines(records: list[dict]) -> None: _save_fleet_fines(FLEET_INFRACTION_DEADLINES_PATH, records, "official_deadline", "id")
+def load_fleet_infraction_driver_identifications(*, include_archived: bool = False) -> list[dict]: return _load_fleet_fines(FLEET_INFRACTION_DRIVER_IDENTIFICATIONS_PATH, include_archived=include_archived)
+def save_fleet_infraction_driver_identifications(records: list[dict]) -> None: _save_fleet_fines(FLEET_INFRACTION_DRIVER_IDENTIFICATIONS_PATH, records, "infraction_id", "id")
+def load_fleet_infraction_document_templates(*, include_archived: bool = False) -> list[dict]: return _load_fleet_fines(FLEET_INFRACTION_DOCUMENT_TEMPLATES_PATH, include_archived=include_archived)
+def save_fleet_infraction_document_templates(records: list[dict]) -> None: _save_fleet_fines(FLEET_INFRACTION_DOCUMENT_TEMPLATES_PATH, records, "issuing_authority", "name")
+def load_fleet_infraction_document_template_items(*, include_archived: bool = False) -> list[dict]: return _load_fleet_fines(FLEET_INFRACTION_DOCUMENT_TEMPLATE_ITEMS_PATH, include_archived=include_archived)
+def save_fleet_infraction_document_template_items(records: list[dict]) -> None: _save_fleet_fines(FLEET_INFRACTION_DOCUMENT_TEMPLATE_ITEMS_PATH, records, "template_id", "display_order")
+def load_fleet_infraction_documents(*, include_archived: bool = False) -> list[dict]: return _load_fleet_fines(FLEET_INFRACTION_DOCUMENTS_PATH, include_archived=include_archived)
+def save_fleet_infraction_documents(records: list[dict]) -> None: _save_fleet_fines(FLEET_INFRACTION_DOCUMENTS_PATH, records, "infraction_id", "document_type")
+def load_fleet_infraction_proceedings(*, include_archived: bool = False) -> list[dict]: return _load_fleet_fines(FLEET_INFRACTION_PROCEEDINGS_PATH, include_archived=include_archived)
+def save_fleet_infraction_proceedings(records: list[dict]) -> None: _save_fleet_fines(FLEET_INFRACTION_PROCEEDINGS_PATH, records, "infraction_id", "created_at")
+def load_fleet_infraction_protocols(*, include_archived: bool = False) -> list[dict]: return _load_fleet_fines(FLEET_INFRACTION_PROTOCOLS_PATH, include_archived=include_archived)
+def save_fleet_infraction_protocols(records: list[dict]) -> None: _save_fleet_fines(FLEET_INFRACTION_PROTOCOLS_PATH, records, "infraction_id", "protocol_date")
+def load_fleet_infraction_payments(*, include_archived: bool = False) -> list[dict]: return _load_fleet_fines(FLEET_INFRACTION_PAYMENTS_PATH, include_archived=include_archived)
+def save_fleet_infraction_payments(records: list[dict]) -> None: _save_fleet_fines(FLEET_INFRACTION_PAYMENTS_PATH, records, "infraction_id", "payment_date")
+def load_fleet_infraction_attachments(*, include_archived: bool = False) -> list[dict]: return _load_fleet_fines(FLEET_INFRACTION_ATTACHMENTS_PATH, include_archived=include_archived)
+def save_fleet_infraction_attachments(records: list[dict]) -> None: _save_fleet_fines(FLEET_INFRACTION_ATTACHMENTS_PATH, records, "infraction_id", "created_at")
+def load_fleet_infraction_decisions(*, include_archived: bool = False) -> list[dict]: return _load_fleet_fines(FLEET_INFRACTION_DECISIONS_PATH, include_archived=include_archived)
+def save_fleet_infraction_decisions(records: list[dict]) -> None: _save_fleet_fines(FLEET_INFRACTION_DECISIONS_PATH, records, "infraction_id", "decided_at")
+def load_fleet_infraction_audit_logs(*, include_archived: bool = False) -> list[dict]: return _load_fleet_fines(FLEET_INFRACTION_AUDIT_LOGS_PATH, include_archived=include_archived)
+def save_fleet_infraction_audit_logs(records: list[dict]) -> None: _save_fleet_fines(FLEET_INFRACTION_AUDIT_LOGS_PATH, records, "infraction_id", "created_at")
+
+
+def load_vehicle_mileage_records(vehicle_id: str = "") -> list[dict]:
+    initialize_database(SQLITE_DB_PATH)
+    with sqlite_connect(SQLITE_DB_PATH) as connection:
+        if vehicle_id:
+            rows = connection.execute(
+                "SELECT * FROM vehicle_mileage WHERE vehicle_id = ? ORDER BY record_date DESC, created_at DESC",
+                (vehicle_id,),
+            ).fetchall()
+        else:
+            rows = connection.execute("SELECT * FROM vehicle_mileage ORDER BY record_date DESC, created_at DESC").fetchall()
+    return [dict(row) for row in rows]
+
+
+def load_vehicle_audit_records(vehicle_id: str = "") -> list[dict]:
+    initialize_database(SQLITE_DB_PATH)
+    with sqlite_connect(SQLITE_DB_PATH) as connection:
+        if vehicle_id:
+            rows = connection.execute(
+                "SELECT * FROM vehicle_audit_logs WHERE vehicle_id = ? ORDER BY created_at DESC",
+                (vehicle_id,),
+            ).fetchall()
+        else:
+            rows = connection.execute("SELECT * FROM vehicle_audit_logs ORDER BY created_at DESC").fetchall()
+    return [dict(row) for row in rows]
+
+
+def record_vehicle_maintenance_history(
+    *,
+    vehicle_id: str,
+    mileage: int | None,
+    record_date: str,
+    source: str,
+    user_id: str,
+    notes: str,
+    action: str,
+    previous_data: dict | None,
+    new_data: dict | None,
+) -> dict:
+    initialize_database(SQLITE_DB_PATH)
+    created_at = now_iso()
+    mileage_id = f"KM-{uuid4().hex.upper()}" if mileage is not None else ""
+    audit_id = f"VAU-{uuid4().hex.upper()}"
+    with sqlite_connect(SQLITE_DB_PATH) as connection:
+        if not connection.execute("SELECT 1 FROM vehicles WHERE vehicle_id = ?", (vehicle_id,)).fetchone():
+            return {"mileage_id": "", "audit_id": "", "created_at": created_at, "skipped": "vehicle_not_in_sqlite"}
+        if mileage is not None:
+            connection.execute(
+                """
+                INSERT INTO vehicle_mileage (id, vehicle_id, mileage, record_date, source, user_id, notes, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (mileage_id, vehicle_id, mileage, record_date, source, user_id, notes, created_at),
+            )
+        connection.execute(
+            """
+            INSERT INTO vehicle_audit_logs (id, vehicle_id, user_id, action, previous_data, new_data, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                audit_id,
+                vehicle_id,
+                user_id,
+                action,
+                json.dumps(previous_data or {}, ensure_ascii=False, sort_keys=True),
+                json.dumps(new_data or {}, ensure_ascii=False, sort_keys=True),
+                created_at,
+            ),
+        )
+    return {"mileage_id": mileage_id, "audit_id": audit_id, "created_at": created_at}
 
 
 def load_equipment_registry() -> list[dict]:
@@ -748,6 +1356,43 @@ def uploaded_asset_path_from_url(value: str | None) -> Path | None:
     return target if target.parent == assets_dir else None
 
 
+def fleet_storage_key(vehicle: dict | str) -> str:
+    if isinstance(vehicle, dict):
+        value = clean_text(vehicle.get("plate")) or clean_text(vehicle.get("vehicle_id"))
+    else:
+        value = clean_text(vehicle)
+    return secure_filename(value.upper()) or "SEM-IDENTIFICACAO"
+
+
+def uploaded_fleet_files(
+    field_name: str,
+    *,
+    vehicle: dict | str,
+    category: str,
+    allowed_extensions: set[str],
+    field_label: str,
+) -> list[str]:
+    uploaded_files = request.files.getlist(field_name)
+    urls = []
+    for uploaded in uploaded_files:
+        if uploaded is None or uploaded.filename is None or not uploaded.filename.strip():
+            continue
+        safe_name, extension = validate_uploaded_file(
+            uploaded,
+            field_label=field_label,
+            allowed_extensions=allowed_extensions,
+            allowed_label=", ".join(sorted(allowed_extensions)),
+        )
+        category_key = secure_filename(category) or "Arquivos"
+        destination_dir = FLEET_UPLOADS_DIR / fleet_storage_key(vehicle) / category_key
+        destination_dir.mkdir(parents=True, exist_ok=True)
+        destination = destination_dir / f"{datetime.now().strftime('%Y%m%d%H%M%S')}-{uuid4().hex[:8]}-{safe_name}"
+        uploaded.save(destination)
+        relative_path = destination.relative_to(FLEET_UPLOADS_DIR).as_posix()
+        urls.append(url_for("uploaded_fleet_file", relative_path=relative_path))
+    return urls
+
+
 def parse_decimal(value, fallback: float = 0.0) -> float:
     text = str(value if value is not None else fallback).strip().replace(",", ".")
     try:
@@ -809,6 +1454,87 @@ def save_financial_closeouts(items: list[dict]) -> None:
     save_json_list(FINANCIAL_CLOSEOUTS_PATH, ordered)
 
 
+FINANCIAL_RECEIVABLE_STATUSES = {
+    "sem_cobranca": {"label": "Sem cobrança", "badge": "badge-fixed"},
+    "a_receber": {"label": "A receber", "badge": "badge-avulso"},
+    "parcial": {"label": "Parcialmente pago", "badge": "badge-avulso"},
+    "pago": {"label": "Pago", "badge": "badge-success"},
+    "vencido": {"label": "Vencido", "badge": "badge-danger"},
+    "cancelado": {"label": "Cancelado", "badge": "badge-fixed"},
+}
+
+FINANCIAL_RECEIVABLE_STATUS_ALIASES = {
+    "": "a_receber",
+    "aguardando": "a_receber",
+    "aguardando_pagamento": "a_receber",
+    "aberto": "a_receber",
+    "a receber": "a_receber",
+    "a_receber": "a_receber",
+    "em_aberto": "a_receber",
+    "pendente": "a_receber",
+    "parcial": "parcial",
+    "pago parcial": "parcial",
+    "parcialmente pago": "parcial",
+    "parcialmente_pago": "parcial",
+    "pago": "pago",
+    "quitado": "pago",
+    "vencido": "vencido",
+    "atrasado": "vencido",
+    "sem cobrança": "sem_cobranca",
+    "sem_cobranca": "sem_cobranca",
+    "sem-cobranca": "sem_cobranca",
+    "cancelado": "cancelado",
+    "cancelada": "cancelado",
+}
+
+
+def normalize_receivable_status(
+    status: str | None,
+    *,
+    due_date: str | None = "",
+    amount: float | str | None = None,
+    amount_received: float | str | None = None,
+) -> str:
+    normalized = FINANCIAL_RECEIVABLE_STATUS_ALIASES.get(clean_text(status).lower(), "")
+    if not normalized:
+        raise ValueError("Status financeiro inválido. Use sem cobrança, a receber, parcialmente pago, pago, vencido ou cancelado.")
+    if normalized in {"sem_cobranca", "cancelado"}:
+        return normalized
+    total = parse_decimal(amount)
+    received = parse_decimal(amount_received)
+    open_amount = max(total - received, 0.0)
+    if total > 0 and open_amount <= 0:
+        return "pago"
+    if received > 0 and open_amount > 0:
+        return "parcial"
+    due = clean_text(due_date)
+    if due and due < datetime.now().date().isoformat() and open_amount > 0:
+        return "vencido"
+    return normalized if normalized != "pago" else "a_receber"
+
+
+def receivable_status_label(status: str | None) -> str:
+    normalized = FINANCIAL_RECEIVABLE_STATUS_ALIASES.get(clean_text(status).lower(), clean_text(status).lower())
+    return FINANCIAL_RECEIVABLE_STATUSES.get(normalized, FINANCIAL_RECEIVABLE_STATUSES["a_receber"])["label"]
+
+
+def receivable_status_badge_class(status: str | None) -> str:
+    normalized = FINANCIAL_RECEIVABLE_STATUS_ALIASES.get(clean_text(status).lower(), clean_text(status).lower())
+    return FINANCIAL_RECEIVABLE_STATUSES.get(normalized, FINANCIAL_RECEIVABLE_STATUSES["a_receber"])["badge"]
+
+
+def receivable_effective_status(receivable: dict) -> str:
+    try:
+        return normalize_receivable_status(
+            receivable.get("status"),
+            due_date=receivable.get("due_date"),
+            amount=receivable.get("amount"),
+            amount_received=receivable.get("amount_received"),
+        )
+    except ValueError:
+        return "a_receber"
+
+
 def create_financial_receivable_record(form, existing_items: list[dict] | None = None) -> dict:
     items = existing_items if existing_items is not None else load_financial_receivables()
     item_id = clean_text(form.get("receivable_id")) or next_numeric_id(items, "REC", "id")
@@ -816,10 +1542,19 @@ def create_financial_receivable_record(form, existing_items: list[dict] | None =
     amount = parse_decimal(form.get("amount"))
     if amount <= 0:
         raise ValueError("Informe um valor a receber maior que zero. Sem valor, a cobrança não entra no controle financeiro.")
-    status = clean_text(form.get("status"), "aguardando").lower()
-    if status not in {"aguardando", "parcial", "pago", "vencido"}:
-        raise ValueError("Status de recebimento inválido. Escolha aguardando, parcial, pago ou vencido.")
+    amount_received = min(parse_decimal(form.get("amount_received")), amount)
+    due_date = clean_text(form.get("due_date"))
+    received_date = clean_text(form.get("received_date"))
+    if amount_received > 0 and not received_date:
+        received_date = datetime.now().date().isoformat()
+    status = normalize_receivable_status(
+        form.get("status") or current.get("status") or "a_receber",
+        due_date=due_date,
+        amount=amount,
+        amount_received=amount_received,
+    )
     now = now_iso()
+    payment_history = current.get("payment_history") if isinstance(current.get("payment_history"), list) else []
     return {
         "id": item_id,
         "client_id": clean_text(form.get("client_id")),
@@ -827,11 +1562,13 @@ def create_financial_receivable_record(form, existing_items: list[dict] | None =
         "client_phone": clean_text(form.get("client_phone") or form.get("phone")),
         "event_id": clean_text(form.get("event_id")),
         "event_title": clean_text(form.get("event_title")),
+        "contract_id": clean_text(form.get("contract_id") or current.get("contract_id")),
+        "billing_period": clean_text(form.get("billing_period") or current.get("billing_period")),
         "service_type": clean_text(form.get("service_type"), "Banheiro Luxo") or "Banheiro Luxo",
         "amount": amount,
-        "amount_received": parse_decimal(form.get("amount_received")),
-        "due_date": clean_text(form.get("due_date")),
-        "received_date": clean_text(form.get("received_date")),
+        "amount_received": amount_received,
+        "due_date": due_date,
+        "received_date": received_date,
         "status": status,
         "payment_method": clean_text(form.get("payment_method")),
         "invoice_status": clean_text(form.get("invoice_status"), "sem_nota") or "sem_nota",
@@ -841,6 +1578,7 @@ def create_financial_receivable_record(form, existing_items: list[dict] | None =
         "attachment_url": clean_text(form.get("attachment_url")),
         "attachment_note": clean_text(form.get("attachment_note")),
         "notes": clean_text(form.get("notes")),
+        "payment_history": payment_history,
         "created_at": clean_text(current.get("created_at")) or now,
         "updated_at": now,
     }
@@ -1272,7 +2010,7 @@ def generate_monthly_contract_receivables(period: str, due_day: int = 10) -> lis
             "amount_received": 0.0,
             "due_date": due_date,
             "received_date": "",
-            "status": "aguardando",
+            "status": "a_receber",
             "payment_method": "",
             "invoice_status": "sem_nota",
             "invoice_number": "",
@@ -1283,6 +2021,7 @@ def generate_monthly_contract_receivables(period: str, due_day: int = 10) -> lis
             "notes": f"Contrato mensal {contract_id} com limpeza {contract.get('cleaning_frequency') or 'semanal'}.",
             "contract_id": contract_id,
             "billing_period": period,
+            "payment_history": [],
             "created_at": now_iso(),
             "updated_at": now_iso(),
         }
@@ -1293,17 +2032,30 @@ def generate_monthly_contract_receivables(period: str, due_day: int = 10) -> lis
 
 
 def build_receipt_pdf(receivable: dict) -> bytes:
+    payment_history = receivable.get("payment_history") if isinstance(receivable.get("payment_history"), list) else []
     lines = [
         f"Recibo: {receivable.get('id')}",
         f"Cliente: {receivable.get('client_name')}",
         f"Referência: {receivable.get('event_title') or receivable.get('service_type') or 'Cobrança'}",
+        f"Evento: {receivable.get('event_id') or 'n/d'}",
+        f"Contrato: {receivable.get('contract_id') or 'n/d'}",
+        f"Competência: {receivable.get('billing_period') or 'n/d'}",
+        f"Status: {receivable_status_label(receivable.get('status'))}",
         f"Valor: {format_currency_br(receivable.get('amount'))}",
         f"Recebido: {format_currency_br(receivable.get('amount_received'))}",
+        f"Valor em aberto: {format_currency_br(receivable_open_amount(receivable))}",
         f"Forma de pagamento: {receivable.get('payment_method') or 'n/d'}",
         f"Data de recebimento: {format_date_br(receivable.get('received_date'))}",
         f"Nota fiscal: {receivable.get('invoice_number') or receivable.get('invoice_status') or 'n/d'}",
         f"Observações: {receivable.get('notes') or 'n/d'}",
     ]
+    if payment_history:
+        lines.extend(["", "Histórico de pagamentos"])
+        for payment in payment_history[-8:]:
+            lines.append(
+                f"- {format_date_br(payment.get('received_date'))}: {format_currency_br(payment.get('amount'))} "
+                f"via {payment.get('payment_method') or 'n/d'}"
+            )
     return build_simple_text_pdf(f"SannyGold - Recibo {receivable.get('id')}", lines)
 
 
@@ -1511,17 +2263,28 @@ def record_audit(action: str, module: str, target_id: str = "", detail: str = ""
 
 
 def warehouse_stock_status(item: dict) -> str:
-    quantity = parse_decimal(item.get("quantity_current"))
-    minimum = parse_decimal(item.get("stock_minimum"))
-    if quantity <= 0:
-        return "zerado"
-    if quantity <= minimum:
-        return "baixo"
-    return "normal"
+    return warehouse_stock_info(item).status
 
 
 def warehouse_status_label(status: str) -> str:
-    return {"normal": "normal", "baixo": "baixo", "zerado": "zerado"}.get(status, "normal")
+    return {"normal": "normal", "baixo": "baixo", "zerado": "zerado", "inativo": "inativo"}.get(status, "normal")
+
+
+def normalize_warehouse_item_kind(value: str | None, category: str | None = None) -> str:
+    raw = clean_text(value).lower()
+    if raw in {"acessorio", "acessório", "acessorio_operacional", "acessório operacional", "operacional"}:
+        return "acessorio_operacional"
+    if raw in {"consumivel", "consumível", "material", "material_consumivel"}:
+        return "consumivel"
+    category_text = normalize_business_text(category)
+    accessory_terms = {"acessorio", "ferramenta", "cabo", "extensao", "adaptador", "cone", "placa", "kit"}
+    if any(term in category_text for term in accessory_terms):
+        return "acessorio_operacional"
+    return "consumivel"
+
+
+def warehouse_item_kind_label(value: str | None) -> str:
+    return WAREHOUSE_ITEM_KIND_LABELS.get(normalize_warehouse_item_kind(value), WAREHOUSE_ITEM_KIND_LABELS["consumivel"])
 
 
 def create_warehouse_item_record(form, existing_items: list[dict] | None = None) -> dict:
@@ -1540,10 +2303,12 @@ def create_warehouse_item_record(form, existing_items: list[dict] | None = None)
         raise ValueError("O estoque mínimo não pode ser negativo.")
 
     current = next((item for item in items if item.get("id") == item_id), {})
+    item_kind = normalize_warehouse_item_kind(form.get("item_kind") or current.get("item_kind"), category)
     now = now_iso()
     return {
         "id": item_id,
         "name": name,
+        "item_kind": item_kind,
         "category": category,
         "description": clean_text(form.get("description")),
         "unit": unit,
@@ -1576,6 +2341,11 @@ def apply_warehouse_movement(item_id: str, form, user: dict) -> dict:
         "baixa": "saida",
         "saída": "saida",
         "saida": "saida",
+        "perda": "perda",
+        "retorno": "retorno",
+        "devolucao": "retorno",
+        "devolução": "retorno",
+        "ajuste": "ajuste manual",
         "ajuste manual": "ajuste manual",
     }
     movement_type = movement_aliases.get(movement_type, movement_type)
@@ -1594,6 +2364,18 @@ def apply_warehouse_movement(item_id: str, form, user: dict) -> dict:
         final_balance = round(previous_balance - quantity_changed, 2)
         if final_balance < 0 and clean_text(form.get("allow_negative")) != "true":
             raise ValueError("A quantidade não pode ficar negativa sem confirmação explícita.")
+    elif movement_type == "perda":
+        quantity_changed = parse_decimal(form.get("quantity"))
+        if quantity_changed <= 0:
+            raise ValueError("Informe uma quantidade de perda maior que zero.")
+        final_balance = round(previous_balance - quantity_changed, 2)
+        if final_balance < 0 and clean_text(form.get("allow_negative")) != "true":
+            raise ValueError("A quantidade não pode ficar negativa sem confirmação explícita.")
+    elif movement_type == "retorno":
+        quantity_changed = parse_decimal(form.get("quantity"))
+        if quantity_changed <= 0:
+            raise ValueError("Informe uma quantidade de retorno maior que zero.")
+        final_balance = round(previous_balance + quantity_changed, 2)
     elif movement_type == "ajuste manual":
         if not has_permission(user, "warehouse.manage"):
             raise ValueError("Ajuste manual de quantidade é permitido apenas para administrador.")
@@ -1646,26 +2428,73 @@ def build_warehouse_dashboard() -> dict:
     items = []
     for item in load_warehouse_items():
         stock_status = warehouse_stock_status(item)
+        item_kind = normalize_warehouse_item_kind(item.get("item_kind"), item.get("category"))
         items.append(
             {
                 **item,
+                "item_kind": item_kind,
+                "item_kind_label": warehouse_item_kind_label(item_kind),
                 "stock_status": stock_status,
                 "stock_status_label": warehouse_status_label(stock_status),
                 "recent_movements": by_item.get(clean_text(item.get("id")), [])[:5],
             }
         )
     categories = sorted({clean_text(item.get("category")) for item in items if clean_text(item.get("category"))})
+    item_kinds = [
+        {"value": value, "label": label, "count": sum(1 for item in items if item.get("item_kind") == value)}
+        for value, label in WAREHOUSE_ITEM_KIND_LABELS.items()
+    ]
     return {
         "items": items,
         "categories": categories,
+        "item_kinds": item_kinds,
         "movements": movements[-30:],
         "counts": {
             "total": len(items),
             "active": sum(1 for item in items if item.get("status") == "ativo"),
+            "normal": sum(1 for item in items if item.get("stock_status") == "normal"),
+            "consumables": sum(1 for item in items if item.get("item_kind") == "consumivel"),
+            "accessories": sum(1 for item in items if item.get("item_kind") == "acessorio_operacional"),
             "low": sum(1 for item in items if item.get("stock_status") == "baixo"),
             "zero": sum(1 for item in items if item.get("stock_status") == "zerado"),
+            "inactive": sum(1 for item in items if item.get("stock_status") == "inativo"),
         },
     }
+
+
+def filter_warehouse_items_for_pdf(items: list[dict], query_args) -> list[dict]:
+    search_query = normalize_business_text(query_args.get("q") or query_args.get("search"))
+    category = clean_text(query_args.get("category"))
+    item_kind = clean_text(query_args.get("item_kind"))
+    stock_status = clean_text(query_args.get("stock_status"))
+
+    def matches(item: dict) -> bool:
+        if category and clean_text(item.get("category")) != category:
+            return False
+        if item_kind and clean_text(item.get("item_kind")) != item_kind:
+            return False
+        if stock_status and clean_text(item.get("stock_status")) != stock_status:
+            return False
+        if search_query:
+            haystack = normalize_business_text(
+                " ".join(
+                    clean_text(value)
+                    for value in (
+                        item.get("name"),
+                        item.get("item_kind_label"),
+                        item.get("category"),
+                        item.get("description"),
+                        item.get("storage_location"),
+                        item.get("purchase_link"),
+                        item.get("purchase_location"),
+                        item.get("notes"),
+                    )
+                )
+            )
+            return search_query in haystack
+        return True
+
+    return [item for item in items if matches(item)]
 
 
 def pdf_escape(value) -> str:
@@ -1757,61 +2586,128 @@ def build_simple_text_pdf(title: str, lines: list[str]) -> bytes:
     return bytes(pdf)
 
 
-def build_warehouse_pdf() -> bytes:
-    dashboard = build_warehouse_dashboard()
-    counts = dashboard["counts"]
-    lines = [
-        f"Gerado em {format_datetime_br(now_iso())}",
-        f"Total: {counts['total']} | Ativos: {counts['active']} | Baixo: {counts['low']} | Zerado: {counts['zero']}",
-        "",
-        "Lista completa de materiais do almoxarifado",
-        "",
-    ]
-    for index, item in enumerate(dashboard["items"], start=1):
-        lines.extend(
-            [
-                f"{index}. {item.get('name')} | {item.get('category')} | {item.get('stock_status_label')} | {item.get('status')}",
-                f"   Quantidade: {item.get('quantity_current')} {item.get('unit')} | Mínimo: {item.get('stock_minimum')} {item.get('unit')}",
-                f"   Local: {item.get('storage_location') or 'n/d'} | Onde comprar: {item.get('purchase_location') or 'n/d'}",
-                f"   Link: {item.get('purchase_link') or 'n/d'}",
-                f"   Foto: {item.get('photo_url') or 'n/d'}",
-                f"   Observações: {item.get('notes') or item.get('description') or 'n/d'}",
-                "",
-            ]
-        )
-    if not dashboard["items"]:
-        lines.append("Nenhum material cadastrado.")
-    return build_simple_text_pdf("SannyGold - Almoxarifado", lines)
+def build_warehouse_pdf(*, generated_at: datetime | None = None, items: list[dict] | None = None) -> bytes:
+    warehouse_items = items if items is not None else build_warehouse_dashboard()["items"]
+    request_user = current_user() if has_request_context() else {}
+    return build_warehouse_pdf_bytes(
+        warehouse_items,
+        generated_at=generated_at,
+        user=request_user,
+        logo_path=BASE_DIR / "app" / "static" / "sannygold-logo.jpg",
+        uploads_dir=UPLOADS_DIR,
+    )
 
 
-def build_low_stock_warehouse_pdf() -> bytes:
+def build_low_stock_warehouse_pdf(*, generated_at: datetime | None = None) -> bytes:
     dashboard = build_warehouse_dashboard()
     alert_items = [item for item in dashboard["items"] if item.get("stock_status") in {"baixo", "zerado"}]
-    lines = [
-        f"Gerado em {format_datetime_br(now_iso())}",
-        f"Materiais em alerta: {len(alert_items)}",
-        "",
-        "Relatório de estoque baixo e zerado",
-        "",
-    ]
-    for index, item in enumerate(alert_items, start=1):
-        lines.extend(
-            [
-                f"{index}. {item.get('name')} | {item.get('category')} | {item.get('stock_status_label')}",
-                f"   Saldo atual: {item.get('quantity_current')} {item.get('unit')} | mínimo: {item.get('stock_minimum')} {item.get('unit')}",
-                f"   Local: {item.get('storage_location') or 'n/d'}",
-                f"   Comprar: {item.get('purchase_link') or item.get('purchase_location') or 'n/d'}",
-                f"   Próxima ação: {'comprar imediatamente' if item.get('stock_status') == 'zerado' else 'repor antes da próxima operação'}",
-                "",
-            ]
-        )
-    if not alert_items:
-        lines.append("Nenhum material com estoque baixo ou zerado no momento.")
-    return build_simple_text_pdf("SannyGold - Estoque baixo", lines)
+    request_user = current_user() if has_request_context() else {}
+    return build_warehouse_pdf_bytes(
+        alert_items,
+        generated_at=generated_at,
+        user=request_user,
+        logo_path=BASE_DIR / "app" / "static" / "sannygold-logo.jpg",
+        uploads_dir=UPLOADS_DIR,
+        title="Relatório de Estoque Baixo",
+        subtitle="Materiais que precisam de reposição",
+        empty_message="Nenhum material com estoque baixo ou zerado no momento.",
+    )
 
 
 def module_export_data(module: str) -> tuple[str, list[str], list[list[str]], str]:
     module = clean_text(module).lower()
+    if module in {"daily", "daily_operation", "operacao_diaria"}:
+        today = datetime.now().date().isoformat()
+        clients = load_clients()
+        vehicles = load_vehicles_registry()
+        clients_by_id = {clean_text(client.get("client_id")): client for client in clients}
+        vehicles_by_id = {clean_text(vehicle.get("vehicle_id")): vehicle for vehicle in vehicles}
+        rows = []
+        for event in load_events():
+            if not event_overlaps_date(event, today):
+                continue
+            linked_clients = [
+                clean_text((clients_by_id.get(clean_text(client_id)) or {}).get("customer_name")) or clean_text(client_id)
+                for client_id in event.get("client_ids") or []
+            ]
+            linked_vehicles = [
+                clean_text((vehicles_by_id.get(clean_text(vehicle_id)) or {}).get("plate")) or clean_text(vehicle_id)
+                for vehicle_id in event.get("vehicle_ids") or []
+            ]
+            pending = []
+            if not linked_clients:
+                pending.append("sem cliente")
+            if any(not client_has_valid_address(clients_by_id.get(clean_text(client_id), {})) for client_id in event.get("client_ids") or []):
+                pending.append("cliente sem endereço")
+            if not linked_vehicles:
+                pending.append("sem veículo")
+            rows.append(
+                [
+                    "Evento",
+                    event.get("event_id", ""),
+                    event.get("title", ""),
+                    event_period_label(event),
+                    event_status_label(event.get("status")),
+                    ", ".join(linked_clients),
+                    ", ".join(linked_vehicles),
+                    "; ".join(pending) or "sem pendência básica",
+                ]
+            )
+        return "Relatório diário de operação", ["Tipo", "ID", "Nome", "Data", "Status", "Cliente", "Veículo", "Pendência"], rows, "dashboard.view"
+    if module in {"weekly_events", "weekly-events", "eventos_semana"}:
+        today = datetime.now().date()
+        week_end = today + timedelta(days=7)
+        clients = load_clients()
+        clients_by_id = {clean_text(client.get("client_id")): client for client in clients}
+        rows = []
+        for event in load_events():
+            start = event_start_date(event)
+            end = event_end_date(event)
+            if not start or not end or end < today or start > week_end:
+                continue
+            linked_clients = [
+                clean_text((clients_by_id.get(clean_text(client_id)) or {}).get("customer_name")) or clean_text(client_id)
+                for client_id in event.get("client_ids") or []
+            ]
+            rows.append(
+                [
+                    event.get("event_id", ""),
+                    event.get("title", ""),
+                    event_period_label(event),
+                    event_status_label(event.get("status")),
+                    ", ".join(linked_clients),
+                    ", ".join(event.get("vehicle_ids") or []),
+                    event.get("responsible") or event.get("responsavel") or "",
+                ]
+            )
+        return "Relatório semanal de eventos", ["ID", "Evento", "Período", "Status", "Cliente", "Veículos", "Responsável"], rows, "events.view"
+    if module in {"pending", "pendencias"}:
+        request_user = current_user() if has_request_context() else {"role": "admin"}
+        can_view_finance = has_permission(request_user, "finance.view")
+        panel = build_intelligent_pending_panel(
+            user=request_user,
+            clients=load_clients(),
+            events=load_events(),
+            vehicles=load_vehicles_registry(),
+            equipment=build_inventory_view(load_clients(), load_route_data(), load_field_confirmations()),
+            financial_receivables=load_financial_receivables() if can_view_finance else [],
+            route_data=load_route_data(),
+            equipment_raw=load_equipment_registry(),
+        )
+        rows = [
+            [
+                item.get("severity_label", ""),
+                item.get("category_short_label", ""),
+                item.get("title", ""),
+                item.get("affected", ""),
+                item.get("description", ""),
+                item.get("action", ""),
+                item.get("related_date_label", ""),
+                item.get("responsible", ""),
+            ]
+            for item in panel.get("items", [])
+        ]
+        return "Relatório de pendências", ["Criticidade", "Área", "Pendência", "Afetado", "Detalhe", "Ação", "Data", "Responsável"], rows, "dashboard.view"
     if module == "clients":
         headers = ["ID", "Cliente", "Contato", "Telefone", "Email", "Endereco", "Equipamento", "Valor"]
         rows = [
@@ -1829,13 +2725,15 @@ def module_export_data(module: str) -> tuple[str, list[str], list[list[str]], st
         ]
         return "Clientes", headers, rows, "clients.view"
     if module == "equipment":
-        headers = ["ID", "Tipo", "Status", "Condicao", "Manutencao", "Previsao", "Custo", "Observacoes"]
+        headers = ["ID", "Tipo", "Classe", "Status", "Status legível", "Placa", "Manutencao", "Previsao", "Custo", "Observacoes"]
         rows = [
             [
                 item.get("equipment_id", ""),
                 item.get("equipment_type", ""),
+                item.get("asset_class") or "locavel",
                 item.get("status", ""),
-                item.get("condition", ""),
+                equipment_status_label(item.get("status") or item.get("condition")),
+                item.get("plate", ""),
                 item.get("maintenance_reason", ""),
                 item.get("maintenance_expected_release", ""),
                 item.get("maintenance_cost", ""),
@@ -1844,6 +2742,53 @@ def module_export_data(module: str) -> tuple[str, list[str], list[list[str]], st
             for item in load_equipment_registry()
         ]
         return "Equipamentos", headers, rows, "inventory.view"
+    if module in {"inventory_status", "disponibilidade_operacional"}:
+        clients = load_clients()
+        inventory = build_inventory_view(clients, load_route_data(), load_field_confirmations())
+        warehouse_dashboard = build_warehouse_dashboard()
+        headers = ["Grupo", "ID", "Nome", "Status", "Quantidade", "Mínimo", "Local", "Detalhe"]
+        rows: list[list[str]] = []
+        status_groups = {
+            "disponivel": "Equipamentos disponíveis",
+            "reservado": "Equipamentos reservados",
+            "em_operacao": "Equipamentos em uso",
+            "manutencao": "Equipamentos em manutenção",
+            "aguardando_limpeza": "Equipamentos aguardando limpeza",
+            "indisponivel": "Equipamentos indisponíveis",
+            "baixado": "Equipamentos baixados",
+        }
+        for status, group_label in status_groups.items():
+            for item in inventory:
+                if normalize_equipment_status(item.get("status") or item.get("condition")) != status:
+                    continue
+                rows.append(
+                    [
+                        group_label,
+                        item.get("equipment_id", ""),
+                        item.get("equipment_type", ""),
+                        equipment_status_label(status),
+                        "",
+                        "",
+                        item.get("plate", ""),
+                        item.get("maintenance_reason") or item.get("linked_client_name") or item.get("cycle_stage") or "",
+                    ]
+                )
+        for item in warehouse_dashboard.get("items", []):
+            if item.get("stock_status") not in {"baixo", "zerado"}:
+                continue
+            rows.append(
+                [
+                    "Materiais abaixo do mínimo",
+                    item.get("id", ""),
+                    item.get("name", ""),
+                    item.get("stock_status_label", ""),
+                    f"{item.get('quantity_current')} {item.get('unit')}",
+                    f"{item.get('stock_minimum')} {item.get('unit')}",
+                    item.get("storage_location", ""),
+                    item.get("item_kind_label", ""),
+                ]
+            )
+        return "Relatório de disponibilidade operacional", headers, rows, "dashboard.view"
     if module in {"vehicles", "fleet"}:
         headers = ["ID", "Tipo", "Placa", "Modelo", "Capacidade", "Max Paradas", "Max Minutos", "Base"]
         rows = [
@@ -1860,12 +2805,41 @@ def module_export_data(module: str) -> tuple[str, list[str], list[list[str]], st
             for item in load_vehicles_registry()
         ]
         return "Frota", headers, rows, "fleet.view"
+    if module in {"fleet_maintenance", "fleet-maintenance", "manutencao_frota"}:
+        request_user = current_user() if has_request_context() else {"role": "admin"}
+        can_view_costs = has_permission(request_user, "fleet.maintenance.costs.view")
+        vehicles = {clean_text(item.get("vehicle_id")): item for item in load_vehicles_registry(include_archived=True)}
+        headers = ["Ordem", "Veículo", "Tipo", "Status", "Prioridade", "Abertura", "Conclusão", "Km entrada", "Km saída", "Fornecedor", "Indisponibilidade (h)"]
+        if can_view_costs:
+            headers.extend(["Peças", "Mão de obra", "Adicionais", "Desconto", "Total"])
+        rows = []
+        for item in load_fleet_service_orders():
+            vehicle = vehicles.get(clean_text(item.get("vehicle_id")), {})
+            row = [
+                item.get("order_number", ""),
+                vehicle.get("plate") or item.get("vehicle_id", ""),
+                item.get("maintenance_type", ""),
+                item.get("status", ""),
+                item.get("priority", ""),
+                item.get("opening_date", ""),
+                item.get("completion_date", ""),
+                item.get("entry_mileage", ""),
+                item.get("exit_mileage", ""),
+                item.get("supplier_name", ""),
+                item.get("downtime_hours", ""),
+            ]
+            if can_view_costs:
+                row.extend([item.get("parts_cost", ""), item.get("labor_cost", ""), item.get("additional_cost", ""), item.get("discount", ""), item.get("total_cost", "")])
+            rows.append(row)
+        return "Manutenção da Frota", headers, rows, "fleet.maintenance.view"
     if module == "warehouse":
-        headers = ["ID", "Material", "Categoria", "Qtd", "Unidade", "Minimo", "Status", "Local", "Comprar"]
+        headers = ["ID", "Material", "Tipo", "Categoria", "Qtd", "Unidade", "Minimo", "Status", "Local", "Comprar"]
+        dashboard_items = build_warehouse_dashboard().get("items", [])
         rows = [
             [
                 item.get("id", ""),
                 item.get("name", ""),
+                item.get("item_kind_label") or warehouse_item_kind_label(item.get("item_kind")),
                 item.get("category", ""),
                 item.get("quantity_current", ""),
                 item.get("unit", ""),
@@ -1874,7 +2848,7 @@ def module_export_data(module: str) -> tuple[str, list[str], list[list[str]], st
                 item.get("storage_location", ""),
                 item.get("purchase_link") or item.get("purchase_location", ""),
             ]
-            for item in load_warehouse_items()
+            for item in dashboard_items
         ]
         return "Almoxarifado", headers, rows, "warehouse.view"
     if module == "events":
@@ -1894,23 +2868,48 @@ def module_export_data(module: str) -> tuple[str, list[str], list[list[str]], st
         ]
         return "Eventos", headers, rows, "events.view"
     if module == "financial":
-        headers = ["Gerado em", "Evento", "Receita", "Custo", "Lucro", "Margem"]
+        headers = [
+            "ID",
+            "Cliente",
+            "Evento",
+            "Contrato",
+            "Competencia",
+            "Valor",
+            "Recebido",
+            "Em aberto",
+            "Status",
+            "Forma de pagamento",
+            "Vencimento",
+            "Recebimento",
+            "Nota fiscal",
+            "Observacoes",
+        ]
         rows = [
             [
-                item.get("generated_at", ""),
-                item.get("event_title") or item.get("event_id") or "Operação geral",
-                (item.get("financial_summary") or {}).get("revenue_total", ""),
-                (item.get("financial_summary") or {}).get("operational_total", ""),
-                (item.get("financial_summary") or {}).get("profit_total", ""),
-                (item.get("financial_summary") or {}).get("margin_pct", ""),
+                item.get("id", ""),
+                item.get("client_name", ""),
+                item.get("event_title") or item.get("event_id") or "",
+                item.get("contract_id", ""),
+                item.get("billing_period", ""),
+                item.get("amount", ""),
+                item.get("amount_received", ""),
+                receivable_open_amount(item),
+                receivable_status_label(receivable_effective_status(item)),
+                item.get("payment_method", ""),
+                item.get("due_date", ""),
+                item.get("received_date", ""),
+                item.get("invoice_number") or item.get("invoice_status") or "",
+                item.get("notes", ""),
             ]
-            for item in load_route_history()
+            for item in load_financial_receivables()
         ]
         return "Financeiro", headers, rows, "finance.export"
     raise ValueError("Relatório não encontrado.")
 
 
-def build_module_pdf(module: str) -> tuple[str, bytes, str]:
+def build_module_pdf(module: str, *, generated_at: datetime | None = None) -> tuple[str, bytes, str]:
+    if clean_text(module).lower() == "warehouse":
+        return "Almoxarifado", build_warehouse_pdf(generated_at=generated_at), "warehouse.view"
     title, headers, rows, permission = module_export_data(module)
     lines = [" | ".join(headers), ""]
     for row in rows:
@@ -1957,6 +2956,23 @@ def save_field_confirmations(items: list[dict]) -> None:
         reverse=True,
     )
     save_json_list(FIELD_CONFIRMATIONS_PATH, ordered[:500])
+
+
+def load_service_orders() -> list[dict]:
+    return load_json_list(SERVICE_ORDERS_PATH)
+
+
+def save_service_orders(items: list[dict]) -> None:
+    ordered = sorted(
+        items,
+        key=lambda item: (
+            str(item.get("event_date") or ""),
+            str(item.get("created_at") or ""),
+            str(item.get("os_id") or ""),
+        ),
+        reverse=True,
+    )
+    save_json_list(SERVICE_ORDERS_PATH, ordered[:1000])
 
 
 def load_operation_validation() -> dict:
@@ -2620,8 +3636,8 @@ def build_profile_ui(user: dict | None) -> dict:
         role = "guest"
     visible_by_role = {
         "admin": {"summary", "events", "operations", "clients", "fleet", "warehouse", "agenda", "history", "homologation", "access"},
-        "operacional": {"summary", "events", "operations", "clients", "fleet", "agenda", "history"},
-        "financeiro": {"summary", "events", "clients", "history"},
+        "operacional": {"summary", "events", "operations", "clients", "fleet", "warehouse", "agenda", "history"},
+        "financeiro": {"summary", "events", "clients", "fleet", "history"},
         "leitura": {"summary", "events", "clients", "fleet", "agenda", "history"},
         "guest": set(),
     }
@@ -2668,44 +3684,136 @@ def build_profile_ui(user: dict | None) -> dict:
         "can_generate_route": tabs["operations"] and has_permission(user, "routes.generate"),
         "can_generate_service_order": tabs["events"] and has_permission(user, "events.service_order"),
         "can_receive_payment": has_permission(user, "finance.payments"),
+        "can_move_stock": tabs["warehouse"] and has_permission(user, "warehouse.edit"),
+        "can_create_vehicle": tabs["fleet"] and (
+            has_permission(user, "fleet.create") or has_permission(user, "fleet.vehicle.create")
+        ),
+        "can_edit_vehicle": tabs["fleet"] and (
+            has_permission(user, "fleet.edit") or has_permission(user, "fleet.vehicle.edit")
+        ),
+        "can_view_fleet_documents": tabs["fleet"] and has_permission(user, "fleet.documents.view"),
+        "can_view_fleet_values": tabs["fleet"] and has_permission(user, "fleet.values.view"),
+        "can_admin_fleet": tabs["fleet"] and has_permission(user, "fleet.admin"),
+        "can_generate_backup": has_permission(user, "settings.manage"),
         "can_manage_access": has_permission(user, "settings.manage"),
     }
 
 
+def normalize_backup_time(value: str | None, fallback: str = DEFAULT_AUTOMATIC_BACKUP_TIME) -> str:
+    text = clean_text(value, fallback)
+    try:
+        hour_text, minute_text = text.split(":", 1)
+        hour = int(hour_text)
+        minute = int(minute_text)
+    except (TypeError, ValueError):
+        hour, minute = [int(part) for part in fallback.split(":", 1)]
+    if not 0 <= hour <= 23 or not 0 <= minute <= 59:
+        hour, minute = [int(part) for part in fallback.split(":", 1)]
+    return f"{hour:02d}:{minute:02d}"
+
+
+def parse_iso_datetime(value: str | None) -> datetime | None:
+    try:
+        return datetime.fromisoformat(clean_text(value))
+    except ValueError:
+        return None
+
+
+def scheduled_backup_datetime(settings: dict, *, now: datetime | None = None) -> datetime:
+    reference = now or datetime.now()
+    hour_text, minute_text = normalize_backup_time(settings.get("automatic_backup_time")).split(":", 1)
+    return datetime.combine(reference.date(), datetime_time(hour=int(hour_text), minute=int(minute_text)))
+
+
+def automatic_backup_due(settings: dict, *, now: datetime | None = None) -> bool:
+    if not settings.get("automatic_backup_enabled", True):
+        return False
+    reference = now or datetime.now()
+    scheduled = scheduled_backup_datetime(settings, now=reference)
+    if reference < scheduled:
+        return False
+    return clean_text(settings.get("last_automatic_backup_attempt_date")) != reference.date().isoformat()
+
+
+def next_automatic_backup_at(settings: dict, *, now: datetime | None = None) -> str:
+    if not settings.get("automatic_backup_enabled", True):
+        return ""
+    reference = now or datetime.now()
+    scheduled = scheduled_backup_datetime(settings, now=reference)
+    if reference >= scheduled and clean_text(settings.get("last_automatic_backup_attempt_date")) == reference.date().isoformat():
+        scheduled += timedelta(days=1)
+    elif reference >= scheduled:
+        return scheduled.isoformat(timespec="minutes")
+    return scheduled.isoformat(timespec="minutes")
+
+
 def load_settings() -> dict:
     ensure_storage_dirs()
-    try:
-        data = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        data = {}
+    data = load_json_dict(SETTINGS_PATH) if sqlite_storage_enabled() else {}
+    if not data:
+        try:
+            data = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            data = {}
     return {
         "cost_per_km": float(data.get("cost_per_km") or 0.0),
         "quote_models": data.get("quote_models") if isinstance(data.get("quote_models"), dict) else {},
         "last_backup_at": data.get("last_backup_at", ""),
         "last_backup_file": data.get("last_backup_file", ""),
         "last_backup_warnings": data.get("last_backup_warnings") if isinstance(data.get("last_backup_warnings"), list) else [],
+        "last_backup_skipped_files": data.get("last_backup_skipped_files") if isinstance(data.get("last_backup_skipped_files"), list) else [],
+        "last_backup_copy_file": data.get("last_backup_copy_file", ""),
+        "last_backup_copy_path": data.get("last_backup_copy_path", ""),
+        "last_backup_copy_warning": data.get("last_backup_copy_warning", ""),
+        "automatic_backup_enabled": data.get("automatic_backup_enabled", True) is not False,
+        "automatic_backup_time": normalize_backup_time(data.get("automatic_backup_time")),
+        "last_automatic_backup_at": data.get("last_automatic_backup_at", ""),
+        "last_automatic_backup_file": data.get("last_automatic_backup_file", ""),
+        "last_automatic_backup_status": data.get("last_automatic_backup_status", ""),
+        "last_automatic_backup_error": data.get("last_automatic_backup_error", ""),
+        "last_automatic_backup_attempt_at": data.get("last_automatic_backup_attempt_at", ""),
+        "last_automatic_backup_attempt_date": data.get("last_automatic_backup_attempt_date", ""),
         "last_closeout_at": data.get("last_closeout_at", ""),
+        "fleet_document_alert_days": normalize_fleet_alert_days(
+            data.get("fleet_document_alert_days") or DEFAULT_DOCUMENT_ALERT_DAYS
+        ),
     }
 
 
 def save_settings(settings: dict) -> None:
     ensure_storage_dirs()
-    SETTINGS_PATH.write_text(json.dumps(settings, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    save_json_dict(SETTINGS_PATH, settings)
 
 
-def backup_config() -> BackupConfig:
+def write_backup_log(message: str) -> None:
+    try:
+        LOGS_DIR.mkdir(parents=True, exist_ok=True)
+        with BACKUP_LOG_PATH.open("a", encoding="utf-8") as log_file:
+            log_file.write(f"{now_iso()} {message}\n")
+    except OSError as exc:
+        print(f"[backup] falha ao gravar log local: {exc}", file=sys.stderr)
+
+
+def backup_config(*, allow_external_copy: bool = False) -> BackupConfig:
+    backup_copy_dir = None
+    if allow_external_copy:
+        env_backup_copy_dir = os.environ.get("DROPBOX_BACKUP_DIR") or os.environ.get("SANNYGOLD_BACKUP_COPY_DIR")
+        backup_copy_dir = Path(env_backup_copy_dir).expanduser() if env_backup_copy_dir else None
     return BackupConfig(
         backups_dir=BACKUPS_DIR,
         data_dir=DATA_DIR,
         storage_root=STORAGE_ROOT,
         important_data_paths=IMPORTANT_DATA_PATHS,
+        include_directories=((DATA_DIR, "data"), (PREVIEW_DIR, "preview"), (UPLOADS_DIR, "uploads")),
         retention_limit=BACKUP_RETENTION_LIMIT,
+        backup_copy_dir=backup_copy_dir,
         load_settings=load_settings,
         save_settings=save_settings,
         now_iso=now_iso,
         record_audit=record_audit,
         clean_text=clean_text,
         format_datetime_br=format_datetime_br,
+        external_retention_limit=DROPBOX_BACKUP_RETENTION_LIMIT,
     )
 
 
@@ -2725,26 +3833,288 @@ def write_data_backup_archive(target, *, generated_at: str, trigger: str) -> dic
     return backup_service_write_archive(backup_config(), target, generated_at=generated_at, trigger=trigger)
 
 
-def create_data_backup(*, trigger: str = "manual", audit_action: str | None = "create") -> dict:
-    return backup_service_create(backup_config(), trigger=trigger, audit_action=audit_action)
+def create_data_backup(*, trigger: str = "manual", audit_action: str | None = "create", copy_external: bool = True) -> dict:
+    if not BACKUP_RUN_LOCK.acquire(blocking=False):
+        write_backup_log(f"backup {trigger} não iniciado: já existe backup em andamento")
+        raise RuntimeError("Já existe um backup em andamento. Aguarde finalizar antes de iniciar outro backup.")
+    try:
+        result = backup_service_create(
+            backup_config(allow_external_copy=copy_external),
+            trigger=trigger,
+            audit_action=audit_action,
+            copy_external=copy_external,
+        )
+        copy_info = result.get("external_copy") or {}
+        if copy_info.get("warning"):
+            write_backup_log(f"backup {trigger} criado em {result.get('filename')} com aviso Dropbox: {copy_info['warning']}")
+        elif copy_info.get("path"):
+            write_backup_log(f"backup {trigger} criado em {result.get('filename')} e copiado para {copy_info['path']}")
+        else:
+            write_backup_log(f"backup {trigger} criado em {result.get('filename')}")
+        return result
+    except Exception as exc:
+        write_backup_log(f"backup {trigger} falhou: {exc}")
+        raise
+    finally:
+        BACKUP_RUN_LOCK.release()
 
 
 def restore_data_backup(path: Path) -> dict:
     return backup_service_restore(backup_config(), path)
 
 
+def test_restore_backup(path: Path) -> dict:
+    return backup_service_test_restore(backup_config(), path)
+
+
+def build_automatic_backup_status(settings: dict | None = None, *, now: datetime | None = None) -> dict:
+    settings = settings or load_settings()
+    next_run_at = next_automatic_backup_at(settings, now=now)
+    enabled = bool(settings.get("automatic_backup_enabled", True))
+    last_status = clean_text(settings.get("last_automatic_backup_status")) or "nunca"
+    last_error = clean_text(settings.get("last_automatic_backup_error"))
+    if not enabled:
+        status_label = "Backup automático inativo"
+        status_detail = "Ative o agendamento para gerar backup diário automaticamente."
+    elif last_status == "erro":
+        status_label = "Backup automático com erro"
+        status_detail = last_error or "A última tentativa automática falhou."
+    elif last_status in {"sucesso", "aviso"}:
+        status_label = "Backup automático ativo"
+        status_detail = "Última execução registrada." if last_status == "sucesso" else "Última execução terminou com aviso."
+    else:
+        status_label = "Backup automático ativo"
+        status_detail = "Aguardando a primeira execução no horário configurado."
+    return {
+        "enabled": enabled,
+        "time": normalize_backup_time(settings.get("automatic_backup_time")),
+        "status": last_status,
+        "status_label": status_label,
+        "status_detail": status_detail,
+        "last_at": clean_text(settings.get("last_automatic_backup_at")),
+        "last_label": format_datetime_br(settings.get("last_automatic_backup_at")),
+        "last_file": clean_text(settings.get("last_automatic_backup_file")),
+        "last_attempt_at": clean_text(settings.get("last_automatic_backup_attempt_at")),
+        "last_attempt_label": format_datetime_br(settings.get("last_automatic_backup_attempt_at")),
+        "next_at": next_run_at,
+        "next_label": format_datetime_br(next_run_at),
+        "last_error": last_error,
+        "running": BACKUP_RUN_LOCK.locked(),
+    }
+
+
 def build_backup_status(settings: dict | None = None) -> dict:
-    return backup_service_status(backup_config(), settings)
+    settings = settings or load_settings()
+    status = backup_service_status(backup_config(allow_external_copy=True), settings)
+    automatic = build_automatic_backup_status(settings)
+    status["automatic"] = automatic
+    status["automatic_enabled"] = automatic["enabled"]
+    status["automatic_time"] = automatic["time"]
+    status["automatic_status"] = automatic["status"]
+    status["automatic_status_label"] = automatic["status_label"]
+    status["automatic_status_detail"] = automatic["status_detail"]
+    status["automatic_last_label"] = automatic["last_label"]
+    status["automatic_last_file"] = automatic["last_file"]
+    status["automatic_next_label"] = automatic["next_label"]
+    status["automatic_last_error"] = automatic["last_error"]
+    status["automatic_running"] = automatic["running"]
+    return status
+
+
+def test_backup_copy_dir() -> dict:
+    result = backup_service_test_external_dir(backup_config(allow_external_copy=True))
+    record_audit("validate", "backup", "dropbox", f"Teste da pasta Dropbox: {result.get('status_label')}.", after=result)
+    return result
+
+
+def update_backup_schedule(form) -> dict:
+    settings = load_settings()
+    before = {
+        "automatic_backup_enabled": settings.get("automatic_backup_enabled"),
+        "automatic_backup_time": settings.get("automatic_backup_time"),
+    }
+    enabled = clean_text(form.get("automatic_backup_enabled")).lower() in {"1", "on", "true", "yes"}
+    backup_time = normalize_backup_time(form.get("automatic_backup_time"))
+    settings["automatic_backup_enabled"] = enabled
+    settings["automatic_backup_time"] = backup_time
+    settings["automatic_backup_updated_at"] = now_iso()
+    if enabled and clean_text(settings.get("last_automatic_backup_status")) == "erro":
+        settings["last_automatic_backup_error"] = clean_text(settings.get("last_automatic_backup_error"))
+    save_settings(settings)
+    after = {
+        "automatic_backup_enabled": enabled,
+        "automatic_backup_time": backup_time,
+        "next_at": next_automatic_backup_at(settings),
+    }
+    record_audit("save", "backup", "automatic_schedule", "Agendamento de backup automático atualizado.", before=before, after=after)
+    return {
+        "settings": settings,
+        "message": (
+            f"Backup automático ativado para {backup_time}."
+            if enabled
+            else "Backup automático desativado. O backup manual continua disponível."
+        ),
+    }
+
+
+def detect_local_network_ip() -> str:
+    configured = clean_text(os.environ.get("SANNYGOLD_LAN_IP"))
+    if configured:
+        return configured
+    try:
+        candidates = socket.gethostbyname_ex(socket.gethostname())[2]
+        for candidate in candidates:
+            if candidate and not candidate.startswith("127."):
+                return candidate
+    except OSError:
+        pass
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+            probe.connect(("10.255.255.255", 1))
+            detected = probe.getsockname()[0]
+            if detected and not detected.startswith("127."):
+                return detected
+    except OSError:
+        pass
+    return "127.0.0.1"
+
+
+def build_local_network_status() -> dict:
+    configured_url = clean_text(os.environ.get("SANNYGOLD_LOCAL_URL"))
+    tailscale_ip = clean_text(os.environ.get("SANNYGOLD_TAILSCALE_IP"))
+    tailscale_url = clean_text(os.environ.get("SANNYGOLD_TAILSCALE_URL"))
+    host_header = clean_text(request.host) if has_request_context() else ""
+    request_host = host_header.split(":", 1)[0] if host_header else ""
+    port = clean_text(os.environ.get("PORT"), "5007")
+    if ":" in host_header:
+        port = host_header.rsplit(":", 1)[-1] or port
+    if not tailscale_url and tailscale_ip:
+        tailscale_url = f"http://{tailscale_ip}:{port}/"
+    lan_ip = detect_local_network_ip()
+    url = configured_url or f"http://{lan_ip}:{port}/"
+    bind_host = clean_text(os.environ.get("FLASK_HOST"), "127.0.0.1")
+    network_mode = bind_host in {"0.0.0.0", "::"} or request_host not in {"", "127.0.0.1", "localhost"}
+    ip_detected = bool(configured_url) or lan_ip != "127.0.0.1"
+    cell_access_ready = ip_detected and network_mode
+    return {
+        "ip": lan_ip,
+        "port": port,
+        "url": url,
+        "tailscale_ip": tailscale_ip,
+        "tailscale_url": tailscale_url,
+        "tailscale_configured": bool(tailscale_url),
+        "tailscale_status_label": "Tailscale configurado" if tailscale_url else "Tailscale opcional não configurado",
+        "tailscale_next_step": (
+            "Use este endereço somente em celulares autorizados na mesma conta Tailscale."
+            if tailscale_url
+            else "Configure SANNYGOLD_TAILSCALE_URL no .env.local para exibir o endereço externo privado aqui."
+        ),
+        "ip_detected": ip_detected,
+        "network_mode": network_mode,
+        "cell_access_ready": cell_access_ready,
+        "qr_enabled": ip_detected,
+        "server_label": "Servidor local ativo",
+        "status_label": (
+            "Pronto para celular no Wi-Fi"
+            if cell_access_ready
+            else "Endereço local detectado" if ip_detected
+            else "Somente neste computador"
+        ),
+        "next_step": (
+            "Escaneie o QR Code pelo celular conectado ao mesmo Wi-Fi."
+            if cell_access_ready
+            else "Abra o sistema em modo Wi-Fi pelo app SannyGold Sistema ou rode scripts/start_wifi.sh."
+            if ip_detected
+            else "Não foi possível detectar o IP da rede. Confira o Wi-Fi do computador ou informe SANNYGOLD_LAN_IP."
+        ),
+        "computer_notice": "O computador servidor precisa ficar ligado, conectado ao Wi-Fi e com o sistema aberto.",
+        "security_notice": "Esta tela não abre portas no roteador e não publica o sistema na internet.",
+        "fallback_instruction": (
+            ""
+            if ip_detected
+            else "Como alternativa, veja o IP nas configurações de Wi-Fi do computador e acesse http://IP_DO_COMPUTADOR:"
+            f"{port}/ no celular."
+        ),
+    }
+
+
+def run_automatic_backup_if_due(*, force: bool = False, now: datetime | None = None) -> dict:
+    reference = now or datetime.now()
+    settings = load_settings()
+    if not force and not automatic_backup_due(settings, now=reference):
+        return {"ran": False, "status": "aguardando", "next_at": next_automatic_backup_at(settings, now=reference)}
+    if BACKUP_RUN_LOCK.locked():
+        return {"ran": False, "status": "em_andamento", "detail": "Já existe um backup em andamento."}
+
+    attempt_at = now_iso()
+    attempt_date = reference.date().isoformat()
+    try:
+        backup = create_data_backup(trigger="automatico", audit_action=None, copy_external=True)
+        copy_warning = clean_text((backup.get("external_copy") or {}).get("warning"))
+        settings = load_settings()
+        settings["last_automatic_backup_attempt_at"] = attempt_at
+        settings["last_automatic_backup_attempt_date"] = attempt_date
+        settings["last_automatic_backup_at"] = backup.get("created_at") or attempt_at
+        settings["last_automatic_backup_file"] = backup.get("filename", "")
+        settings["last_automatic_backup_status"] = "aviso" if copy_warning else "sucesso"
+        settings["last_automatic_backup_error"] = copy_warning
+        save_settings(settings)
+        record_audit(
+            "automatic",
+            "backup",
+            backup.get("filename", ""),
+            "Backup automático diário executado.",
+            after={
+                "filename": backup.get("filename", ""),
+                "copy_warning": copy_warning,
+                "next_at": next_automatic_backup_at(settings, now=reference),
+            },
+        )
+        return {"ran": True, "status": settings["last_automatic_backup_status"], "backup": backup}
+    except Exception as exc:  # noqa: BLE001
+        settings = load_settings()
+        settings["last_automatic_backup_attempt_at"] = attempt_at
+        settings["last_automatic_backup_attempt_date"] = attempt_date
+        settings["last_automatic_backup_status"] = "erro"
+        settings["last_automatic_backup_error"] = str(exc)
+        save_settings(settings)
+        record_audit(
+            "automatic_error",
+            "backup",
+            "automatico",
+            f"Falha no backup automático: {exc}",
+            after={"error": str(exc), "attempt_at": attempt_at},
+        )
+        print(f"[backup] falha no backup automático: {exc}", file=sys.stderr)
+        return {"ran": True, "status": "erro", "error": str(exc)}
+
+
+def backup_scheduler_loop() -> None:
+    while True:
+        try:
+            run_automatic_backup_if_due()
+        except Exception as exc:  # noqa: BLE001
+            print(f"[backup] falha inesperada no agendador: {exc}", file=sys.stderr)
+        time_module.sleep(max(30, BACKUP_SCHEDULER_CHECK_SECONDS))
+
+
+def ensure_backup_scheduler_started() -> None:
+    global BACKUP_SCHEDULER_STARTED, BACKUP_SCHEDULER_THREAD
+    if app.config.get("TESTING") or os.environ.get("SANNYGOLD_DISABLE_BACKUP_SCHEDULER", "").lower() in {"1", "true", "yes", "on"}:
+        return
+    with BACKUP_SCHEDULER_LOCK:
+        if BACKUP_SCHEDULER_STARTED and BACKUP_SCHEDULER_THREAD and BACKUP_SCHEDULER_THREAD.is_alive():
+            return
+        BACKUP_SCHEDULER_THREAD = threading.Thread(target=backup_scheduler_loop, name="sannygold-backup-scheduler", daemon=True)
+        BACKUP_SCHEDULER_THREAD.start()
+        BACKUP_SCHEDULER_STARTED = True
 
 
 def maybe_create_automatic_backup() -> None:
-    user = current_user()
-    if clean_text(user.get("role")) == "guest":
+    ensure_backup_scheduler_started()
+    if app.config.get("TESTING"):
         return
-    status = build_backup_status()
-    backup_age_days = days_since_iso(status.get("last_backup_at"))
-    if backup_age_days is None or backup_age_days >= 1:
-        create_data_backup(trigger="automatico", audit_action="automatic")
+    run_automatic_backup_if_due()
 
 
 def audit_entry_date(entry: dict):
@@ -2987,7 +4357,7 @@ def build_homologation_checklist(
 ) -> dict:
     active_users = [user for user in users if clean_text(user.get("status")) == "ativo"]
     admin_password_env = os.environ.get("SANNYGOLD_ADMIN_PASSWORD", "")
-    has_default_password_env = not admin_password_env or admin_password_env == "Sanny123Gold"
+    has_default_password_env = not admin_password_env or admin_password_env == "troque-esta-senha"
     password_rotation_pending = any(bool(user.get("must_change_password")) for user in active_users)
     event_has_equipment = any(
         any(client.get("client_id") in event.get("client_ids", []) and clean_text(client.get("equipment_number")) for client in clients)
@@ -3284,6 +4654,9 @@ app.jinja_env.filters["currency_br"] = format_currency_br
 app.jinja_env.globals["criticality_class"] = criticality_class
 app.jinja_env.globals["criticality_badge_class"] = criticality_badge_class
 app.jinja_env.globals["criticality_label"] = criticality_label
+app.jinja_env.globals["event_status_label"] = event_status_label
+app.jinja_env.globals["receivable_status_label"] = receivable_status_label
+app.jinja_env.globals["receivable_status_badge_class"] = receivable_status_badge_class
 
 
 def google_maps_enabled() -> bool:
@@ -3419,8 +4792,27 @@ def next_recurrence_date(event: dict, reference_date=None) -> str:
 
 
 def normalize_equipment_status(value: str | None) -> str:
-    status = clean_text(value, "disponivel") or "disponivel"
-    return status if status in EQUIPMENT_STATUS_OPTIONS else "disponivel"
+    status = clean_text(value, "disponivel").lower() or "disponivel"
+    return EQUIPMENT_STATUS_ALIASES.get(status, status if status in EQUIPMENT_STATUS_OPTIONS else "disponivel")
+
+
+def equipment_status_label(value: str | None) -> str:
+    return EQUIPMENT_STATUS_LABELS.get(normalize_equipment_status(value), "Disponível")
+
+
+def equipment_status_badge_class(value: str | None) -> str:
+    status = normalize_equipment_status(value)
+    if status == "disponivel":
+        return "badge-success"
+    if status in {"manutencao", "indisponivel", "baixado"}:
+        return "badge-danger"
+    if status == "em_operacao":
+        return "badge-fixed"
+    return "badge-avulso"
+
+
+app.jinja_env.globals["equipment_status_label"] = equipment_status_label
+app.jinja_env.globals["equipment_status_badge_class"] = equipment_status_badge_class
 
 
 def normalize_business_text(value: str | None) -> str:
@@ -3537,10 +4929,12 @@ def event_route_generated(event: dict, route_data: dict | None) -> bool:
     return bool(event_id and route_event_id == event_id and route_stops)
 
 
-def event_service_order_generated(event: dict, audit_log: list[dict] | None) -> bool:
+def event_service_order_generated(event: dict, audit_log: list[dict] | None, service_orders: list[dict] | None = None) -> bool:
     event_id = clean_text(event.get("event_id"))
     if not event_id:
         return False
+    if service_order_is_active(service_order_for_event(event_id, service_orders)):
+        return True
     for item in audit_log or []:
         if clean_text(item.get("module")) != "events" or clean_text(item.get("target_id")) != event_id:
             continue
@@ -3901,7 +5295,7 @@ def create_client_record_from_values(values: dict, *, existing_clients: list[dic
                 f"O equipamento {equipment_number} já está vinculado ao cliente {conflict.get('customer_name') or conflict.get('client_id')}. Libere esse vínculo ou escolha outro equipamento."
             )
         if linked_equipment and normalize_equipment_status(linked_equipment.get("status") or linked_equipment.get("condition")) in BLOCKED_EQUIPMENT_STATUSES:
-            raise ValueError(f"O equipamento {equipment_number} está {normalize_equipment_status(linked_equipment.get('status') or linked_equipment.get('condition'))} e não pode ser reservado. Marque como disponível ou escolha outro equipamento.")
+            raise ValueError(f"O equipamento {equipment_number} está {equipment_status_label(linked_equipment.get('status') or linked_equipment.get('condition'))} e não pode ser reservado. Marque como disponível ou escolha outro equipamento.")
 
     return {
         "client_id": client_id,
@@ -4052,30 +5446,69 @@ def validate_client_equipment_conflicts(clients: list[dict]) -> None:
         seen[equipment_number] = str(client_name)
 
 
-def create_vehicle_record(form) -> dict:
-    vehicles = load_vehicles_registry()
+def create_vehicle_record(form, *, save_photos: bool = True) -> dict:
+    vehicles = load_vehicles_registry(include_archived=True)
     vehicle_id = clean_text(form.get("vehicle_id")) or next_numeric_id(vehicles, "VEI", "vehicle_id")
-    if not vehicle_id:
-        raise ValueError("Informe o ID do veículo. Sem identificação, a frota não pode ser vinculada à rota.")
+    record = fleet_build_vehicle_record(
+        form,
+        existing_vehicles=vehicles,
+        now=now_iso(),
+        hq_lat=HQ_LAT,
+        hq_lng=HQ_LNG,
+        generated_id=vehicle_id,
+        uploaded_photos=[],
+    )
+    return attach_vehicle_photos(record) if save_photos else record
 
-    capacity = int(clean_text(form.get("capacity"), "1"))
-    max_stops = int(clean_text(form.get("max_stops"), "999"))
-    max_minutes = int(clean_text(form.get("max_minutes"), "600"))
-    if capacity <= 0 or max_stops <= 0 or max_minutes <= 0:
-        raise ValueError("Capacidade, máximo de paradas e máximo de minutos devem ser maiores que zero. Esses limites definem se o veículo pode atender a rota.")
 
-    return {
-        "vehicle_id": vehicle_id,
-        "vehicle_type": clean_text(form.get("vehicle_type"), "Van"),
-        "plate": clean_text(form.get("plate")),
-        "model": clean_text(form.get("model")),
-        "photo_url": uploaded_asset_url("equipment_photo_file") or clean_text(form.get("photo_url")),
-        "start_lat": float(clean_text(form.get("start_lat"), str(HQ_LAT)) or HQ_LAT),
-        "start_lng": float(clean_text(form.get("start_lng"), str(HQ_LNG)) or HQ_LNG),
-        "capacity": capacity,
-        "max_stops": max_stops,
-        "max_minutes": max_minutes,
-    }
+def attach_vehicle_photos(record: dict) -> dict:
+    upload_identity = clean_text(record.get("plate")) or clean_text(record.get("vehicle_id"))
+    photos = uploaded_fleet_files(
+        "vehicle_photo_file",
+        vehicle=upload_identity,
+        category="Fotos",
+        allowed_extensions=IMAGE_UPLOAD_EXTENSIONS,
+        field_label="foto do veículo",
+    )
+    if photos:
+        record["photos"] = list(dict.fromkeys([*record.get("photos", []), *photos]))
+        record["photo_url"] = record["photos"][0]
+    return record
+
+
+def create_fleet_document_record(form) -> dict:
+    documents = load_fleet_documents(include_archived=True)
+    vehicles = load_vehicles_registry(include_archived=True)
+    vehicle_id = clean_text(form.get("vehicle_id"))
+    vehicle = next(
+        (item for item in vehicles if clean_text(item.get("vehicle_id")) == vehicle_id),
+        {"vehicle_id": vehicle_id},
+    )
+    has_uploaded_file = any(
+        item is not None and item.filename is not None and item.filename.strip()
+        for item in request.files.getlist("document_file")
+    )
+    record = fleet_build_document_record(
+        form,
+        existing_documents=documents,
+        vehicles=vehicles,
+        now=now_iso(),
+        generated_id=next_numeric_id(documents, "DOC-FROTA", "id"),
+        uploaded_file_url="pending://fleet-document-upload" if has_uploaded_file else "",
+    )
+    if not clean_text(record.get("responsible_user_id")):
+        record["responsible_user_id"] = clean_text(current_user().get("id"))
+    uploaded = uploaded_fleet_files(
+        "document_file",
+        vehicle=vehicle,
+        category="Documentos",
+        allowed_extensions=FLEET_DOCUMENT_EXTENSIONS,
+        field_label="documento da frota",
+    )
+    if uploaded:
+        record["file_url"] = uploaded[0]
+        record["file_path"] = uploaded[0]
+    return record
 
 
 def create_equipment_record(form) -> dict:
@@ -4083,14 +5516,18 @@ def create_equipment_record(form) -> dict:
     equipment_id = clean_text(form.get("equipment_id")) or next_numeric_id(equipment_items, "EQ", "equipment_id")
     current = next((item for item in equipment_items if clean_text(item.get("equipment_id")) == equipment_id), {})
     equipment_type = clean_text(form.get("stock_equipment_type"), "Banheiro Luxo")
+    asset_class = clean_text(form.get("asset_class") or current.get("asset_class"), "locavel") or "locavel"
+    if asset_class not in {"locavel", "veiculo", "acessorio_operacional"}:
+        asset_class = "locavel"
     if not equipment_id or not equipment_type:
         raise ValueError("Informe o ID e o tipo do equipamento. Sem isso, o item não pode ser reservado, conferido ou vinculado a uma locação.")
     status = normalize_equipment_status(form.get("status") or form.get("condition"))
     return {
         "equipment_id": equipment_id,
         "equipment_type": equipment_type,
+        "asset_class": asset_class,
         "plate": clean_text(form.get("plate")),
-        "photo_url": clean_text(form.get("photo_url")),
+        "photo_url": uploaded_asset_url("equipment_photo_file") or clean_text(form.get("photo_url")),
         "condition": status,
         "status": status,
         "notes": clean_text(form.get("notes")),
@@ -4099,6 +5536,8 @@ def create_equipment_record(form) -> dict:
         "maintenance_started_at": clean_text(form.get("maintenance_started_at")) or clean_text(current.get("maintenance_started_at")),
         "maintenance_expected_release": clean_text(form.get("maintenance_expected_release")) or clean_text(current.get("maintenance_expected_release")),
         "maintenance_cost": parse_decimal(form.get("maintenance_cost"), parse_decimal(current.get("maintenance_cost"))),
+        "maintenance_history": current.get("maintenance_history") if isinstance(current.get("maintenance_history"), list) else [],
+        "cleaning_history": current.get("cleaning_history") if isinstance(current.get("cleaning_history"), list) else [],
     }
 
 
@@ -5170,8 +6609,8 @@ def annotate_route_with_validation(payload: dict, validation_payload: dict | Non
         for stop in route.get("stops", []):
             equipment_id = clean_text(stop.get("equipment_number"))
             equipment_item = inventory_map.get(equipment_id, {})
-            stop["operational_status"] = "carregado" if equipment_id else "sem_equipamento"
-            stop["cycle_stage"] = "Carregado para a rota atual" if equipment_id else "Sem equipamento vinculado"
+            stop["operational_status"] = "em_operacao" if equipment_id else "sem_equipamento"
+            stop["cycle_stage"] = "Reservado para a rota atual" if equipment_id else "Sem equipamento vinculado"
             if equipment_item:
                 stop["equipment_condition"] = normalize_equipment_status(equipment_item.get("status") or equipment_item.get("condition"))
             else:
@@ -5196,8 +6635,8 @@ def apply_route_generation_effects(payload: dict, selected_event: dict | None = 
         changed = False
         for item in equipment_items:
             if clean_text(item.get("equipment_id")) in route_equipment_ids:
-                item["status"] = "carregado"
-                item["condition"] = "carregado"
+                item["status"] = "em_operacao"
+                item["condition"] = "em_operacao"
                 changed = True
         if changed:
             save_equipment_registry(equipment_items)
@@ -5338,20 +6777,18 @@ def build_equipment_live_status(
     base_status = normalize_equipment_status(equipment.get("status") or equipment.get("condition"))
     confirmation = confirmation or {}
     linked_event = linked_event or {}
-    if base_status in {"manutencao", "indisponivel"}:
+    if base_status in BLOCKED_EQUIPMENT_STATUSES:
         return base_status, "Bloqueado para operação"
-    if base_status == "retornado":
-        return "retornado", "Aguardando liberação para disponibilidade"
     if confirmation.get("return_confirmed_at"):
-        return "retornado", "Retorno confirmado"
+        return "aguardando_limpeza", "Retorno confirmado, aguardando limpeza"
     if confirmation.get("execution_confirmed_at"):
-        return "instalado", "Equipamento instalado no cliente"
+        return "em_operacao", "Equipamento em operação no cliente"
     if confirmation.get("arrival_confirmed_at"):
-        return "em_rota", "Equipe chegou ao destino"
+        return "em_operacao", "Equipe chegou ao destino"
     if route_link:
-        return "carregado", "Carregado para a rota atual"
+        return "em_operacao", "Reservado para a rota atual"
     if linked_event and normalize_event_status(linked_event.get("status")) == "concluido" and linked_client:
-        return "retirada_pendente", "Evento concluído aguardando retirada"
+        return "aguardando_limpeza", "Evento concluído aguardando limpeza"
     if linked_event and linked_client:
         return "reservado", f"Reservado para {linked_event.get('title') or linked_event.get('event_id')}"
     return "disponivel", "Disponível na base"
@@ -5585,6 +7022,284 @@ def build_service_order_requirements(
     return issues
 
 
+def service_order_for_event(event_id: str, service_orders: list[dict] | None = None) -> dict | None:
+    event_id = clean_text(event_id)
+    if not event_id:
+        return None
+    orders = service_orders if service_orders is not None else load_service_orders()
+    for order in orders or []:
+        if clean_text(order.get("event_id")) == event_id:
+            return order
+    return None
+
+
+def service_order_is_active(order: dict | None) -> bool:
+    return bool(order and normalize_service_order_status(order.get("status")) != "cancelada")
+
+
+def service_order_map_link(client: dict | None) -> str:
+    client = client or {}
+    lat_value = client.get("lat")
+    lng_value = client.get("lng")
+    lat = clean_text(str(lat_value)) if lat_value is not None else ""
+    lng = clean_text(str(lng_value)) if lng_value is not None else ""
+    query = f"{lat},{lng}" if lat and lng else clean_text(client.get("address"))
+    if not query:
+        return ""
+    return "https://www.google.com/maps/search/?" + urllib.parse.urlencode({"api": "1", "query": query})
+
+
+def service_order_confirmation_defaults(existing: dict | None = None) -> dict:
+    existing_confirmations = (existing or {}).get("confirmations") if isinstance((existing or {}).get("confirmations"), dict) else {}
+    confirmations: dict[str, dict] = {}
+    for step in SERVICE_ORDER_CONFIRMATION_STEPS:
+        current = existing_confirmations.get(step["key"], {}) if isinstance(existing_confirmations.get(step["key"]), dict) else {}
+        confirmations[step["key"]] = {
+            "key": step["key"],
+            "label": step["label"],
+            "confirmed_at": clean_text(current.get("confirmed_at")),
+            "user_name": clean_text(current.get("user_name")),
+            "notes": clean_text(current.get("notes")),
+        }
+    return confirmations
+
+
+def service_order_confirmation_steps(order: dict | None) -> list[dict]:
+    confirmations = service_order_confirmation_defaults(order)
+    return [
+        {
+            **confirmations[step["key"]],
+            "done": bool(confirmations[step["key"]].get("confirmed_at")),
+        }
+        for step in SERVICE_ORDER_CONFIRMATION_STEPS
+    ]
+
+
+def build_service_order_payload(
+    event: dict,
+    clients: list[dict],
+    vehicles: list[dict],
+    equipment: list[dict],
+    route_data: dict | None = None,
+    *,
+    existing_order: dict | None = None,
+    status: str | None = None,
+) -> dict:
+    event_id = clean_text(event.get("event_id"))
+    client_map = {clean_text(item.get("client_id")): item for item in clients}
+    vehicle_map = {clean_text(item.get("vehicle_id")): item for item in vehicles}
+    equipment_map = {clean_text(item.get("equipment_id")): item for item in equipment}
+    linked_clients = [client_map.get(clean_text(client_id), {}) for client_id in event.get("client_ids", []) or []]
+    linked_clients = [client for client in linked_clients if client]
+    linked_vehicles = [vehicle_map.get(clean_text(vehicle_id), {}) for vehicle_id in event.get("vehicle_ids", []) or []]
+    linked_vehicles = [vehicle for vehicle in linked_vehicles if vehicle]
+    primary_client = linked_clients[0] if linked_clients else {}
+    primary_address = clean_text(primary_client.get("address"))
+    start_time = clean_text(primary_client.get("window_start")) or clean_text(event.get("start_time") or event.get("horario"))
+    end_time = clean_text(primary_client.get("window_end")) or clean_text(event.get("end_time"))
+    time_label = f"{start_time} até {end_time}" if start_time and end_time else start_time or end_time or "Horário não informado"
+    current_status = normalize_service_order_status(status or (existing_order or {}).get("status") or "rascunho")
+    created_at = clean_text((existing_order or {}).get("created_at")) or now_iso()
+    updated_at = now_iso()
+    vehicle_rows = []
+    for vehicle in linked_vehicles:
+        vehicle_rows.append(
+            {
+                "vehicle_id": clean_text(vehicle.get("vehicle_id")),
+                "type": clean_text(vehicle.get("vehicle_type") or vehicle.get("model"), "Veículo"),
+                "plate": clean_text(vehicle.get("plate"), "n/d"),
+                "driver": clean_text(vehicle.get("driver") or vehicle.get("motorista") or vehicle.get("responsible") or vehicle.get("responsavel")),
+            }
+        )
+    equipment_rows = []
+    for client in linked_clients:
+        equipment_id = clean_text(client.get("equipment_number"))
+        equipment_item = equipment_map.get(equipment_id, {})
+        equipment_rows.append(
+            {
+                "client_id": clean_text(client.get("client_id")),
+                "client_name": clean_text(client.get("customer_name")) or clean_text(client.get("client_id")),
+                "equipment_id": equipment_id,
+                "type": clean_text(client.get("equipment_type") or equipment_item.get("equipment_type") or client.get("service_profile"), "Equipamento"),
+                "quantity": clean_text(str(client.get("equipment_quantity") or "1")),
+                "plate": clean_text(equipment_item.get("plate"), "n/d"),
+                "status": clean_text(equipment_item.get("status") or equipment_item.get("condition")),
+            }
+        )
+    contact_rows = []
+    for client in linked_clients:
+        contact_rows.append(
+            {
+                "client_id": clean_text(client.get("client_id")),
+                "client_name": clean_text(client.get("customer_name")) or clean_text(client.get("client_id")),
+                "contact_name": clean_text(client.get("contact_name") or client.get("responsible_contact")),
+                "phone": clean_text(client.get("phone")),
+                "email": clean_text(client.get("email")),
+            }
+        )
+    checklist_saida = (existing_order or {}).get("checklist_saida") if isinstance((existing_order or {}).get("checklist_saida"), list) else SERVICE_ORDER_CHECKLIST_SAIDA
+    checklist_retorno = (existing_order or {}).get("checklist_retorno") if isinstance((existing_order or {}).get("checklist_retorno"), list) else SERVICE_ORDER_CHECKLIST_RETORNO
+    map_link = service_order_map_link(primary_client)
+    responsible = event_responsible_text(event, linked_vehicles)
+    confirmations = service_order_confirmation_defaults(existing_order)
+    os_id = clean_text((existing_order or {}).get("os_id")) or (f"OS-{event_id}" if event_id else next_numeric_id(load_service_orders(), "OS", "os_id"))
+    order = {
+        "os_id": os_id,
+        "event_id": event_id,
+        "event_title": clean_text(event.get("title")) or event_id,
+        "status": current_status,
+        "status_label": service_order_status_label(current_status),
+        "status_badge": service_order_badge_class(current_status),
+        "created_at": created_at,
+        "updated_at": updated_at,
+        "event_date": clean_text(event.get("event_date")),
+        "event_end_date": clean_text(event.get("event_end_date") or event.get("event_date")),
+        "date_label": event_period_label(event),
+        "time_label": time_label,
+        "responsible": responsible,
+        "local": primary_address or clean_text(event.get("address") or event.get("event_address") or event.get("local") or event.get("location")),
+        "map_link": map_link,
+        "notes": clean_text(event.get("notes")),
+        "clients": [
+            {
+                "client_id": clean_text(client.get("client_id")),
+                "name": clean_text(client.get("customer_name")) or clean_text(client.get("client_id")),
+                "address": clean_text(client.get("address")),
+                "phone": clean_text(client.get("phone")),
+                "email": clean_text(client.get("email")),
+                "window_start": clean_text(client.get("window_start")),
+                "window_end": clean_text(client.get("window_end")),
+                "map_link": service_order_map_link(client),
+            }
+            for client in linked_clients
+        ],
+        "vehicles": vehicle_rows,
+        "equipment": equipment_rows,
+        "contacts": contact_rows,
+        "checklist_saida": checklist_saida,
+        "checklist_retorno": checklist_retorno,
+        "confirmations": confirmations,
+        "confirmation_steps": service_order_confirmation_steps({"confirmations": confirmations}),
+        "confirmation_done_count": sum(1 for item in confirmations.values() if item.get("confirmed_at")),
+        "confirmation_total_count": len(SERVICE_ORDER_CONFIRMATION_STEPS),
+        "route_generated_at": clean_text((route_data or {}).get("generated_at")) if clean_text((route_data or {}).get("event_id")) == event_id else "",
+        "history": list((existing_order or {}).get("history") or []),
+    }
+    summary_lines = [
+        f"OS {order['os_id']} - {order['event_title']}",
+        f"Cliente: {', '.join(client['name'] for client in order['clients']) or 'não informado'}",
+        f"Local: {order['local'] or 'não informado'}",
+        f"Data: {format_date_br(order['event_date']) or order['date_label']} | Horário: {order['time_label']}",
+        f"Responsável: {order['responsible'] or 'não informado'}",
+        f"Veículos: {', '.join((vehicle['plate'] if vehicle['plate'] != 'n/d' else vehicle['vehicle_id']) for vehicle in order['vehicles']) or 'não informado'}",
+        f"Equipamentos: {', '.join((item['equipment_id'] or item['type']) for item in order['equipment']) or 'não informado'}",
+    ]
+    if order["map_link"]:
+        summary_lines.append(f"Mapa: {order['map_link']}")
+    if order["notes"]:
+        summary_lines.append(f"Obs: {order['notes']}")
+    order["whatsapp_summary"] = "\n".join(summary_lines)
+    return order
+
+
+def append_service_order_history(order: dict, action: str, detail: str = "", *, before_status: str = "", after_status: str = "") -> dict:
+    user = current_user() if has_request_context() else public_user()
+    history = list(order.get("history") or [])
+    history.append(
+        {
+            "at": now_iso(),
+            "action": clean_text(action),
+            "detail": clean_text(detail),
+            "before_status": clean_text(before_status),
+            "after_status": clean_text(after_status or order.get("status")),
+            "user_name": clean_text(user.get("nome")),
+            "user_email": clean_text(user.get("email")),
+        }
+    )
+    order["history"] = history[-100:]
+    return order
+
+
+def upsert_service_order(items: list[dict], record: dict) -> list[dict]:
+    updated = []
+    replaced = False
+    record_event_id = clean_text(record.get("event_id"))
+    record_os_id = clean_text(record.get("os_id"))
+    for item in items:
+        if (record_event_id and clean_text(item.get("event_id")) == record_event_id) or (record_os_id and clean_text(item.get("os_id")) == record_os_id):
+            updated.append(record)
+            replaced = True
+        else:
+            updated.append(item)
+    if not replaced:
+        updated.append(record)
+    return updated
+
+
+def save_service_order_from_event(event_id: str, *, status: str | None = None, history_action: str = "atualizacao", detail: str = "") -> dict:
+    events = load_events()
+    event = next((item for item in events if clean_text(item.get("event_id")) == clean_text(event_id)), None)
+    if not event:
+        raise ValueError("Evento não encontrado para ordem de serviço.")
+    orders = load_service_orders()
+    existing_order = service_order_for_event(event_id, orders)
+    before_status = normalize_service_order_status((existing_order or {}).get("status")) if existing_order else ""
+    order = build_service_order_payload(
+        event,
+        load_clients(),
+        load_vehicles_registry(),
+        load_equipment_registry(),
+        load_route_data(),
+        existing_order=existing_order,
+        status=status or (existing_order or {}).get("status") or "rascunho",
+    )
+    if history_action:
+        order = append_service_order_history(order, history_action, detail, before_status=before_status, after_status=order.get("status"))
+    save_service_orders(upsert_service_order(orders, order))
+    return order
+
+
+def confirm_service_order_step(event_id: str, step_key: str, notes: str = "") -> dict:
+    step_key = normalize_status_key(step_key)
+    step_meta = next((step for step in SERVICE_ORDER_CONFIRMATION_STEPS if step["key"] == step_key), None)
+    if not step_meta:
+        raise ValueError("Etapa da OS inválida.")
+    order = save_service_order_from_event(event_id, history_action="", detail="")
+    confirmations = service_order_confirmation_defaults(order)
+    status_before = normalize_service_order_status(order.get("status"))
+    user = current_user() if has_request_context() else public_user()
+    confirmations[step_key] = {
+        "key": step_key,
+        "label": step_meta["label"],
+        "confirmed_at": now_iso(),
+        "user_name": clean_text(user.get("nome")),
+        "notes": clean_text(notes),
+    }
+    order["confirmations"] = confirmations
+    order["confirmation_steps"] = service_order_confirmation_steps(order)
+    order["confirmation_done_count"] = sum(1 for item in confirmations.values() if item.get("confirmed_at"))
+    status_after = status_before
+    if status_before != "cancelada":
+        if step_key == "retorno_base":
+            status_after = "concluida"
+        elif step_key in {"saida_base", "chegada_local", "instalacao_concluida", "retirada_concluida"}:
+            status_after = "em_execucao"
+    order["status"] = status_after
+    order["status_label"] = service_order_status_label(status_after)
+    order["status_badge"] = service_order_badge_class(status_after)
+    order["updated_at"] = now_iso()
+    append_service_order_history(
+        order,
+        "confirmacao",
+        f"{step_meta['label']} confirmada.",
+        before_status=status_before,
+        after_status=status_after,
+    )
+    orders = load_service_orders()
+    save_service_orders(upsert_service_order(orders, order))
+    return order
+
+
 def validate_operation_scope(
     *,
     selected_event: dict | None,
@@ -5637,6 +7352,16 @@ def validate_operation_scope(
 
     for vehicle in vehicles_snapshot:
         vehicle_id = clean_text(vehicle.get("vehicle_id"))
+        if normalize_vehicle_status(vehicle.get("status")) in BLOCKED_VEHICLE_STATUSES:
+            blocked_vehicle_ids.add(vehicle_id)
+            pending_items.append(
+                build_pending_item(
+                    vehicle,
+                    "sem_veiculo_disponivel",
+                    f"Veículo {vehicle_id} está bloqueado por manutenção.",
+                )
+            )
+            continue
         conflicts = [
             item for item in vehicle_commitments.get(vehicle_id, [])
             if clean_text(item.get("event_id")) != event_id and event_overlaps_period(item, event_date, event_end_date)
@@ -5665,7 +7390,7 @@ def validate_operation_scope(
         else:
             equipment_status = normalize_equipment_status(equipment.get("status") or equipment.get("condition"))
             if equipment_status in BLOCKED_EQUIPMENT_STATUSES:
-                reasons.append(build_pending_item(client, "sem_equipamento_disponivel", f"Equipamento {equipment_id} está {equipment_status}."))
+                reasons.append(build_pending_item(client, "sem_equipamento_disponivel", f"Equipamento {equipment_id} está {equipment_status_label(equipment_status)}."))
             conflicts = [
                 item for item in equipment_commitments.get(equipment_id, [])
                 if clean_text(item.get("event_id")) != event_id and event_overlaps_period(item, event_date, event_end_date)
@@ -5738,8 +7463,19 @@ def validate_event_links(record: dict, *, clients: list[dict], vehicles: list[di
     event_end = clean_text(record.get("event_end_date")) or event_date
     equipment_commitments, vehicle_commitments = build_event_commitments(existing_events, clients)
     clients_by_id = {client.get("client_id"): client for client in clients if client.get("client_id")}
+    vehicles_by_id = {clean_text(vehicle.get("vehicle_id")): vehicle for vehicle in vehicles if clean_text(vehicle.get("vehicle_id"))}
 
     for vehicle_id in record.get("vehicle_ids") or []:
+        if not clean_text(vehicle_id):
+            continue
+        vehicle = vehicles_by_id.get(clean_text(vehicle_id))
+        if not vehicle:
+            raise ValueError(f"O veículo {vehicle_id} não existe ou está arquivado.")
+        if normalize_vehicle_status(vehicle.get("status")) in BLOCKED_VEHICLE_STATUSES:
+            raise ValueError(f"O veículo {vehicle_id} está bloqueado por manutenção e não pode entrar em nova rota.")
+        active_blocks = active_blocks_for_vehicle(load_vehicle_operational_blocks(), clean_text(vehicle_id))
+        if active_blocks:
+            raise ValueError(f"O veículo {vehicle_id} possui bloqueio operacional ativo: {clean_text(active_blocks[0].get('reason'))}")
         conflicts = [
             item for item in vehicle_commitments.get(clean_text(vehicle_id), [])
             if clean_text(item.get("event_id")) != event_id and event_overlaps_period(item, event_date, event_end)
@@ -5758,6 +7494,63 @@ def validate_event_links(record: dict, *, clients: list[dict], vehicles: list[di
         ]
         if conflicts:
             raise ValueError(f"O equipamento {equipment_id} do cliente {client.get('customer_name') or client_id} já está comprometido em outro evento na mesma data.")
+
+
+def fleet_route_departure_issues(selected_event: dict | None, vehicles: list[dict]) -> list[dict]:
+    if not selected_event:
+        return []
+    settings = load_settings()
+    required_value = settings.get("fleet_checklist_required_for_routes", False)
+    required = required_value is True or clean_text(required_value).lower() in {"1", "true", "yes", "sim", "on"}
+    exceptions = settings.get("fleet_checklist_route_exception_operation_types")
+    if not isinstance(exceptions, list):
+        exceptions = [clean_text(item) for item in clean_text(exceptions).split("|") if clean_text(item)]
+    operation_type = clean_text(selected_event.get("operation_type") or selected_event.get("service_type") or selected_event.get("service_profile"))
+    if operation_type and operation_type in exceptions:
+        required = False
+    event_id = clean_text(selected_event.get("event_id"))
+    checklists = load_fleet_checklists()
+    blocks = load_vehicle_operational_blocks()
+    assignments = load_fleet_vehicle_assignments()
+    issues = []
+    for vehicle in vehicles:
+        vehicle_id = clean_text(vehicle.get("vehicle_id"))
+        result = route_departure_status(
+            vehicle_id=vehicle_id,
+            route_id=event_id,
+            operation_id="",
+            checklists=checklists,
+            blocks=blocks,
+            assignments=assignments,
+            required=required,
+        )
+        if not result["allowed"]:
+            issues.append({"vehicle_id": vehicle_id, **result})
+    return issues
+
+
+def apply_fleet_route_override(issues: list[dict], *, event_id: str) -> list[dict]:
+    if not issues or clean_text(request.form.get("fleet_checklist_override")).lower() not in {"1", "true", "on", "yes"}:
+        return issues
+    settings = load_settings()
+    override_enabled = settings.get("fleet_checklist_route_exceptions_enabled", True)
+    override_enabled = override_enabled is True or clean_text(override_enabled).lower() in {"1", "true", "yes", "sim", "on"}
+    reason = clean_text(request.form.get("fleet_checklist_override_reason"))
+    if not override_enabled or not has_permission(current_user(), "fleet.route.override"):
+        raise PermissionError("Seu perfil não pode autorizar exceções de checklist para rotas.")
+    if len(reason) < 10:
+        raise ValueError("Informe uma justificativa com pelo menos 10 caracteres para a exceção.")
+    if any(item.get("critical") for item in issues):
+        raise ValueError("Bloqueio crítico não permite exceção operacional.")
+    for issue in issues:
+        record_audit(
+            "fleet_route_override",
+            "fleet_checklists",
+            event_id,
+            "Exceção de checklist autorizada para geração de rota.",
+            after={"vehicle_id": issue.get("vehicle_id"), "reason": reason, "code": issue.get("code")},
+        )
+    return []
 
 
 def expand_future_occurrences(events: list[dict], horizon_days: int = 120) -> list[dict]:
@@ -6101,24 +7894,29 @@ def build_inventory_view(clients: list[dict], route_data: dict | None, field_con
             ),
             {},
         )
-        status = "disponivel"
-        cycle_stage = "Disponível na base"
-        if item.get("condition") == "manutencao":
-            status = "manutencao"
-            cycle_stage = "Em manutenção"
+        base_status = normalize_equipment_status(item.get("status") or item.get("condition"))
+        status = base_status
+        cycle_stage = equipment_status_label(base_status)
+        if base_status in BLOCKED_EQUIPMENT_STATUSES:
+            cycle_stage = equipment_status_label(base_status)
         elif confirmation.get("return_confirmed_at"):
-            status = "disponivel"
-            cycle_stage = "Retorno confirmado"
+            status = "aguardando_limpeza"
+            cycle_stage = "Aguardando limpeza/conferência"
         elif equipment_id in in_route_ids:
-            status = "em_rota"
+            status = "em_operacao"
             cycle_stage = "Execução confirmada" if confirmation.get("execution_confirmed_at") else "Em deslocamento"
         elif linked_client:
             status = "reservado"
             cycle_stage = "Reservado para saída"
+        elif base_status == "disponivel":
+            cycle_stage = "Disponível na base"
         inventory.append(
             {
                 **item,
                 "status": status,
+                "condition": status,
+                "status_label": equipment_status_label(status),
+                "status_badge": equipment_status_badge_class(status),
                 "cycle_stage": cycle_stage,
                 "equipment_family": equipment_family(item.get("equipment_type")),
                 "equipment_family_label": equipment_family_label(equipment_family(item.get("equipment_type"))),
@@ -6192,7 +7990,7 @@ def build_operational_dashboard(
     events_today = [event for event in route_history if str(event.get("generated_at") or "").startswith(today)]
     current_routes = (route_data or {}).get("routes", [])
     vehicles_in_use = [route for route in current_routes if route.get("stops")]
-    equipment_in_use = [item for item in inventory if item.get("status") in {"carregado", "em_rota", "instalado", "retirada_pendente"}]
+    equipment_in_use = [item for item in inventory if normalize_equipment_status(item.get("status") or item.get("condition")) in COMMITTED_EQUIPMENT_STATUSES]
 
     shortage_clients = [client for client in clients if not clean_text(client.get("equipment_number"))]
     shortage_alert = None
@@ -6776,16 +8574,72 @@ def build_financial_management_dashboard(
     period: str,
     start_date: str = "",
     end_date: str = "",
+    client_filter: str = "",
+    status_filter: str = "",
+    payment_method_filter: str = "",
 ) -> dict:
     period = period if period in {"daily", "weekly", "monthly", "custom", "all"} else "monthly"
     today = datetime.now().date().isoformat()
     today_date = datetime.now().date()
-    period_receivables = [item for item in receivables if financial_date_in_period(item.get("due_date"), period, start_date, end_date)]
+    selected_status = ""
+    if clean_text(status_filter):
+        try:
+            selected_status = normalize_receivable_status(status_filter)
+        except ValueError:
+            selected_status = ""
+    client_query = clean_text(client_filter).lower()
+    payment_query = clean_text(payment_method_filter).lower()
+
+    receivable_rows = []
+    for item in receivables:
+        status = receivable_effective_status(item)
+        open_amount = receivable_open_amount(item)
+        row = {
+            **item,
+            "status": status,
+            "status_label": receivable_status_label(status),
+            "status_badge": receivable_status_badge_class(status),
+            "open_amount": open_amount,
+        }
+        receivable_rows.append(row)
+
+    def receivable_matches_filters(item: dict) -> bool:
+        if client_query:
+            haystack = " ".join(
+                [
+                    clean_text(item.get("client_id")),
+                    clean_text(item.get("client_name")),
+                    clean_text(item.get("client_phone")),
+                ]
+            ).lower()
+            if client_query not in haystack:
+                return False
+        if selected_status and item.get("status") != selected_status:
+            return False
+        if payment_query and payment_query not in clean_text(item.get("payment_method")).lower():
+            return False
+        return True
+
+    filtered_receivables = [item for item in receivable_rows if receivable_matches_filters(item)]
+    period_receivables = [
+        item for item in filtered_receivables
+        if financial_date_in_period(item.get("due_date"), period, start_date, end_date)
+    ]
+    received_period_receivables = [
+        item for item in filtered_receivables
+        if financial_date_in_period(item.get("received_date") or item.get("due_date"), period, start_date, end_date)
+    ]
     period_entries = [item for item in entries if financial_date_in_period(item.get("entry_date"), period, start_date, end_date)]
     period_history = [item for item in route_history if financial_date_in_period(item.get("generated_at"), period, start_date, end_date)]
 
-    expected_in = round2(sum(float(item.get("amount") or 0) for item in period_receivables if item.get("status") != "pago"))
-    received = round2(sum(float(item.get("amount_received") or 0) for item in period_receivables))
+    expected_in = round2(
+        sum(
+            receivable_open_amount(item)
+            for item in period_receivables
+            if item.get("status") not in {"pago", "cancelado", "sem_cobranca"}
+        )
+    )
+    received = round2(sum(float(item.get("amount_received") or 0) for item in received_period_receivables))
     entry_in = round2(sum(float(item.get("amount") or 0) for item in period_entries if item.get("entry_type") == "entrada"))
     entry_out = round2(sum(float(item.get("amount") or 0) for item in period_entries if item.get("entry_type") == "saida"))
     route_revenue = round2(sum(float((item.get("financial_summary") or {}).get("revenue_total") or 0) for item in period_history))
@@ -6796,27 +8650,30 @@ def build_financial_management_dashboard(
     overdue = [
         {
             **item,
-            "open_amount": round2(float(item.get("amount") or 0) - float(item.get("amount_received") or 0)),
             "days_overdue": max((datetime.fromisoformat(today).date() - datetime.fromisoformat(clean_text(item.get("due_date"))).date()).days, 0)
             if clean_text(item.get("due_date")) else 0,
         }
-        for item in receivables
-        if item.get("status") != "pago" and clean_text(item.get("due_date")) and clean_text(item.get("due_date")) < today
+        for item in filtered_receivables
+        if item.get("status") not in {"pago", "cancelado", "sem_cobranca"}
+        and receivable_open_amount(item) > 0
+        and clean_text(item.get("due_date"))
+        and clean_text(item.get("due_date")) < today
     ]
     overdue.sort(key=lambda item: item["days_overdue"], reverse=True)
     due_soon = [
-        item for item in receivables
-        if item.get("status") != "pago"
+        item for item in filtered_receivables
+        if item.get("status") not in {"pago", "cancelado", "sem_cobranca"}
+        and receivable_open_amount(item) > 0
         and clean_text(item.get("due_date"))
-        and today <= clean_text(item.get("due_date")) <= (datetime.now().date() + timedelta(days=3)).isoformat()
+        and today <= clean_text(item.get("due_date")) <= (datetime.now().date() + timedelta(days=7)).isoformat()
     ]
-    paid_receivables = [item for item in receivables if item.get("status") == "pago"]
+    paid_receivables = [item for item in filtered_receivables if receivable_is_paid(item)]
 
     alerts = []
     for item in overdue[:5]:
         alerts.append({"level": "danger", "scope": "cobrança", "message": f"{item.get('client_name')} está vencido há {item['days_overdue']} dia(s)."})
-    for item in receivables:
-        if item.get("status") != "pago" and clean_text(item.get("due_date")) >= today and clean_text(item.get("due_date")) <= (datetime.now().date() + timedelta(days=3)).isoformat():
+    for item in filtered_receivables:
+        if item.get("status") not in {"pago", "cancelado", "sem_cobranca"} and clean_text(item.get("due_date")) >= today and clean_text(item.get("due_date")) <= (datetime.now().date() + timedelta(days=7)).isoformat():
             alerts.append({"level": "warning", "scope": "recebimento", "message": f"{item.get('client_name')} vence em {item.get('due_date')}."})
     for item in route_history[:5]:
         summary = item.get("financial_summary") or {}
@@ -6824,7 +8681,7 @@ def build_financial_management_dashboard(
             alerts.append({"level": "danger", "scope": "margem", "message": f"{item.get('event_title') or 'Evento'} com margem negativa."})
 
     client_finance: dict[str, dict] = {}
-    for item in receivables:
+    for item in filtered_receivables:
         key = clean_text(item.get("client_id")) or clean_text(item.get("client_name"))
         bucket = client_finance.setdefault(
             key,
@@ -6850,7 +8707,7 @@ def build_financial_management_dashboard(
         bucket[item.get("entry_type") if item.get("entry_type") in {"entrada", "saida"} else "saida"] += float(item.get("amount") or 0)
 
     service_totals: dict[str, dict] = {}
-    for item in receivables:
+    for item in filtered_receivables:
         service_type = clean_text(item.get("service_type"), "Serviço") or "Serviço"
         bucket = service_totals.setdefault(service_type, {"service_type": service_type, "billed": 0.0, "received": 0.0, "open": 0.0, "count": 0})
         amount = float(item.get("amount") or 0)
@@ -6870,15 +8727,15 @@ def build_financial_management_dashboard(
     due_today_total = round2(
         sum(
             max(float(item.get("amount") or 0) - float(item.get("amount_received") or 0), 0)
-            for item in receivables
-            if item.get("status") != "pago" and clean_text(item.get("due_date")) == today
+            for item in filtered_receivables
+            if item.get("status") not in {"pago", "cancelado", "sem_cobranca"} and clean_text(item.get("due_date")) == today
         )
     )
     receivable_week_total = round2(
         sum(
             max(float(item.get("amount") or 0) - float(item.get("amount_received") or 0), 0)
-            for item in receivables
-            if item.get("status") != "pago"
+            for item in filtered_receivables
+            if item.get("status") not in {"pago", "cancelado", "sem_cobranca"}
             and clean_text(item.get("due_date"))
             and today <= clean_text(item.get("due_date")) <= (today_date + timedelta(days=7)).isoformat()
         )
@@ -6886,8 +8743,8 @@ def build_financial_management_dashboard(
     receivable_month_total = round2(
         sum(
             max(float(item.get("amount") or 0) - float(item.get("amount_received") or 0), 0)
-            for item in receivables
-            if item.get("status") != "pago"
+            for item in filtered_receivables
+            if item.get("status") not in {"pago", "cancelado", "sem_cobranca"}
             and clean_text(item.get("due_date"))
             and today <= clean_text(item.get("due_date")) <= (today_date + timedelta(days=30)).isoformat()
         )
@@ -6911,8 +8768,8 @@ def build_financial_management_dashboard(
         limit = (today_date + timedelta(days=days)).isoformat()
         receivable_total = sum(
             max(float(item.get("amount") or 0) - float(item.get("amount_received") or 0), 0)
-            for item in receivables
-            if item.get("status") != "pago" and clean_text(item.get("due_date")) and today <= clean_text(item.get("due_date")) <= limit
+            for item in filtered_receivables
+            if item.get("status") not in {"pago", "cancelado", "sem_cobranca"} and clean_text(item.get("due_date")) and today <= clean_text(item.get("due_date")) <= limit
         )
         entry_in_total = sum(
             float(item.get("amount") or 0)
@@ -6927,14 +8784,47 @@ def build_financial_management_dashboard(
         return round2(realized_balance + receivable_total + entry_in_total - entry_out_total)
 
     invoice_summary = {
-        "com_nota": sum(1 for item in receivables if clean_text(item.get("invoice_status")) == "com_nota" or clean_text(item.get("invoice_number"))),
-        "sem_nota": sum(1 for item in receivables if clean_text(item.get("invoice_status"), "sem_nota") != "com_nota" and not clean_text(item.get("invoice_number"))),
+        "com_nota": sum(1 for item in filtered_receivables if clean_text(item.get("invoice_status")) == "com_nota" or clean_text(item.get("invoice_number"))),
+        "sem_nota": sum(1 for item in filtered_receivables if clean_text(item.get("invoice_status"), "sem_nota") != "com_nota" and not clean_text(item.get("invoice_number"))),
     }
+    open_client_keys = set()
+    for item in filtered_receivables:
+        if item.get("status") in {"pago", "cancelado", "sem_cobranca"} or receivable_open_amount(item) <= 0:
+            continue
+        client_key = clean_text(item.get("client_id")) or clean_text(item.get("client_name"))
+        if client_key:
+            open_client_keys.add(client_key)
+    open_clients_count = len(open_client_keys)
+    client_options = sorted(
+        {
+            clean_text(item.get("client_name")) or clean_text(item.get("client_id"))
+            for item in receivable_rows
+            if clean_text(item.get("client_name")) or clean_text(item.get("client_id"))
+        }
+    )
+    payment_method_options = sorted(
+        {
+            clean_text(item.get("payment_method"))
+            for item in receivable_rows
+            if clean_text(item.get("payment_method"))
+        }
+    )
 
     return {
         "period": period,
         "start_date": start_date,
         "end_date": end_date,
+        "filters": {
+            "client": clean_text(client_filter),
+            "status": selected_status,
+            "payment_method": clean_text(payment_method_filter),
+        },
+        "status_options": [
+            {"value": key, "label": value["label"], "badge": value["badge"]}
+            for key, value in FINANCIAL_RECEIVABLE_STATUSES.items()
+        ],
+        "client_options": client_options[:100],
+        "payment_method_options": payment_method_options[:50],
         "expected_in": expected_in,
         "received": received,
         "entry_in": entry_in,
@@ -6953,7 +8843,8 @@ def build_financial_management_dashboard(
         "forecast_60": forecast_until(60),
         "forecast_90": forecast_until(90),
         "separated_expenses": separated_expenses,
-        "receivables": receivables[:12],
+        "open_clients_count": open_clients_count,
+        "receivables": filtered_receivables[:12],
         "receivables_overdue": overdue[:8],
         "receivables_due_soon": due_soon[:8],
         "receivables_paid": paid_receivables[:8],
@@ -6992,7 +8883,8 @@ def receivable_open_amount(receivable: dict) -> float:
 
 
 def receivable_is_paid(receivable: dict) -> bool:
-    return clean_text(receivable.get("status")).lower() == "pago" or receivable_open_amount(receivable) <= 0
+    status = receivable_effective_status(receivable)
+    return status == "pago" or (status not in {"cancelado", "sem_cobranca"} and receivable_open_amount(receivable) <= 0)
 
 
 def event_financial_value(event: dict, clients_by_id: dict[str, dict]) -> float:
@@ -7042,11 +8934,12 @@ def build_financial_decision_panel(receivables: list[dict], events: list[dict], 
     linked_receivable_event_ids = {
         clean_text(item.get("event_id"))
         for item in receivables
-        if clean_text(item.get("event_id"))
+        if clean_text(item.get("event_id")) and receivable_effective_status(item) not in {"cancelado", "sem_cobranca"}
     }
 
     event_forecast_total = 0.0
     events_without_value: list[dict] = []
+    events_without_billing: list[dict] = []
     for event in events:
         event_id = clean_text(event.get("event_id"))
         if not event_is_active(event) or not event_overlaps_month(event, month_start, month_end):
@@ -7063,6 +8956,15 @@ def build_financial_decision_panel(receivables: list[dict], events: list[dict], 
             )
         elif event_id and event_id not in linked_receivable_event_ids:
             event_forecast_total += event_value
+            events_without_billing.append(
+                {
+                    "event_id": event_id,
+                    "title": clean_text(event.get("title")) or event_id or "Evento sem título",
+                    "event_date": clean_text(event.get("event_date")),
+                    "amount": event_value,
+                    "target_href": f"#event-{event_id}" if event_id else "#events-pane",
+                }
+            )
 
     received_month_total = 0.0
     open_total = 0.0
@@ -7091,7 +8993,8 @@ def build_financial_decision_panel(receivables: list[dict], events: list[dict], 
             )
             client_bucket["open_amount"] += open_amount
             client_bucket["count"] += 1
-        is_overdue = not paid and open_amount > 0 and ((due_date and due_date < today) or clean_text(receivable.get("status")).lower() == "vencido")
+        status = receivable_effective_status(receivable)
+        is_overdue = not paid and open_amount > 0 and ((due_date and due_date < today) or status == "vencido")
         if is_overdue:
             days_late = max((today - due_date).days, 0) if due_date else 0
             overdue_total += open_amount
@@ -7162,6 +9065,17 @@ def build_financial_decision_panel(receivables: list[dict], events: list[dict], 
                 severity="attention",
             )
         )
+    if events_without_billing:
+        recommended_actions.append(
+            recommendation_card(
+                "Lançar cobranças",
+                f"{len(events_without_billing)} evento(s) com valor ainda não têm cobrança cadastrada.",
+                "Lançar cobrança",
+                "#receivables-panel",
+                tab="summary-tab",
+                severity="attention",
+            )
+        )
     if due_next_7_count:
         recommended_actions.append(
             recommendation_card(
@@ -7195,11 +9109,16 @@ def build_financial_decision_panel(receivables: list[dict], events: list[dict], 
         "due_next_7_count": due_next_7_count,
         "recommended_actions": recommended_actions[:3],
         "events_without_value": events_without_value[:8],
+        "events_without_billing": events_without_billing[:8],
+        "events_without_billing_count": len(events_without_billing),
         "top_open_clients": top_client_rows[:6],
         "overdue_clients": delayed_client_rows[:6],
         "recent_receivables": [
             {
                 **item,
+                "status": receivable_effective_status(item),
+                "status_label": receivable_status_label(receivable_effective_status(item)),
+                "status_badge": receivable_status_badge_class(receivable_effective_status(item)),
                 "open_amount": receivable_open_amount(item),
                 "paid": receivable_is_paid(item),
                 "date_label": format_date_br(item.get("received_date") or item.get("due_date")),
@@ -7406,6 +9325,7 @@ def build_global_search_items(
     receivables: list[dict] | None = None,
     route_history: list[dict] | None = None,
     audit_log: list[dict] | None = None,
+    service_orders: list[dict] | None = None,
 ) -> list[dict]:
     items: list[dict] = []
     clients_by_id = {clean_text(client.get("client_id")): client for client in clients}
@@ -7453,6 +9373,11 @@ def build_global_search_items(
                 "equipment_number",
                 "equipment_type",
                 "invoice_number",
+                "status",
+                "client_type",
+                "billing_model",
+                "created_at",
+                "updated_at",
                 "notes",
             )
         }
@@ -7519,7 +9444,7 @@ def build_global_search_items(
         vehicle_id = clean_text(vehicle.get("vehicle_id"))
         vehicle_search = {
             field: vehicle.get(field)
-            for field in ("vehicle_id", "vehicle_type", "plate", "model", "status", "driver", "motorista", "responsible", "driver_name", "notes")
+            for field in ("vehicle_id", "vehicle_type", "plate", "model", "status", "driver", "motorista", "responsible", "driver_name", "created_at", "updated_at", "notes")
         }
         add_item(
             module="Rotas/Ordens de Serviço",
@@ -7537,7 +9462,7 @@ def build_global_search_items(
         equipment_id = clean_text(item.get("equipment_id"))
         equipment_search = {
             field: item.get(field)
-            for field in ("equipment_id", "equipment_type", "plate", "status", "condition", "linked_client_name", "notes", "maintenance_reason")
+            for field in ("equipment_id", "equipment_type", "plate", "status", "condition", "linked_client_name", "created_at", "updated_at", "notes", "maintenance_reason")
         }
         add_item(
             module="Equipamentos",
@@ -7558,7 +9483,24 @@ def build_global_search_items(
             for vehicle_id in route_run.get("vehicle_ids", []) or []
             if clean_text(vehicle_id)
         ]
-        route_vehicle_text = " ".join(build_search_text(vehicle) for vehicle in route_vehicles)
+        route_vehicle_text = " ".join(
+            build_search_text(
+                {
+                    field: vehicle.get(field)
+                    for field in (
+                        "vehicle_id",
+                        "vehicle_type",
+                        "plate",
+                        "brand",
+                        "model",
+                        "status",
+                        "driver",
+                        "habitual_driver",
+                    )
+                }
+            )
+            for vehicle in route_vehicles
+        )
         route_client_text = [
             {
                 field: financial_event.get(field)
@@ -7609,6 +9551,21 @@ def build_global_search_items(
             target_href=f"#event-{event_id}" if event_id else "#events-pane",
             aliases="ordem de servico ordem de serviço os pdf operacional impressao impressão",
             searchable_values=(log, related_event),
+        )
+    for order in service_orders or []:
+        event_id = clean_text(order.get("event_id"))
+        related_event = next((event for event in events if clean_text(event.get("event_id")) == event_id), {})
+        add_item(
+            module="Rotas/Ordens de Serviço",
+            module_key="rotas_os",
+            type_label="Ordem de Serviço",
+            title=f"OS {clean_text(order.get('os_id')) or event_id} • {clean_text(order.get('event_title')) or clean_text(related_event.get('title')) or 'registro'}",
+            detail=f"{event_id or 'sem evento'} • {service_order_status_label(order.get('status'))} • {format_datetime_br(order.get('updated_at'))}",
+            status=service_order_status_label(order.get("status")),
+            target_tab="events-tab",
+            target_href=f"#event-{event_id}" if event_id else "#events-pane",
+            aliases="ordem de servico ordem de serviço os pdf operacional impressao impressão whatsapp checklist motorista",
+            searchable_values=(order, related_event),
         )
     for item in warehouse_dashboard.get("items") or []:
         movement_text = " ".join(
@@ -8505,6 +10462,51 @@ def build_daily_command_center(
     route_event_id = clean_text((route_data or {}).get("event_id"))
     route_stops = [stop for route in (route_data or {}).get("routes", []) or [] for stop in route.get("stops", []) or []]
     audit_log = load_audit_log()
+    service_orders = load_service_orders()
+    route_history = load_route_history()
+    generated_route_event_ids = {
+        clean_text(item.get("event_id"))
+        for item in route_history
+        if clean_text(item.get("event_id"))
+    }
+    if route_event_id:
+        generated_route_event_ids.add(route_event_id)
+    generated_service_order_event_ids = {
+        clean_text(item.get("target_id"))
+        for item in audit_log
+        if clean_text(item.get("module")) == "events"
+        and (
+            clean_text(item.get("action")) == "generate_service_order"
+            or "ordem de serviço" in clean_text(item.get("detail")).lower()
+            or "ordem de servico" in normalize_business_text(item.get("detail"))
+        )
+    }
+    generated_service_order_event_ids.update(
+        clean_text(order.get("event_id"))
+        for order in service_orders
+        if service_order_is_active(order) and clean_text(order.get("event_id"))
+    )
+    linked_receivable_event_ids = {
+        clean_text(item.get("event_id"))
+        for item in financial_management.get("receivables", [])
+        if clean_text(item.get("event_id"))
+    }
+    equipment_commitments, vehicle_commitments = build_event_commitments(events, clients)
+
+    def vehicle_is_unavailable(vehicle: dict | None) -> bool:
+        normalized = normalize_business_text(
+            (vehicle or {}).get("status")
+            or (vehicle or {}).get("condition")
+            or (vehicle or {}).get("availability")
+        )
+        return any(marker in normalized for marker in ("indisponivel", "manutencao", "bloqueado", "oficina", "inativo"))
+
+    def event_equipment_demand(event: dict) -> int:
+        total = 0
+        for client_id in event.get("client_ids") or []:
+            client = clients_by_id.get(clean_text(client_id), {})
+            total += int(parse_decimal(client.get("equipment_quantity")) or 0)
+        return total
 
     def event_in_window(event: dict, start_iso: str, end_iso: str) -> bool:
         start = event_start_date(event)
@@ -8530,6 +10532,7 @@ def build_daily_command_center(
         create: str = "",
         detail: str = "",
         tone: str = "secondary",
+        form_action: str = "",
     ) -> dict:
         return {
             "label": label,
@@ -8538,6 +10541,7 @@ def build_daily_command_center(
             "create": create,
             "detail": detail,
             "tone": tone,
+            "form_action": form_action,
         }
 
     def pending_item(
@@ -8611,17 +10615,48 @@ def build_daily_command_center(
         event for event in active_window_events
         if (event.get("status_context") or {}).get("status") == "rota_pendente"
     ]
+    events_without_route = [
+        event for event in active_window_events
+        if clean_text(event.get("event_id")) and clean_text(event.get("event_id")) not in generated_route_event_ids
+    ]
+    for event in events_without_route:
+        event_id = clean_text(event.get("event_id"))
+        if event_id and all(clean_text(item.get("event_id")) != event_id for item in route_pending_events):
+            route_pending_events.append(event)
 
     service_orders_pending = [
         event for event in active_window_events
         if (event.get("status_context") or {}).get("status") == "os_pendente"
     ]
+    events_without_service_order = [
+        event for event in active_window_events
+        if clean_text(event.get("event_id")) and clean_text(event.get("event_id")) not in generated_service_order_event_ids
+    ]
+    for event in events_without_service_order:
+        event_id = clean_text(event.get("event_id"))
+        if event_id and all(clean_text(item.get("event_id")) != event_id for item in service_orders_pending):
+            service_orders_pending.append(event)
 
     active_equipment = [
         item for item in inventory
         if clean_text(item.get("status")) in COMMITTED_EQUIPMENT_STATUSES
     ]
     active_equipment.sort(key=lambda item: (clean_text(item.get("status")), clean_text(item.get("equipment_id"))))
+    equipment_maintenance = [
+        item for item in inventory
+        if normalize_equipment_status(item.get("status") or item.get("condition")) in BLOCKED_EQUIPMENT_STATUSES
+        or clean_text(item.get("maintenance_reason"))
+    ]
+    equipment_maintenance.sort(key=lambda item: (clean_text(item.get("maintenance_expected_release")), clean_text(item.get("equipment_id"))))
+    clients_without_address = [client for client in clients if not client_has_valid_address(client)]
+    events_without_value = [
+        event for event in active_window_events
+        if event_financial_value(event, clients_by_id) <= 0
+    ] if can_view_finance else []
+    receivables_due_next_7 = [
+        item for item in due_soon
+        if today <= clean_text(item.get("due_date")) <= week_end and not receivable_is_paid(item)
+    ] if can_view_finance else []
 
     today_vehicle_index: dict[str, dict] = {}
     for event in today_events:
@@ -8694,7 +10729,7 @@ def build_daily_command_center(
                     kind="equipamento",
                 )
             )
-        if parse_decimal(event.get("valor_servico")) <= 0 and parse_decimal(event.get("valor_adicional")) <= 0 and parse_decimal(event.get("recurring_value")) <= 0:
+        if can_view_finance and event_financial_value(event, clients_by_id) <= 0:
             critical_pending.append(
                 pending_item(
                     "Evento sem valor",
@@ -8769,6 +10804,75 @@ def build_daily_command_center(
 
     critical_pending = critical_pending[:12]
     stock_alerts = [item for item in usability_alerts if "Estoque" in clean_text(item.get("title"))]
+    equipment_conflict_alerts = []
+    vehicle_conflict_alerts = []
+    unavailable_vehicle_alerts = []
+    insufficient_equipment_events = []
+    events_without_billing = []
+    usable_equipment_total = sum(
+        1
+        for item in inventory
+        if normalize_equipment_status(item.get("status") or item.get("condition")) not in BLOCKED_EQUIPMENT_STATUSES
+    )
+    for event in active_window_events:
+        event_id = clean_text(event.get("event_id"))
+        event_title = clean_text(event.get("title")) or event_id or "Evento sem título"
+        event_start = clean_text(event.get("event_date")) or today
+        event_end = clean_text(event.get("event_end_date")) or event_start
+        linked_clients = [clients_by_id.get(clean_text(client_id), {}) for client_id in event.get("client_ids") or []]
+        for client in linked_clients:
+            equipment_id = clean_text(client.get("equipment_number"))
+            if not equipment_id:
+                continue
+            conflicts = [
+                item for item in equipment_commitments.get(equipment_id, [])
+                if clean_text(item.get("event_id")) != event_id and event_overlaps_period(item, event_start, event_end)
+            ]
+            if conflicts:
+                equipment_conflict_alerts.append({"event": event_title, "equipment_id": equipment_id})
+        for vehicle_id in event.get("vehicle_ids") or []:
+            normalized_vehicle_id = clean_text(vehicle_id)
+            conflicts = [
+                item for item in vehicle_commitments.get(normalized_vehicle_id, [])
+                if clean_text(item.get("event_id")) != event_id and event_overlaps_period(item, event_start, event_end)
+            ]
+            if conflicts:
+                vehicle_conflict_alerts.append({"event": event_title, "vehicle_id": normalized_vehicle_id})
+            vehicle = vehicles_by_id.get(normalized_vehicle_id, {})
+            if vehicle_is_unavailable(vehicle):
+                unavailable_vehicle_alerts.append({"event": event_title, "vehicle_id": normalized_vehicle_id})
+        demand = event_equipment_demand(event)
+        if demand > usable_equipment_total and usable_equipment_total > 0:
+            insufficient_equipment_events.append({"event": event_title, "demand": demand, "available": usable_equipment_total})
+        if can_view_finance and event_id and event_financial_value(event, clients_by_id) > 0 and event_id not in linked_receivable_event_ids:
+            events_without_billing.append(event)
+
+    def preventive_alert(title: str, detail: str, href: str, tab: str, *, level: str = "warning", action: str = "Abrir") -> dict:
+        return {
+            "title": title,
+            "detail": detail,
+            "target_href": href,
+            "target_tab": tab,
+            "level": level,
+            "action": action,
+        }
+
+    preventive_alerts = []
+    if clients_without_address:
+        preventive_alerts.append(preventive_alert("Cliente sem endereço", f"{len(clients_without_address)} cliente(s) precisam de endereço/coordenada antes da rota.", "#clients-pane", "clients-tab", level="danger", action="Corrigir clientes"))
+    if equipment_conflict_alerts:
+        preventive_alerts.append(preventive_alert("Equipamento já reservado em outro evento", f"{len(equipment_conflict_alerts)} conflito(s) de equipamento na agenda.", "#fleet-pane", "fleet-tab", level="danger", action="Ver frota"))
+    if vehicle_conflict_alerts or unavailable_vehicle_alerts:
+        total_vehicle_alerts = len(vehicle_conflict_alerts) + len(unavailable_vehicle_alerts)
+        preventive_alerts.append(preventive_alert("Veículo indisponível", f"{total_vehicle_alerts} veículo(s) em conflito, indisponível ou bloqueado.", "#fleet-pane", "fleet-tab", level="danger", action="Corrigir frota"))
+    if insufficient_equipment_events:
+        preventive_alerts.append(preventive_alert("Evento sem banheiro suficiente", f"{len(insufficient_equipment_events)} evento(s) pedem mais equipamentos do que a base disponível.", "#events-pane", "events-tab", level="danger", action="Revisar evento"))
+    if events_without_billing:
+        preventive_alerts.append(preventive_alert("Evento sem cobrança cadastrada", f"{len(events_without_billing)} evento(s) com valor ainda sem conta a receber.", "#receivables-panel", "summary-tab", level="warning", action="Lançar cobrança"))
+    if overdue:
+        preventive_alerts.append(preventive_alert("Recebimento atrasado", f"{len(overdue)} cobrança(s) vencida(s) precisam de baixa ou cobrança.", "#receivables-panel", "summary-tab", level="danger", action="Baixar recebimento"))
+    if stock_alerts:
+        preventive_alerts.append(preventive_alert("Estoque abaixo do mínimo", f"{len(stock_alerts)} alerta(s) de material baixo ou zerado.", "#warehouse-pane", "warehouse-tab", level="warning", action="Movimentar estoque"))
     route_stop_count = len(route_stops)
     service_order_items = [
         {
@@ -8780,9 +10884,9 @@ def build_daily_command_center(
     ]
     quick_actions = []
     if profile_ui["can_create_client"]:
-        quick_actions.append(action_item("Criar cliente", "#clients-pane", "clients-tab", create="manual-client-form", detail="Novo endereço/cliente"))
+        quick_actions.append(action_item("Cadastrar cliente", "#clients-pane", "clients-tab", create="manual-client-form", detail="Novo endereço/cliente"))
     if profile_ui["can_create_event"]:
-        quick_actions.append(action_item("Criar evento/locação", "#quick-rental-panel", "summary-tab", detail="Cliente + evento"))
+        quick_actions.append(action_item("Cadastrar evento", "#quick-rental-panel", "summary-tab", detail="Cliente + evento"))
     if profile_ui["can_generate_route"]:
         quick_actions.append(action_item("Gerar rota", "#operations-pane", "operations-tab", detail=f"{len(route_pending_events)} pendente(s)", tone="dark"))
     if profile_ui["can_generate_service_order"]:
@@ -8795,7 +10899,11 @@ def build_daily_command_center(
             )
         )
     if profile_ui["can_receive_payment"]:
-        quick_actions.append(action_item("Lançar recebimento", "#receivables-panel", "summary-tab", detail="Financeiro"))
+        quick_actions.append(action_item("Registrar recebimento", "#receivables-panel", "summary-tab", detail="Financeiro"))
+    if profile_ui["can_move_stock"]:
+        quick_actions.append(action_item("Movimentar estoque", "#warehouse-pane", "warehouse-tab", detail=f"{len(stock_alerts)} alerta(s)"))
+    if profile_ui["can_generate_backup"]:
+        quick_actions.append(action_item("Gerar backup", "#admin-backup-panel", "access-tab", detail="ZIP local + Dropbox", form_action=url_for("generate_system_backup")))
     quick_actions.append(action_item("Ver pendências", "#attention-now-panel", "summary-tab", detail=f"{len(critical_pending)} item(ns)", tone="danger" if critical_pending else "secondary"))
     return {
         "date": today,
@@ -8807,9 +10915,17 @@ def build_daily_command_center(
         "today_receivables": today_receivables[:8],
         "route_stops": route_stop_count,
         "route_pending_events": route_pending_events[:8],
+        "events_without_route": events_without_route[:10],
         "service_orders_pending": service_order_items,
+        "events_without_service_order": events_without_service_order[:10],
         "active_equipment": active_equipment[:10],
+        "equipment_maintenance": equipment_maintenance[:10],
         "today_vehicles": today_vehicles[:8],
+        "clients_without_address": clients_without_address[:10],
+        "events_without_value": events_without_value[:10],
+        "receivables_overdue": overdue[:8],
+        "receivables_due_next_7": receivables_due_next_7[:8],
+        "preventive_alerts": preventive_alerts[:8],
         "critical_pending": critical_pending,
         "critical_count": sum(1 for item in critical_pending if criticality_key(item.get("level")) == "block"),
         "attention_count": sum(1 for item in critical_pending if criticality_key(item.get("level")) == "attention"),
@@ -8849,6 +10965,7 @@ def build_intelligent_pending_panel(
         for item in financial_receivables
         if clean_text(item.get("event_id"))
     }
+    service_orders = load_service_orders()
     generated_service_order_event_ids = {
         clean_text(item.get("target_id"))
         for item in load_audit_log()
@@ -8858,6 +10975,11 @@ def build_intelligent_pending_panel(
             or "ordem de serviço" in clean_text(item.get("detail")).lower()
         )
     }
+    generated_service_order_event_ids.update(
+        clean_text(order.get("event_id"))
+        for order in service_orders
+        if service_order_is_active(order) and clean_text(order.get("event_id"))
+    )
     category_meta = {
         "operational": {"label": "Pendências operacionais", "short_label": "Operacional"},
         "financial": {"label": "Pendências financeiras", "short_label": "Financeiro"},
@@ -9241,7 +11363,7 @@ def build_intelligent_pending_panel(
             )
         normalized_status = normalize_equipment_status(status)
         maintenance_reason = clean_text(raw_item.get("maintenance_reason") or item.get("maintenance_reason"))
-        if normalized_status in {"manutencao", "indisponivel"} or maintenance_reason:
+        if normalized_status in {"manutencao", "indisponivel", "baixado"} or maintenance_reason:
             add_item(
                 category="maintenance",
                 severity="atencao",
@@ -9255,10 +11377,10 @@ def build_intelligent_pending_panel(
                 responsible=clean_text(raw_item.get("responsible") or raw_item.get("responsavel") or item.get("responsible") or item.get("responsavel")),
                 source=equipment_id,
             )
-        if normalized_status in {"retirada_pendente", "retornado", "instalado"}:
+        if normalized_status in {"aguardando_limpeza", "em_operacao"}:
             add_item(
                 category="maintenance",
-                severity="critica" if normalized_status == "retirada_pendente" else "atencao",
+                severity="critica" if normalized_status == "em_operacao" else "atencao",
                 title="Equipamento com retorno pendente",
                 description="Confirme retorno ou libere o equipamento para disponibilidade.",
                 affected=affected,
@@ -10958,6 +13080,15 @@ def build_compact_system_dashboard(
                     "module": "admin",
                 },
                 {
+                    "label": "Acesso pelo Celular",
+                    "detail": "QR Code para uso no Wi-Fi",
+                    "count": 0,
+                    "href": url_for("admin_mobile_access"),
+                    "tab": "",
+                    "tone": "admin",
+                    "module": "admin",
+                },
+                {
                     "label": "Usuários",
                     "detail": "Convites, perfis e senhas",
                     "count": 0,
@@ -11053,8 +13184,106 @@ def build_compact_system_dashboard(
                 {"label": "Acessos da equipe", "href": "#access-management-panel", "tab": "access-tab"},
                 {"label": "Homologação", "href": "#homologation-pane", "tab": "homologation-tab"},
                 {"label": "Backup", "href": url_for("download_system_backup"), "tab": ""},
+                {"label": "Celular no Wi-Fi", "href": url_for("admin_mobile_access"), "tab": ""},
             ]
         )
+
+    main_navigation = [
+        {
+            "label": "Central do Dia",
+            "detail": f"{len(today_events)} evento(s) hoje",
+            "count": len(today_events),
+            "href": "#central-day-panel",
+            "tab": "summary-tab",
+            "tone": "primary",
+            "current": True,
+        },
+        {
+            "label": "Clientes",
+            "detail": f"{len(clients)} cadastro(s)",
+            "count": len(clients),
+            "href": "#clients-pane",
+            "tab": "clients-tab",
+            "tone": "default",
+        },
+        {
+            "label": "Eventos",
+            "detail": f"{len(events)} evento(s)",
+            "count": len(events),
+            "href": "#events-pane",
+            "tab": "events-tab",
+            "tone": "default",
+        },
+        {
+            "label": "Equipamentos",
+            "detail": f"{bathroom_total + support_total} item(ns)",
+            "count": bathroom_total + support_total,
+            "href": "#fleet-pane",
+            "tab": "fleet-tab",
+            "tone": "primary",
+        },
+        {
+            "label": "Frota",
+            "detail": f"{len(vehicles)} veículo(s)",
+            "count": len(vehicles),
+            "href": "#fleet-pane",
+            "tab": "fleet-tab",
+            "tone": "default",
+        },
+        {
+            "label": "Financeiro",
+            "detail": quick_finance_detail,
+            "count": overdue_count,
+            "href": "#financial-decision-panel",
+            "tab": "summary-tab",
+            "tone": "danger" if overdue_count else "default",
+            "module": "finance",
+        },
+        {
+            "label": "Estoque",
+            "detail": f"{stock_attention_count} alerta(s)",
+            "count": stock_attention_count,
+            "href": "#warehouse-pane",
+            "tab": "warehouse-tab",
+            "tone": "warning" if stock_attention_count else "default",
+        },
+        {
+            "label": "Relatórios",
+            "detail": f"{len(reports_hub)} exportação(ões)",
+            "count": len(reports_hub),
+            "href": "#reports-panel",
+            "tab": "summary-tab",
+            "tone": "default",
+        },
+        {
+            "label": "Administração",
+            "detail": "Acessos, segurança e diagnósticos",
+            "count": 0,
+            "href": "#access-pane",
+            "tab": "access-tab",
+            "tone": "admin",
+            "module": "admin",
+        },
+    ]
+
+    simple_actions = [
+        {"label": "Cadastrar cliente", "href": "#clients-pane", "tab": "clients-tab", "create": "manual-client-form", "tone": "secondary"},
+        {"label": "Cadastrar evento", "href": "#events-pane", "tab": "events-tab", "create": "event-create-panel", "tone": "primary"},
+        {"label": "Gerar rota", "href": "#operations-pane", "tab": "operations-tab", "create": "", "tone": "secondary"},
+        {"label": "Gerar OS", "href": "#operations-pane", "tab": "operations-tab", "create": "", "tone": "secondary", "permission": "events.service_order"},
+        {"label": "Registrar recebimento", "href": "#receivables-panel", "tab": "summary-tab", "create": "", "tone": "secondary", "module": "finance"},
+        {"label": "Movimentar estoque", "href": "#warehouse-pane", "tab": "warehouse-tab", "create": "", "tone": "secondary", "permission": "warehouse.manage"},
+    ]
+
+    advanced_actions = [
+        {"label": "Auditoria", "href": "#admin-audit-panel", "tab": "access-tab", "module": "admin"},
+        {"label": "Backup", "href": url_for("download_system_backup"), "tab": "", "module": "admin"},
+        {"label": "Configurações", "href": "#settings-menu-button", "tab": "", "module": "admin"},
+        {"label": "Diagnósticos", "href": "#system-readiness-panel", "tab": "summary-tab"},
+        {"label": "Acesso pelo Celular", "href": url_for("admin_mobile_access"), "tab": "", "module": "admin"},
+        {"label": "Homologação", "href": "#homologation-pane", "tab": "homologation-tab", "module": "admin"},
+        {"label": "Usuários", "href": "#access-management-panel", "tab": "access-tab", "module": "admin"},
+    ]
 
     search_shortcuts = [
         {"label": "Cliente", "query": "", "module": "clientes", "target_tab": "summary-tab", "target_href": "#global-search-panel"},
@@ -11088,6 +13317,7 @@ def build_compact_system_dashboard(
         command_palette.extend([
             {"label": "Acessos da equipe", "keywords": "usuario senha convite permissao acesso equipe admin", "kind": "admin", "href": "#access-management-panel", "tab": "access-tab", "create": "", "query": "", "module": ""},
             {"label": "Backup do sistema", "keywords": "backup baixar segurança dados zip", "kind": "admin", "href": url_for("download_system_backup"), "tab": "", "create": "", "query": "", "module": ""},
+            {"label": "Acesso pelo Celular", "keywords": "celular wifi rede local qr code telefone acessar sistema", "kind": "admin", "href": url_for("admin_mobile_access"), "tab": "", "create": "", "query": "", "module": ""},
         ])
 
     list_filters = [
@@ -11252,6 +13482,9 @@ def build_compact_system_dashboard(
     role_view = {**role_view, "actions": filter_actions(role_view.get("actions") or [])}
     menu_groups = filter_menu_groups(menu_groups)
     nav_groups = [item for group in menu_groups for item in group.get("items", [])]
+    main_navigation = filter_actions(main_navigation)[:9]
+    simple_actions = filter_actions(simple_actions)
+    advanced_actions = filter_actions(advanced_actions)
     primary_actions = filter_actions(primary_actions)
     sticky_actions = filter_actions(sticky_actions)
     more_actions = filter_actions(more_actions)
@@ -11267,6 +13500,10 @@ def build_compact_system_dashboard(
     return {
         "menu_groups": menu_groups,
         "nav_groups": nav_groups,
+        "main_navigation": main_navigation,
+        "navigation_limit": 9,
+        "simple_actions": simple_actions,
+        "advanced_actions": advanced_actions,
         "role_view": role_view,
         "primary_actions": primary_actions,
         "sticky_actions": sticky_actions,
@@ -11323,6 +13560,24 @@ def build_reports_hub(
             "xlsx_href": url_for("download_module_xlsx", module="events"),
         },
         {
+            "label": "Relatório diário de operação",
+            "detail": "eventos, clientes, veículos e pendências do dia",
+            "status": "pronto",
+            "target_href": "#daily-command-center",
+            "target_tab": "summary-tab",
+            "pdf_href": url_for("download_module_pdf", module="daily"),
+            "xlsx_href": url_for("download_module_xlsx", module="daily"),
+        },
+        {
+            "label": "Relatório semanal de eventos",
+            "detail": "eventos dos próximos 7 dias",
+            "status": "pronto" if events else "sem dados",
+            "target_href": "#agenda-pane",
+            "target_tab": "agenda-tab",
+            "pdf_href": url_for("download_module_pdf", module="weekly_events"),
+            "xlsx_href": url_for("download_module_xlsx", module="weekly_events"),
+        },
+        {
             "label": "Frota",
             "detail": f"{len(vehicles)} veículo(s)",
             "status": "pronto" if vehicles else "sem dados",
@@ -11332,7 +13587,7 @@ def build_reports_hub(
             "xlsx_href": url_for("download_module_xlsx", module="vehicles"),
         },
         {
-            "label": "Equipamentos",
+            "label": "Relatório de equipamentos",
             "detail": f"{len(equipment)} equipamento(s)",
             "status": "pronto" if equipment else "sem dados",
             "target_href": "#fleet-pane",
@@ -11341,7 +13596,16 @@ def build_reports_hub(
             "xlsx_href": url_for("download_module_xlsx", module="equipment"),
         },
         {
-            "label": "Almoxarifado",
+            "label": "Disponibilidade operacional",
+            "detail": "equipamentos disponíveis, em uso, manutenção e materiais abaixo do mínimo",
+            "status": "atenção" if warehouse_dashboard.get("counts", {}).get("low") or warehouse_dashboard.get("counts", {}).get("zero") else "pronto",
+            "target_href": "#fleet-pane",
+            "target_tab": "fleet-tab",
+            "pdf_href": url_for("download_module_pdf", module="inventory_status"),
+            "xlsx_href": url_for("download_module_xlsx", module="inventory_status"),
+        },
+        {
+            "label": "Relatório de estoque",
             "detail": f"{warehouse_dashboard.get('counts', {}).get('total', 0)} material(is)",
             "status": "atenção" if warehouse_dashboard.get("counts", {}).get("low") or warehouse_dashboard.get("counts", {}).get("zero") else "pronto",
             "target_href": "#warehouse-pane",
@@ -11351,12 +13615,21 @@ def build_reports_hub(
             "extra_href": url_for("download_warehouse_low_stock_pdf"),
             "extra_label": "Estoque baixo",
         },
+        {
+            "label": "Relatório de pendências",
+            "detail": "bloqueios e alertas por área",
+            "status": "atenção",
+            "target_href": "#intelligent-pending-panel",
+            "target_tab": "summary-tab",
+            "pdf_href": url_for("download_module_pdf", module="pending"),
+            "xlsx_href": url_for("download_module_xlsx", module="pending"),
+        },
     ]
     if can_view_finance:
         reports.extend(
             [
                 {
-                    "label": "Financeiro",
+                    "label": "Relatório financeiro básico",
                     "detail": f"{len(financial_management.get('receivables', []))} lançamento(s) recentes",
                     "status": "atenção" if financial_management.get("overdue") else "pronto",
                     "target_href": "#receivables-panel",
@@ -11437,7 +13710,7 @@ def build_operational_kanban(quotes: list[dict], financial_management: dict, eve
         {"key": "pagamento", "title": "Aguardando pagamento", "items": []},
         {"key": "separar", "title": "Separar equipamento", "items": []},
         {"key": "rota", "title": "Em rota", "items": []},
-        {"key": "instalado", "title": "Instalado", "items": []},
+        {"key": "instalado", "title": "Em operação", "items": []},
         {"key": "retirar", "title": "Retirar", "items": []},
         {"key": "concluido", "title": "Concluído", "items": []},
     ]
@@ -11458,22 +13731,48 @@ def build_operational_kanban(quotes: list[dict], financial_management: dict, eve
         elif normalized_status in {"concluido", "pago"}:
             by_key["concluido"]["items"].append({"title": clean_text(event.get("title")), "detail": clean_text(event.get("event_date")), "badge": event_status_label(status)})
     for item in inventory:
-        status = clean_text(item.get("status"))
-        if status == "instalado":
+        status = normalize_equipment_status(item.get("status") or item.get("condition"))
+        if status == "em_operacao":
             by_key["instalado"]["items"].append({"title": clean_text(item.get("equipment_id")), "detail": clean_text(item.get("linked_client_name")), "badge": clean_text(item.get("equipment_type"))})
-        elif status == "retirada_pendente":
-            by_key["retirar"]["items"].append({"title": clean_text(item.get("equipment_id")), "detail": clean_text(item.get("linked_client_name")), "badge": "retirar"})
+        elif status == "aguardando_limpeza":
+            by_key["retirar"]["items"].append({"title": clean_text(item.get("equipment_id")), "detail": clean_text(item.get("linked_client_name")), "badge": "limpeza"})
     for column in columns:
         column["items"] = column["items"][:8]
     return columns
 
 
-def build_equipment_history(equipment: list[dict], clients: list[dict], route_history: list[dict], service_log: list[dict]) -> list[dict]:
+def build_equipment_history(
+    equipment: list[dict],
+    clients: list[dict],
+    route_history: list[dict],
+    service_log: list[dict],
+    events: list[dict] | None = None,
+    attachments: list[dict] | None = None,
+) -> list[dict]:
     clients_by_equipment: dict[str, list[str]] = {}
+    clients_by_id = {clean_text(client.get("client_id")): client for client in clients if clean_text(client.get("client_id"))}
     for client in clients:
         equipment_id = clean_text(client.get("equipment_number"))
         if equipment_id:
             clients_by_equipment.setdefault(equipment_id, []).append(clean_text(client.get("customer_name")) or clean_text(client.get("client_id")))
+    events_by_equipment: dict[str, list[dict]] = {}
+    event_ids_by_equipment: dict[str, set[str]] = {}
+    for event in events or []:
+        for client_id in event.get("client_ids") or []:
+            client = clients_by_id.get(clean_text(client_id)) or {}
+            equipment_id = clean_text(client.get("equipment_number"))
+            if not equipment_id:
+                continue
+            event_id = clean_text(event.get("event_id"))
+            event_ids_by_equipment.setdefault(equipment_id, set()).add(event_id)
+            events_by_equipment.setdefault(equipment_id, []).append(
+                {
+                    "event_id": event_id,
+                    "title": clean_text(event.get("title")),
+                    "period": event_period_label(event),
+                    "status": event_status_label(event.get("status")),
+                }
+            )
     routes_by_equipment: dict[str, list[dict]] = {}
     for run in route_history:
         for route in run.get("routes", []) or []:
@@ -11482,23 +13781,48 @@ def build_equipment_history(equipment: list[dict], clients: list[dict], route_hi
                 if equipment_id:
                     routes_by_equipment.setdefault(equipment_id, []).append({"date": clean_text(run.get("generated_at")), "client": clean_text(stop.get("customer_name")), "vehicle": clean_text(route.get("vehicle_id"))})
     cleanings_by_equipment: dict[str, int] = {}
+    cleaning_records_by_equipment: dict[str, list[dict]] = {}
     for item in service_log:
         equipment_id = clean_text(item.get("equipment_id"))
         if equipment_id:
             cleanings_by_equipment[equipment_id] = cleanings_by_equipment.get(equipment_id, 0) + 1
+            cleaning_records_by_equipment.setdefault(equipment_id, []).append(item)
+    attachments_by_equipment: dict[str, list[dict]] = {}
+    for attachment in attachments or []:
+        event_id = clean_text(attachment.get("event_id"))
+        searchable = normalize_business_text(" ".join(str(attachment.get(key, "")) for key in ("title", "notes", "attachment_url", "scope")))
+        for item in equipment:
+            equipment_id = clean_text(item.get("equipment_id"))
+            if not equipment_id:
+                continue
+            if event_id and event_id in event_ids_by_equipment.get(equipment_id, set()):
+                attachments_by_equipment.setdefault(equipment_id, []).append(attachment)
+            elif normalize_business_text(equipment_id) and normalize_business_text(equipment_id) in searchable:
+                attachments_by_equipment.setdefault(equipment_id, []).append(attachment)
     rows = []
     for item in equipment:
         equipment_id = clean_text(item.get("equipment_id"))
+        maintenance_history = item.get("maintenance_history") if isinstance(item.get("maintenance_history"), list) else []
+        cleaning_history = item.get("cleaning_history") if isinstance(item.get("cleaning_history"), list) else []
         rows.append({
             "equipment_id": equipment_id,
             "equipment_type": clean_text(item.get("equipment_type")),
-            "status": clean_text(item.get("status")),
+            "status": normalize_equipment_status(item.get("status") or item.get("condition")),
+            "status_label": equipment_status_label(item.get("status") or item.get("condition")),
             "plate": clean_text(item.get("plate")),
             "photo_url": clean_text(item.get("photo_url")),
             "current_clients": clients_by_equipment.get(equipment_id, []),
+            "events": events_by_equipment.get(equipment_id, [])[:5],
+            "event_usage_count": len(events_by_equipment.get(equipment_id, [])),
             "routes": routes_by_equipment.get(equipment_id, [])[:4],
             "cleanings": cleanings_by_equipment.get(equipment_id, 0),
+            "cleaning_records": (cleaning_history + cleaning_records_by_equipment.get(equipment_id, []))[:5],
+            "maintenance_history": maintenance_history[:5],
+            "maintenance_count": len(maintenance_history) + (1 if clean_text(item.get("maintenance_reason")) else 0),
             "maintenance_reason": clean_text(item.get("maintenance_reason")),
+            "observations": [value for value in [clean_text(item.get("notes")), clean_text(item.get("maintenance_reason"))] if value],
+            "attachments": attachments_by_equipment.get(equipment_id, [])[:5],
+            "attachments_count": len(attachments_by_equipment.get(equipment_id, [])) + (1 if clean_text(item.get("photo_url")) else 0),
         })
     return rows[:20]
 
@@ -11811,43 +14135,67 @@ def build_operational_memory_dashboard(
     }
 
 
-def build_service_order_pdf(event: dict, clients: list[dict], vehicles: list[dict], equipment: list[dict]) -> bytes:
-    client_map = {clean_text(item.get("client_id")): item for item in clients}
-    vehicle_map = {clean_text(item.get("vehicle_id")): item for item in vehicles}
-    equipment_map = {clean_text(item.get("equipment_id")): item for item in equipment}
+def build_service_order_pdf(event: dict, clients: list[dict], vehicles: list[dict], equipment: list[dict], order: dict | None = None) -> bytes:
+    order = order or build_service_order_payload(event, clients, vehicles, equipment, load_route_data())
     lines = [
-        f"Evento: {event.get('event_id')} - {event.get('title')}",
-        f"Período: {format_date_br(event.get('event_date'))} até {format_date_br(event.get('event_end_date') or event.get('event_date'))}",
-        f"Status: {event.get('status')}",
-        f"Observações: {event.get('notes') or 'n/d'}",
+        f"OS: {order.get('os_id')} | Status: {order.get('status_label')}",
+        f"Evento: {order.get('event_id')} - {order.get('event_title')}",
+        f"Data: {format_date_br(order.get('event_date'))} até {format_date_br(order.get('event_end_date') or order.get('event_date'))}",
+        f"Horário: {order.get('time_label')}",
+        f"Responsável: {order.get('responsible') or 'n/d'}",
+        f"Local: {order.get('local') or 'n/d'}",
+        f"Link do mapa: {order.get('map_link') or 'n/d'}",
+        f"Observações: {order.get('notes') or 'n/d'}",
         "",
-        "Clientes e equipamentos:",
+        "Clientes e contatos:",
     ]
-    for client_id in event.get("client_ids", []) or []:
-        client = client_map.get(clean_text(client_id), {})
-        equipment_item = equipment_map.get(clean_text(client.get("equipment_number")), {})
-        address = clean_text(client.get("address"))
+    for client in order.get("clients") or []:
         lines.append(
-            f"- {client.get('customer_name') or client_id} | {address or 'sem endereço'} | "
-            f"{client.get('phone') or 'sem telefone'} | {client.get('equipment_quantity') or 1}x {client.get('equipment_type') or 'Equipamento'} | "
-            f"{client.get('equipment_number') or 'sem ID'} | placa {equipment_item.get('plate') or 'n/d'}"
+            f"- {client.get('name') or client.get('client_id') or 'Cliente'} | {client.get('address') or 'sem endereço'} | "
+            f"{client.get('phone') or 'sem telefone'} | {client.get('email') or 'sem email'}"
         )
-        if address:
-            maps_url = "https://www.google.com/maps/search/?" + urllib.parse.urlencode({"api": "1", "query": address})
-            lines.append(f"  Link de endereço: {maps_url}")
+        if client.get("map_link"):
+            lines.append(f"  Link de endereço: {client.get('map_link')}")
     lines.append("")
     lines.append("Veículos:")
-    for vehicle_id in event.get("vehicle_ids", []) or []:
-        vehicle = vehicle_map.get(clean_text(vehicle_id), {})
-        lines.append(f"- {vehicle_id} | {vehicle.get('vehicle_type') or 'veículo'} | placa {vehicle.get('plate') or 'n/d'}")
-    lines.extend([
-        "",
-        "Checklist para imprimir/conferir:",
-        "- Confirmar cliente, endereço e contato antes da saída da base.",
-        "- Conferir ID dos banheiros/equipamentos e placa quando existir.",
-        "- Entregar link de endereço junto com a OS quando ajudar a equipe.",
-        "- Registrar pendência se algo físico não bater com este documento.",
-    ])
+    for vehicle in order.get("vehicles") or []:
+        lines.append(f"- {vehicle.get('vehicle_id') or 'n/d'} | {vehicle.get('type') or 'veículo'} | placa {vehicle.get('plate') or 'n/d'} | responsável {vehicle.get('driver') or 'n/d'}")
+    if not order.get("vehicles"):
+        lines.append("- Nenhum veículo vinculado.")
+    lines.append("")
+    lines.append("Equipamentos:")
+    for item in order.get("equipment") or []:
+        lines.append(
+            f"- {item.get('quantity') or 1}x {item.get('type') or 'Equipamento'} | ID {item.get('equipment_id') or 'n/d'} | "
+            f"placa {item.get('plate') or 'n/d'} | cliente {item.get('client_name') or 'n/d'}"
+        )
+    if not order.get("equipment"):
+        lines.append("- Nenhum equipamento vinculado.")
+    lines.append("")
+    lines.append("Checklist de saída:")
+    for item in order.get("checklist_saida") or SERVICE_ORDER_CHECKLIST_SAIDA:
+        lines.append(f"- {item}")
+    lines.append("")
+    lines.append("Checklist de retorno:")
+    for item in order.get("checklist_retorno") or SERVICE_ORDER_CHECKLIST_RETORNO:
+        lines.append(f"- {item}")
+    lines.append("")
+    lines.append("Confirmações da operação:")
+    for step in order.get("confirmation_steps") or service_order_confirmation_steps(order):
+        status = f"confirmado em {format_datetime_br(step.get('confirmed_at'))}" if step.get("confirmed_at") else "pendente"
+        lines.append(f"- {step.get('label')}: {status}")
+    lines.append("")
+    lines.append("Histórico de alterações da OS:")
+    for item in (order.get("history") or [])[-12:]:
+        lines.append(
+            f"- {format_datetime_br(item.get('at'))}: {item.get('action') or 'registro'}"
+            f" | {item.get('detail') or 'sem detalhe'} | {item.get('user_name') or 'sistema'}"
+        )
+    if not order.get("history"):
+        lines.append("- Nenhuma alteração registrada além desta geração.")
+    lines.append("")
+    lines.append("Resumo para WhatsApp:")
+    lines.extend(order.get("whatsapp_summary", "").splitlines())
     return build_simple_text_pdf(f"SannyGold - Ordem de Serviço {event.get('event_id')}", lines)
 
 
@@ -12202,7 +14550,7 @@ def build_daily_closeout_payload() -> dict:
         "financial_summary": latest.get("financial_summary") or {},
         "pending_confirmations": [
             item for item in inventory
-            if item.get("status") in {"carregado", "em_rota", "instalado", "retirada_pendente"}
+            if normalize_equipment_status(item.get("status") or item.get("condition")) in COMMITTED_EQUIPMENT_STATUSES
         ],
         "confirmations_count": len(confirmations),
     }
@@ -12249,7 +14597,8 @@ def build_weekly_management_report_pdf(*, can_view_finance: bool = False) -> byt
     ]
     maintenance_items = [
         item for item in inventory
-        if clean_text(item.get("status")) in {"manutencao", "indisponivel"} or clean_text(item.get("maintenance_reason"))
+        if normalize_equipment_status(item.get("status") or item.get("condition")) in {"manutencao", "indisponivel", "baixado"}
+        or clean_text(item.get("maintenance_reason"))
     ]
     pending_users = [user for user in users if clean_text(user.get("status")) == "convite_pendente"]
     lines = [
@@ -12342,7 +14691,7 @@ def build_team_weekly_review(
     open_events = [event for event in events if normalize_event_status(event.get("status")) not in {"concluido", "pago", "cancelado"}]
     maintenance_items = [
         item for item in inventory
-        if clean_text(item.get("status")) in {"manutencao", "indisponivel"}
+        if normalize_equipment_status(item.get("status") or item.get("condition")) in {"manutencao", "indisponivel", "baixado"}
         or clean_text(item.get("maintenance_reason"))
     ]
     inactive_users = [user for user in users if clean_text(user.get("status")) == "inativo"]
@@ -12388,14 +14737,20 @@ def build_dashboard_context() -> dict:
     selected_financial_period = clean_text(request.args.get("financial_period"), "monthly") or "monthly"
     selected_financial_start = clean_text(request.args.get("financial_start"))
     selected_financial_end = clean_text(request.args.get("financial_end"))
+    selected_financial_client = clean_text(request.args.get("financial_client"))
+    selected_financial_status = clean_text(request.args.get("financial_status"))
+    selected_financial_payment_method = clean_text(request.args.get("financial_payment_method"))
     selected_agenda_period = clean_text(request.args.get("agenda_period"), "weekly") or "weekly"
     field_confirmations = load_field_confirmations()
     route_data = attach_field_confirmations(load_route_data(), field_confirmations)
     clients = load_clients()
     vehicles = load_vehicles_registry()
+    all_fleet_vehicles = load_vehicles_registry(include_archived=True)
+    fleet_documents = load_fleet_documents(include_archived=True)
     events = load_events()
     inventory = build_inventory_view(clients, route_data, field_confirmations)
     route_history = load_route_history()
+    service_orders = load_service_orders()
     contracts = load_contracts()
     quotes = load_quotes()
     service_log = load_service_log()
@@ -12405,6 +14760,40 @@ def build_dashboard_context() -> dict:
     financial_closeouts = load_financial_closeouts()
     validation_payload = load_operation_validation()
     settings = load_settings()
+    fleet_phase1 = build_fleet_phase1_view(
+        vehicles=all_fleet_vehicles,
+        documents=fleet_documents,
+        alert_days=settings.get("fleet_document_alert_days") or DEFAULT_DOCUMENT_ALERT_DAYS,
+        can_view_documents=has_permission(user, "fleet.documents.view"),
+        can_view_values=has_permission(user, "fleet.values.view"),
+    )
+    phase3_blocks = load_vehicle_operational_blocks()
+    phase3_assignments = load_fleet_vehicle_assignments()
+    phase3_checklists = load_fleet_checklists()
+    maintenance_plans = load_vehicle_maintenance_plans()
+    document_alert_vehicle_ids = {
+        clean_text(item.get("vehicle_id")) for item in fleet_documents
+        if not clean_text(item.get("deleted_at"))
+        and clean_text(document_status_view(item, settings.get("fleet_document_alert_days") or DEFAULT_DOCUMENT_ALERT_DAYS).get("effective_status")) in {"vencido", "proximo_vencimento"}
+    }
+    active_fleet_infractions = load_fleet_traffic_infractions()
+    for vehicle in fleet_phase1["vehicles"]:
+        vehicle_id = clean_text(vehicle.get("vehicle_id"))
+        active_blocks = active_blocks_for_vehicle(phase3_blocks, vehicle_id)
+        vehicle["operational_blocked"] = bool(active_blocks)
+        vehicle["operational_block_reason"] = clean_text((active_blocks[0] if active_blocks else {}).get("reason"))
+        vehicle["assignment_open"] = any(clean_text(item.get("vehicle_id")) == vehicle_id and clean_text(item.get("status")) == "entregue" and not clean_text(item.get("deleted_at")) for item in phase3_assignments)
+        vehicle["checklist_pending"] = not any(clean_text(item.get("vehicle_id")) == vehicle_id and clean_text(item.get("checklist_type")) in {"saida", "entrega_motorista"} and clean_text(item.get("status")) in {"concluido", "concluido_com_ressalvas"} and not clean_text(item.get("deleted_at")) for item in phase3_checklists)
+        vehicle_fines = [item for item in active_fleet_infractions if clean_text(item.get("vehicle_id")) == vehicle_id and clean_text(item.get("status")) not in {"cancelada", "encerrada", "paga"}]
+        vehicle["open_fines_count"] = len(vehicle_fines)
+        vehicle["critical_fines_count"] = sum(clean_text(item.get("nic_risk_status")) in {"alto_risco", "prazo_vencido"} or clean_text(item.get("status")) == "prazo_perdido" for item in vehicle_fines)
+        vehicle["maintenance_alert"] = any(
+            clean_text(item.get("vehicle_id")) == vehicle_id
+            and maintenance_plan_status(item, current_mileage=int(vehicle.get("current_mileage") or 0), today=datetime.now().date())["status"] in {"vencido", "atencao", "proximo_vencimento"}
+            and not clean_text(item.get("deleted_at"))
+            for item in maintenance_plans
+        )
+        vehicle["document_alert"] = vehicle_id in document_alert_vehicle_ids
     validations = build_validation_findings(clients, vehicles, events, inventory, route_data, validation_payload)
     pending_reasons = build_pending_reasons(validation_payload)
     operational_dashboard = build_operational_dashboard(
@@ -12435,6 +14824,9 @@ def build_dashboard_context() -> dict:
         selected_financial_period,
         selected_financial_start,
         selected_financial_end,
+        selected_financial_client,
+        selected_financial_status,
+        selected_financial_payment_method,
     )
     financial_decision_panel = build_financial_decision_panel(financial_receivables, events, clients)
     future_dashboard = build_future_capacity_dashboard(events, clients, vehicles, inventory, route_history, selected_agenda_period)
@@ -12479,7 +14871,7 @@ def build_dashboard_context() -> dict:
         has_pdf=ROUTE_PDF_PATH.exists(),
         settings=settings,
     )
-    equipment_history = build_equipment_history(inventory, clients, route_history, service_log)
+    equipment_history = build_equipment_history(inventory, clients, route_history, service_log, events, attachments)
     maintenance_preventive_dashboard = build_maintenance_preventive_dashboard(inventory, service_log)
     preventive_warnings = build_preventive_warnings(
         clients,
@@ -12518,6 +14910,18 @@ def build_dashboard_context() -> dict:
     )
     system_status = build_system_status_snapshot()
     backup_status = build_backup_status(settings)
+    local_network_status = build_local_network_status()
+    local_first_status = {
+        "system_label": "Sistema local ativo",
+        "environment_label": DEPLOY_TARGET,
+        "storage_root": str(STORAGE_ROOT),
+        "has_backup": bool(backup_status.get("has_latest")),
+        "last_backup_label": backup_status.get("last_backup_label") or "sem backup",
+        "latest_backup_file": backup_status.get("latest_filename") or "",
+        "local_url": local_network_status["url"],
+        "storage_backend": "SQLite" if sqlite_storage_enabled() else "JSON",
+        "sqlite_path": str(SQLITE_DB_PATH),
+    }
     homologation_checklist = build_homologation_checklist(
         clients=clients,
         events=events,
@@ -12573,6 +14977,18 @@ def build_dashboard_context() -> dict:
         last_backup_at=clean_text(settings.get("last_backup_at")),
         can_backup=has_permission(user, "settings.manage"),
     )
+    if has_permission(user, "fleet.fines.view"):
+        fines_dashboard = build_fines_dashboard(
+            load_fleet_traffic_infractions(), load_fleet_infraction_deadlines(),
+            load_fleet_infraction_payments(), load_fleet_infraction_proceedings(),
+        )
+        fines_counts = fines_dashboard.get("counts") or {}
+        if fines_counts.get("overdue"):
+            preventive_warnings.append({"level": "danger", "title": "Prazo de multa vencido", "detail": f"{fines_counts['overdue']} prazo(s) exigem ação imediata.", "target_tab": "", "target_href": url_for("fleet_fines_home"), "action": "Abrir multas"})
+        if fines_counts.get("nic_risk"):
+            preventive_warnings.append({"level": "danger", "title": "Risco de multa NIC", "detail": f"{fines_counts['nic_risk']} infração(ões) estão em risco de não identificação.", "target_tab": "", "target_href": url_for("fleet_fines_home"), "action": "Revisar condutores"})
+        if fines_counts.get("unidentified"):
+            preventive_warnings.append({"level": "warning", "title": "Condutor de infração pendente", "detail": f"{fines_counts['unidentified']} infração(ões) aguardam confirmação humana.", "target_tab": "", "target_href": url_for("fleet_fines_home"), "action": "Identificar condutor"})
     attention_center = build_attention_center(
         preventive_warnings=preventive_warnings,
         financial_management=financial_management,
@@ -12596,6 +15012,7 @@ def build_dashboard_context() -> dict:
         financial_receivables if can_view_finance else [],
         route_history,
         audit_log,
+        service_orders,
     ), profile_ui, can_view_finance=can_view_finance)
     reports_hub = build_reports_hub(
         can_view_finance=can_view_finance,
@@ -12681,6 +15098,7 @@ def build_dashboard_context() -> dict:
             latest_financial_by_event[event_key] = item.get("financial_summary") or {}
     enriched_events = []
     for event in events:
+        event_id = clean_text(event.get("event_id"))
         linked_clients = [clients_by_id[client_id] for client_id in event.get("client_ids", []) if client_id in clients_by_id]
         linked_vehicles = [vehicles_by_id[vehicle_id] for vehicle_id in event.get("vehicle_ids", []) if vehicle_id in vehicles_by_id]
         equipment_count = sum(1 for client in linked_clients if clean_text(client.get("equipment_number")))
@@ -12697,6 +15115,14 @@ def build_dashboard_context() -> dict:
             "financial_summary": latest_financial_by_event.get(clean_text(event.get("event_id")), {}),
             "event_period_label": event_period_label(event),
         }
+        event_record["service_order"] = build_service_order_payload(
+            event_record,
+            clients,
+            vehicles,
+            inventory,
+            route_data,
+            existing_order=service_order_for_event(event_id, service_orders),
+        )
         status_context = build_event_status_context(
             event_record,
             linked_clients,
@@ -12737,9 +15163,13 @@ def build_dashboard_context() -> dict:
         "last_backup_at": clean_text(backup_status.get("last_backup_at")),
         "last_backup_label": backup_status.get("last_backup_label"),
         "backup_status": backup_status,
+        "local_first_status": local_first_status,
+        "local_network_status": local_network_status,
         "clients": clients,
-        "vehicles_registry": vehicles,
+        "vehicles_registry": fleet_phase1["vehicles"],
+        "fleet_phase1": fleet_phase1,
         "events": enriched_events,
+        "service_orders": service_orders,
         "equipment_registry": inventory,
         "available_equipment": [item for item in inventory if item["status"] == "disponivel"],
         "route_history": route_history[:10],
@@ -12767,6 +15197,9 @@ def build_dashboard_context() -> dict:
         "financial_period": selected_financial_period,
         "financial_start": selected_financial_start,
         "financial_end": selected_financial_end,
+        "financial_client": selected_financial_client,
+        "financial_status": selected_financial_status,
+        "financial_payment_method": selected_financial_payment_method,
         "executive_dashboard": executive_dashboard,
         "future_dashboard": future_dashboard,
         "warehouse_dashboard": warehouse_dashboard,
@@ -12810,12 +15243,17 @@ def build_dashboard_context() -> dict:
         "help_assistant": build_help_assistant_context(user),
         "daily_management_checklist": daily_management_checklist,
         "quick_rental_summary": session.get("quick_rental_summary") if has_request_context() else {},
-        "maintenance_items": [item for item in inventory if item.get("status") in {"manutencao", "indisponivel"} or item.get("maintenance_reason")],
+        "maintenance_items": [
+            item for item in inventory
+            if normalize_equipment_status(item.get("status") or item.get("condition")) in {"manutencao", "indisponivel", "baixado"}
+            or item.get("maintenance_reason")
+        ],
         "can_view_finance": can_view_finance,
         "profile_ui": profile_ui,
         "role_home_label": role_home_labels.get(clean_text(user.get("role")), role_home_labels["guest"]),
         "event_status_flow": EVENT_STATUS_FLOW,
         "event_status_labels": EVENT_STATUS_LABELS,
+        "service_order_status_flow": SERVICE_ORDER_STATUS_FLOW,
         "recent_shortcuts": recent_shortcuts,
         "recent_audit_log": recent_audit_log,
         "agenda_period": selected_agenda_period,
@@ -12824,9 +15262,10 @@ def build_dashboard_context() -> dict:
         "inventory_counts": {
             "total": len(inventory),
             "available": sum(1 for item in inventory if item["status"] == "disponivel"),
-            "in_route": sum(1 for item in inventory if item["status"] in {"carregado", "em_rota", "instalado", "retirada_pendente"}),
-            "maintenance": sum(1 for item in inventory if item["status"] in {"manutencao", "indisponivel"}),
+            "in_route": sum(1 for item in inventory if normalize_equipment_status(item.get("status") or item.get("condition")) == "em_operacao"),
+            "maintenance": sum(1 for item in inventory if normalize_equipment_status(item.get("status") or item.get("condition")) in {"manutencao", "indisponivel", "baixado"}),
             "reserved": sum(1 for item in inventory if item["status"] == "reservado"),
+            "awaiting_cleaning": sum(1 for item in inventory if normalize_equipment_status(item.get("status") or item.get("condition")) == "aguardando_limpeza"),
         },
         "equipment_family_counts": equipment_family_counts,
         "equipment_type_suggestions": EQUIPMENT_TYPE_SUGGESTIONS,
@@ -12845,6 +15284,60 @@ def build_dashboard_context() -> dict:
                 "events.close",
                 "events.service_order",
                 "fleet.view",
+                "fleet.create",
+                "fleet.edit",
+                "fleet.delete",
+                "fleet.vehicle.create",
+                "fleet.vehicle.edit",
+                "fleet.mileage.edit",
+                "fleet.checklist.fill",
+                "fleet.maintenance.open",
+                "fleet.maintenance.approve",
+                "fleet.maintenance.view",
+                "fleet.maintenance.create",
+                "fleet.maintenance.edit",
+                "fleet.maintenance.execute",
+                "fleet.maintenance.complete",
+                "fleet.maintenance.cancel",
+                "fleet.maintenance.costs.view",
+                "fleet.maintenance.costs.manage",
+                "fleet.maintenance.release_vehicle",
+                "fleet.maintenance.plans.manage",
+                "fleet.maintenance.inventory.manage",
+                "fleet.checklist.view",
+                "fleet.checklist.create",
+                "fleet.checklist.complete",
+                "fleet.checklist.cancel",
+                "fleet.checklist.templates.manage",
+                "fleet.occurrence.view",
+                "fleet.occurrence.create",
+                "fleet.occurrence.assign",
+                "fleet.occurrence.resolve",
+                "fleet.route.override",
+                "fleet.audit.view",
+                "fleet.costs.edit",
+                "fleet.vehicle.block",
+                "fleet.vehicle.release",
+                "fleet.documents.view",
+                "fleet.documents.manage",
+                "fleet.values.view",
+                "fleet.fines.view",
+                "fleet.fines.create",
+                "fleet.fines.edit",
+                "fleet.fines.assign",
+                "fleet.fines.driver_identify",
+                "fleet.fines.documents.manage",
+                "fleet.fines.proceedings.manage",
+                "fleet.fines.protocol.manage",
+                "fleet.fines.decide",
+                "fleet.fines.payments.view",
+                "fleet.fines.payments.manage",
+                "fleet.fines.financial_responsibility.manage",
+                "fleet.fines.reports.view",
+                "fleet.fines.sensitive_documents.view",
+                "fleet.fines.audit.view",
+                "fleet.fines.settings.manage",
+                "fleet.admin",
                 "finance.view",
                 "finance.edit",
                 "finance.payments",
@@ -12913,6 +15406,21 @@ def admin_help_page():
 @require_permission("settings.manage")
 def admin_support_tickets_page():
     return redirect(url_for("index", _anchor="support-tickets-admin-panel"))
+
+
+@app.route("/admin/acesso-celular", methods=["GET"])
+@require_permission("settings.manage")
+def admin_mobile_access():
+    ensure_storage_dirs()
+    system_status = build_system_status_snapshot()
+    backup_status = build_backup_status(load_settings())
+    return render_template(
+        "mobile_access.html",
+        current_user=current_user(),
+        local_network_status=build_local_network_status(),
+        system_status=system_status,
+        backup_status=backup_status,
+    )
 
 
 @app.route("/assistant/search", methods=["GET"])
@@ -13615,31 +16123,36 @@ def register_cleaning_service(client_id: str):
 @app.route("/warehouse/items.pdf", methods=["GET"])
 @require_permission("warehouse.view")
 def download_warehouse_pdf():
+    generated_at = datetime.now()
+    dashboard = build_warehouse_dashboard()
+    items = filter_warehouse_items_for_pdf(dashboard["items"], request.args)
     record_audit("generate_pdf", "warehouse", "items", "PDF do almoxarifado gerado.")
     return send_file(
-        io.BytesIO(build_warehouse_pdf()),
+        io.BytesIO(build_warehouse_pdf(generated_at=generated_at, items=items)),
         mimetype="application/pdf",
         as_attachment=True,
-        download_name=f"sannygold-almoxarifado-{datetime.now().date().isoformat()}.pdf",
+        download_name=warehouse_pdf_filename(generated_at),
     )
 
 
 @app.route("/warehouse/low-stock.pdf", methods=["GET"])
 @require_permission("warehouse.view")
 def download_warehouse_low_stock_pdf():
+    generated_at = datetime.now()
     record_audit("generate_pdf", "warehouse", "low-stock", "PDF de estoque baixo gerado.")
     return send_file(
-        io.BytesIO(build_low_stock_warehouse_pdf()),
+        io.BytesIO(build_low_stock_warehouse_pdf(generated_at=generated_at)),
         mimetype="application/pdf",
         as_attachment=True,
-        download_name=f"sannygold-estoque-baixo-{datetime.now().date().isoformat()}.pdf",
+        download_name=warehouse_pdf_filename(generated_at, prefix="sannygold-estoque-baixo"),
     )
 
 
 @app.route("/reports/<module>.pdf", methods=["GET"])
 def download_module_pdf(module: str):
+    generated_at = datetime.now()
     try:
-        title, payload, permission = build_module_pdf(module)
+        title, payload, permission = build_module_pdf(module, generated_at=generated_at)
     except ValueError:
         return "Relatório não encontrado. Abra o painel de relatórios e escolha uma opção disponível.", 404
     if not has_permission(current_user(), permission):
@@ -13653,11 +16166,17 @@ def download_module_pdf(module: str):
         flash_action_warning("Acesso restrito para este relatório", "Seu perfil não pode baixar este relatório. O sistema bloqueou o arquivo porque ele pode conter dados operacionais, financeiros ou administrativos.", next_step="Peça ao administrador para liberar o relatório ou use um perfil autorizado.", target_href="#access-management-panel", target_tab="access-tab", action="Ver acessos")
         return redirect(url_for("index", auth="required"))
     record_audit("generate_pdf", "reports", module, f"Relatório PDF {title} gerado.")
+    module_key = clean_text(module).lower()
+    download_name = (
+        warehouse_pdf_filename(generated_at)
+        if module_key == "warehouse"
+        else f"sannygold-{module}-{generated_at.date().isoformat()}.pdf"
+    )
     return send_file(
         io.BytesIO(payload),
         mimetype="application/pdf",
         as_attachment=True,
-        download_name=f"sannygold-{module}-{datetime.now().date().isoformat()}.pdf",
+        download_name=download_name,
     )
 
 
@@ -13739,6 +16258,13 @@ def generate():
             vehicles_snapshot=vehicles_snapshot,
             route_data=load_route_data(),
         )
+        fleet_issues = fleet_route_departure_issues(selected_event, vehicles_snapshot)
+        fleet_issues = apply_fleet_route_override(fleet_issues, event_id=selected_event_id)
+        if fleet_issues:
+            validation_payload["pending_items"] = list(validation_payload.get("pending_items") or []) + [
+                f"Veículo {item['vehicle_id']}: {item['reason']}" for item in fleet_issues
+            ]
+            validation_payload["is_routable"] = False
         save_operation_validation(validation_payload)
         if not validation_payload.get("is_routable"):
             issues = (validation_payload.get("event_errors") or []) + (validation_payload.get("pending_items") or [])
@@ -13901,6 +16427,9 @@ register_backup_routes(
         record_audit=record_audit,
         require_permission=require_permission,
         restore_data_backup=restore_data_backup,
+        test_restore_backup=test_restore_backup,
+        test_backup_copy_dir=test_backup_copy_dir,
+        update_backup_schedule=update_backup_schedule,
     ),
 )
 
@@ -13948,33 +16477,155 @@ def delete_client(client_id: str):
     return redirect(url_for("index"))
 
 
-@app.route("/vehicles", methods=["POST"])
-@require_permission("fleet.edit")
-def save_vehicle():
-    try:
-        record = create_vehicle_record(request.form)
-        before = next((item for item in load_vehicles_registry() if clean_text(item.get("vehicle_id")) == clean_text(record.get("vehicle_id"))), None)
-        save_vehicles_registry(upsert_item(load_vehicles_registry(), record, "vehicle_id"))
-        record_audit("save", "fleet", record["vehicle_id"], f"Veículo {record['vehicle_id']} salvo.", before=before, after=record)
-        flash(f"Veículo {record['vehicle_id']} salvo com sucesso. Ele já pode ser usado no planejamento de rotas.", "success")
-    except Exception as exc:  # noqa: BLE001
-        flash_action_error(exc, "fleet")
-    return redirect(url_for("index"))
+register_fleet_routes(
+    app,
+    SimpleNamespace(
+        clean_text=clean_text,
+        create_fleet_document_record=create_fleet_document_record,
+        create_vehicle_record=create_vehicle_record,
+        attach_vehicle_photos=attach_vehicle_photos,
+        current_user=current_user,
+        flash_action_error=flash_action_error,
+        fleet_uploads_dir=FLEET_UPLOADS_DIR,
+        fleet_maintenance_extensions=FLEET_MAINTENANCE_EXTENSIONS,
+        fleet_storage_key=fleet_storage_key,
+        has_permission=has_permission,
+        load_fleet_documents=load_fleet_documents,
+        load_fleet_service_orders=load_fleet_service_orders,
+        load_fleet_service_order_items=load_fleet_service_order_items,
+        load_vehicle_maintenance_plans=load_vehicle_maintenance_plans,
+        load_fleet_maintenance_attachments=load_fleet_maintenance_attachments,
+        load_fleet_inventory_reservations=load_fleet_inventory_reservations,
+        load_vehicle_mileage_records=load_vehicle_mileage_records,
+        load_vehicle_audit_records=load_vehicle_audit_records,
+        load_warehouse_items=load_warehouse_items,
+        load_warehouse_movements=load_warehouse_movements,
+        load_users=load_users,
+        load_settings=load_settings,
+        load_vehicles_registry=load_vehicles_registry,
+        normalize_fleet_alert_days=normalize_fleet_alert_days,
+        now_iso=now_iso,
+        record_audit=record_audit,
+        record_vehicle_maintenance_history=record_vehicle_maintenance_history,
+        required_vehicle_change_permissions=required_vehicle_change_permissions,
+        require_permission=require_permission,
+        save_fleet_documents=save_fleet_documents,
+        save_fleet_service_orders=save_fleet_service_orders,
+        save_fleet_service_order_items=save_fleet_service_order_items,
+        save_vehicle_maintenance_plans=save_vehicle_maintenance_plans,
+        save_fleet_maintenance_attachments=save_fleet_maintenance_attachments,
+        save_fleet_inventory_reservations=save_fleet_inventory_reservations,
+        save_warehouse_items=save_warehouse_items,
+        save_warehouse_movements=save_warehouse_movements,
+        save_settings=save_settings,
+        save_vehicles_registry=save_vehicles_registry,
+        upsert_item=upsert_item,
+        validate_uploaded_file=validate_uploaded_file,
+    ),
+)
 
 
-@app.route("/vehicles/<vehicle_id>/delete", methods=["POST"])
-@require_permission("fleet.edit")
-def delete_vehicle(vehicle_id: str):
-    current_vehicles = load_vehicles_registry()
-    before = next((item for item in current_vehicles if clean_text(item.get("vehicle_id")) == clean_text(vehicle_id)), None)
-    vehicles, deleted = delete_item(current_vehicles, "vehicle_id", vehicle_id)
-    if deleted:
-        save_vehicles_registry(vehicles)
-        record_audit("delete", "fleet", vehicle_id, f"Veículo {vehicle_id} removido.", before=before)
-        flash(f"Veículo {vehicle_id} removido com sucesso. Ele não ficará disponível para novas rotas.", "success")
-    else:
-        flash_action_error(ValueError(f"Veículo {vehicle_id} não encontrado. Atualize a tela e selecione um veículo existente."), "fleet")
-    return redirect(url_for("index"))
+register_fleet_checklist_routes(
+    app,
+    SimpleNamespace(
+        checklist_evidence_extensions=IMAGE_UPLOAD_EXTENSIONS,
+        clean_text=clean_text,
+        current_user=current_user,
+        flash_action_error=flash_action_error,
+        flash_action_warning=flash_action_warning,
+        fleet_storage_key=fleet_storage_key,
+        fleet_uploads_dir=FLEET_UPLOADS_DIR,
+        has_permission=has_permission,
+        load_events=load_events,
+        load_fleet_checklist_evidence=load_fleet_checklist_evidence,
+        load_fleet_checklist_responses=load_fleet_checklist_responses,
+        load_fleet_checklist_template_items=load_fleet_checklist_template_items,
+        load_fleet_checklist_templates=load_fleet_checklist_templates,
+        load_fleet_checklists=load_fleet_checklists,
+        load_fleet_documents=load_fleet_documents,
+        load_fleet_driver_authorizations=load_fleet_driver_authorizations,
+        load_fleet_occurrences=load_fleet_occurrences,
+        load_fleet_service_orders=load_fleet_service_orders,
+        load_fleet_vehicle_assignments=load_fleet_vehicle_assignments,
+        load_users=load_users,
+        load_vehicle_operational_blocks=load_vehicle_operational_blocks,
+        load_vehicles_registry=load_vehicles_registry,
+        now_iso=now_iso,
+        record_audit=record_audit,
+        record_vehicle_maintenance_history=record_vehicle_maintenance_history,
+        require_permission=require_permission,
+        save_fleet_checklist_evidence=save_fleet_checklist_evidence,
+        save_fleet_checklist_responses=save_fleet_checklist_responses,
+        save_fleet_checklist_template_items=save_fleet_checklist_template_items,
+        save_fleet_checklist_templates=save_fleet_checklist_templates,
+        save_fleet_checklists=save_fleet_checklists,
+        save_fleet_driver_authorizations=save_fleet_driver_authorizations,
+        save_fleet_occurrences=save_fleet_occurrences,
+        save_fleet_vehicle_assignments=save_fleet_vehicle_assignments,
+        save_vehicle_operational_blocks=save_vehicle_operational_blocks,
+        save_vehicles_registry=save_vehicles_registry,
+        sqlite_db_path=SQLITE_DB_PATH,
+        upsert_item=upsert_item,
+        validate_uploaded_file=validate_uploaded_file,
+    ),
+)
+
+
+register_fleet_fines_routes(
+    app,
+    SimpleNamespace(
+        build_simple_text_pdf=build_simple_text_pdf,
+        build_simple_xlsx_bytes=build_simple_xlsx_bytes,
+        clean_text=clean_text,
+        create_financial_entry_record=create_financial_entry_record,
+        current_user=current_user,
+        data_dir=DATA_DIR,
+        fleet_fines_extensions=FLEET_DOCUMENT_EXTENSIONS,
+        fleet_uploads_dir=FLEET_UPLOADS_DIR,
+        flash_action_error=flash_action_error,
+        has_permission=has_permission,
+        load_financial_entries=load_financial_entries,
+        load_fleet_checklists=load_fleet_checklists,
+        load_fleet_driver_authorizations=load_fleet_driver_authorizations,
+        load_fleet_infraction_attachments=load_fleet_infraction_attachments,
+        load_fleet_infraction_audit_logs=load_fleet_infraction_audit_logs,
+        load_fleet_infraction_deadlines=load_fleet_infraction_deadlines,
+        load_fleet_infraction_decisions=load_fleet_infraction_decisions,
+        load_fleet_infraction_document_template_items=load_fleet_infraction_document_template_items,
+        load_fleet_infraction_document_templates=load_fleet_infraction_document_templates,
+        load_fleet_infraction_documents=load_fleet_infraction_documents,
+        load_fleet_infraction_driver_identifications=load_fleet_infraction_driver_identifications,
+        load_fleet_infraction_payments=load_fleet_infraction_payments,
+        load_fleet_infraction_proceedings=load_fleet_infraction_proceedings,
+        load_fleet_infraction_protocols=load_fleet_infraction_protocols,
+        load_fleet_traffic_infractions=load_fleet_traffic_infractions,
+        load_fleet_vehicle_assignments=load_fleet_vehicle_assignments,
+        load_settings=load_settings,
+        load_users=load_users,
+        load_vehicles_registry=load_vehicles_registry,
+        now_iso=now_iso,
+        parse_xlsx_rows=parse_xlsx_rows,
+        record_audit=record_audit,
+        require_permission=require_permission,
+        sanitize_audit_payload=sanitize_audit_payload,
+        save_financial_entries=save_financial_entries,
+        save_settings=save_settings,
+        save_fleet_infraction_attachments=save_fleet_infraction_attachments,
+        save_fleet_infraction_audit_logs=save_fleet_infraction_audit_logs,
+        save_fleet_infraction_deadlines=save_fleet_infraction_deadlines,
+        save_fleet_infraction_decisions=save_fleet_infraction_decisions,
+        save_fleet_infraction_document_template_items=save_fleet_infraction_document_template_items,
+        save_fleet_infraction_document_templates=save_fleet_infraction_document_templates,
+        save_fleet_infraction_documents=save_fleet_infraction_documents,
+        save_fleet_infraction_driver_identifications=save_fleet_infraction_driver_identifications,
+        save_fleet_infraction_payments=save_fleet_infraction_payments,
+        save_fleet_infraction_proceedings=save_fleet_infraction_proceedings,
+        save_fleet_infraction_protocols=save_fleet_infraction_protocols,
+        save_fleet_traffic_infractions=save_fleet_traffic_infractions,
+        upsert_item=upsert_item,
+        validate_uploaded_file=validate_uploaded_file,
+    ),
+)
 
 
 @app.route("/equipment", methods=["POST"])
@@ -14025,6 +16676,17 @@ def send_equipment_to_maintenance(equipment_id: str):
     target["maintenance_started_at"] = now_iso()
     target["maintenance_expected_release"] = clean_text(request.form.get("maintenance_expected_release"))
     target["maintenance_cost"] = parse_decimal(request.form.get("maintenance_cost"))
+    history = target.get("maintenance_history") if isinstance(target.get("maintenance_history"), list) else []
+    history.append(
+        {
+            "reason": target["maintenance_reason"],
+            "started_at": target["maintenance_started_at"],
+            "expected_release": target["maintenance_expected_release"],
+            "cost": target["maintenance_cost"],
+            "created_at": now_iso(),
+        }
+    )
+    target["maintenance_history"] = history[-50:]
     save_equipment_registry(items)
     record_audit("maintenance", "equipment", equipment_id, f"Manutenção registrada para {equipment_id}.", before=before, after=target)
     flash(f"Manutenção registrada para {equipment_id}. O item saiu da disponibilidade operacional.", "success")
@@ -14042,13 +16704,16 @@ def return_equipment_to_stock(equipment_id: str):
     before = dict(target)
 
     current_status = normalize_equipment_status(target.get("status") or target.get("condition"))
-    if current_status not in {"instalado", "retirada_pendente", "retornado"}:
+    if current_status not in {"em_operacao", "aguardando_limpeza"}:
         flash_action_error(ValueError("Retorno do equipamento só pode ser confirmado após o ciclo operacional concluir instalação ou retirada. Isso evita liberar item que ainda está em uso."), "fleet")
         return redirect(url_for("index"))
 
-    target["condition"] = "retornado"
-    target["status"] = "retornado"
+    target["condition"] = "aguardando_limpeza"
+    target["status"] = "aguardando_limpeza"
     target["returned_at"] = datetime.now().isoformat(timespec="seconds")
+    cleaning_history = target.get("cleaning_history") if isinstance(target.get("cleaning_history"), list) else []
+    cleaning_history.append({"status": "aguardando_limpeza", "created_at": target["returned_at"], "source": "retorno_manual"})
+    target["cleaning_history"] = cleaning_history[-50:]
     save_equipment_registry(items)
     clients = load_clients()
     changed = False
@@ -14058,8 +16723,8 @@ def return_equipment_to_stock(equipment_id: str):
             changed = True
     if changed:
         save_clients(clients)
-    record_audit("return", "equipment", equipment_id, f"Equipamento {equipment_id} marcado como retornado.", before=before, after=target)
-    flash(f"Equipamento {equipment_id} marcado como retornado. Agora ele pode ser conferido antes de voltar para disponível.", "success")
+    record_audit("return", "equipment", equipment_id, f"Equipamento {equipment_id} aguardando limpeza.", before=before, after=target)
+    flash(f"Equipamento {equipment_id} ficou aguardando limpeza. Libere para disponível apenas depois da conferência.", "success")
     return redirect(url_for("index"))
 
 
@@ -14072,13 +16737,16 @@ def release_equipment_to_available(equipment_id: str):
         flash_action_error(ValueError(f"Equipamento {equipment_id} não encontrado. Atualize a tela e selecione um equipamento existente."), "fleet")
         return redirect(url_for("index"))
     before = dict(target)
-    if normalize_equipment_status(target.get("status") or target.get("condition")) != "retornado":
-        flash_action_error(ValueError("Só é possível liberar para disponível após o item estar como retornado. Isso evita disponibilizar equipamento que ainda não voltou."), "fleet")
+    if normalize_equipment_status(target.get("status") or target.get("condition")) != "aguardando_limpeza":
+        flash_action_error(ValueError("Só é possível liberar para disponível após o item estar aguardando limpeza. Isso evita disponibilizar equipamento que ainda não voltou ou não foi conferido."), "fleet")
         return redirect(url_for("index"))
     target["condition"] = "disponivel"
     target["status"] = "disponivel"
     target["maintenance_reason"] = ""
     target["maintenance_expected_release"] = ""
+    cleaning_history = target.get("cleaning_history") if isinstance(target.get("cleaning_history"), list) else []
+    cleaning_history.append({"status": "disponivel", "created_at": now_iso(), "source": "liberacao_pos_limpeza"})
+    target["cleaning_history"] = cleaning_history[-50:]
     save_equipment_registry(items)
     record_audit("release", "equipment", equipment_id, f"Equipamento {equipment_id} liberado para disponível.", before=before, after=target)
     flash(f"Equipamento {equipment_id} liberado para disponível. Ele já pode ser usado em nova locação.", "success")
@@ -14144,8 +16812,12 @@ def save_field_confirmation():
         items = load_equipment_registry()
         target = next((item for item in items if item.get("equipment_id") == equipment_id), None)
         if target:
-            target["condition"] = "retornado"
+            target["condition"] = "aguardando_limpeza"
+            target["status"] = "aguardando_limpeza"
             target["returned_at"] = timestamp
+            cleaning_history = target.get("cleaning_history") if isinstance(target.get("cleaning_history"), list) else []
+            cleaning_history.append({"status": "aguardando_limpeza", "created_at": timestamp, "source": "confirmacao_campo"})
+            target["cleaning_history"] = cleaning_history[-50:]
             save_equipment_registry(items)
         clients = load_clients()
         changed = False
@@ -14160,14 +16832,14 @@ def save_field_confirmation():
     target = next((item for item in items if item.get("equipment_id") == equipment_id), None)
     if target:
         if action == "arrival":
-            target["status"] = "em_rota"
-            target["condition"] = "em_rota"
+            target["status"] = "em_operacao"
+            target["condition"] = "em_operacao"
         elif action == "execution":
-            target["status"] = "instalado"
-            target["condition"] = "instalado"
+            target["status"] = "em_operacao"
+            target["condition"] = "em_operacao"
         elif action == "return":
-            target["status"] = "retornado"
-            target["condition"] = "retornado"
+            target["status"] = "aguardando_limpeza"
+            target["condition"] = "aguardando_limpeza"
             target["returned_at"] = timestamp
         save_equipment_registry(items)
 
@@ -14292,14 +16964,170 @@ def download_service_order(event_id: str):
             issues,
         )
         return redirect(url_for("index", _anchor=f"event-{clean_text(event_id)}"))
-    payload = build_service_order_pdf(event, clients, vehicles, load_equipment_registry())
-    record_audit("generate_service_order", "events", event_id, "Ordem de serviço/PDF gerada.")
+    existing_order = service_order_for_event(event_id)
+    existing_status = normalize_service_order_status((existing_order or {}).get("status")) if existing_order else ""
+    target_status = existing_status if existing_status in {"em_execucao", "concluida", "cancelada"} else "liberada"
+    order = save_service_order_from_event(event_id, status=target_status, history_action="geracao_pdf", detail="OS/PDF gerada para impressão ou envio.")
+    payload = build_service_order_pdf(event, clients, vehicles, load_equipment_registry(), order)
+    record_audit("generate_service_order", "events", event_id, "Ordem de serviço/PDF gerada.", after=order)
     return send_file(
         io.BytesIO(payload),
         mimetype="application/pdf",
         as_attachment=True,
         download_name=f"sannygold-os-{event_id}.pdf",
     )
+
+
+@app.route("/events/<event_id>/service-order", methods=["GET"])
+@require_permission("events.service_order")
+def view_service_order(event_id: str):
+    event = next((item for item in load_events() if clean_text(item.get("event_id")) == clean_text(event_id)), None)
+    if not event:
+        flash_action_error(ValueError("Evento não encontrado para abrir a OS mobile."), "service_order")
+        return redirect(url_for("index"))
+    order = save_service_order_from_event(event_id, history_action="visualizacao_mobile", detail="OS mobile aberta.")
+    return render_template_string(
+        """
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>OS {{ order.os_id }} - SannyGold</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 0; background: #f7f7f5; color: #1f2933; }
+      main { max-width: 760px; margin: 0 auto; padding: 16px; }
+      .card { background: #fff; border: 1px solid #dedbd2; border-radius: 8px; padding: 14px; margin-bottom: 12px; }
+      h1, h2 { margin: 0 0 8px; }
+      h1 { font-size: 22px; }
+      h2 { font-size: 16px; }
+      .badge { display: inline-block; border-radius: 999px; padding: 4px 10px; background: #e8f5e9; font-size: 12px; }
+      .muted { color: #5f6b76; font-size: 13px; }
+      ul { padding-left: 18px; }
+      button, a.button { display: inline-block; border: 1px solid #444; background: #fff; color: #111; border-radius: 999px; padding: 9px 12px; text-decoration: none; margin: 4px 4px 4px 0; }
+      form { display: inline; }
+      textarea { width: 100%; min-height: 72px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="card">
+        <h1>OS Mobile {{ order.os_id }}</h1>
+        <span class="badge">{{ order.status_label }}</span>
+        <p class="muted">{{ order.event_title }} • {{ order.date_label }} • {{ order.time_label }}</p>
+        <p><strong>Cliente:</strong> {{ order.clients|map(attribute='name')|join(', ') or 'não informado' }}</p>
+        <p><strong>Local:</strong> {{ order.local or 'não informado' }}</p>
+        <p><strong>Responsável:</strong> {{ order.responsible or 'não informado' }}</p>
+        {% if order.map_link %}<a class="button" href="{{ order.map_link }}" target="_blank" rel="noreferrer">Abrir mapa</a>{% endif %}
+        <a class="button" href="{{ url_for('download_service_order', event_id=order.event_id) }}">Baixar PDF da OS</a>
+        <button type="button" id="copy-whatsapp">Copiar resumo para WhatsApp</button>
+      </section>
+
+      <section class="card">
+        <h2>Veículos e equipamentos</h2>
+        <ul>
+          {% for vehicle in order.vehicles %}
+          <li>Veículo {{ vehicle.vehicle_id or 'n/d' }} • placa {{ vehicle.plate or 'n/d' }} • {{ vehicle.driver or 'sem responsável' }}</li>
+          {% else %}
+          <li>Nenhum veículo vinculado.</li>
+          {% endfor %}
+        </ul>
+        <ul>
+          {% for item in order.equipment %}
+          <li>{{ item.quantity }}x {{ item.type }} • ID {{ item.equipment_id or 'n/d' }} • cliente {{ item.client_name }}</li>
+          {% else %}
+          <li>Nenhum equipamento vinculado.</li>
+          {% endfor %}
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>Confirmações</h2>
+        {% for step in order.confirmation_steps %}
+        <div>
+          <strong>{{ step.label }}</strong>
+          <span class="muted">{{ step.confirmed_at|datetime_br if step.confirmed_at else 'pendente' }}</span>
+          {% if not step.confirmed_at %}
+          <form method="post" action="{{ url_for('confirm_service_order', event_id=order.event_id) }}">
+            <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}">
+            <input type="hidden" name="step" value="{{ step.key }}">
+            <button type="submit">Confirmar</button>
+          </form>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </section>
+
+      <section class="card">
+        <h2>Checklist de saída</h2>
+        <ul>{% for item in order.checklist_saida %}<li>{{ item }}</li>{% endfor %}</ul>
+        <h2>Checklist de retorno</h2>
+        <ul>{% for item in order.checklist_retorno %}<li>{{ item }}</li>{% endfor %}</ul>
+        {% if order.notes %}<p><strong>Observações:</strong> {{ order.notes }}</p>{% endif %}
+      </section>
+
+      <section class="card">
+        <h2>Histórico de alterações</h2>
+        <ul>
+          {% for item in order.history[-12:] %}
+          <li>{{ item.at|datetime_br }} • {{ item.action or 'registro' }} • {{ item.detail or 'sem detalhe' }} • {{ item.user_name or 'sistema' }}</li>
+          {% else %}
+          <li>Nenhuma alteração registrada ainda.</li>
+          {% endfor %}
+        </ul>
+      </section>
+    </main>
+    <script>
+      const summary = {{ order.whatsapp_summary|tojson }};
+      document.getElementById("copy-whatsapp")?.addEventListener("click", async (event) => {
+        try {
+          await navigator.clipboard.writeText(summary);
+          event.currentTarget.textContent = "Resumo copiado";
+        } catch (error) {
+          window.prompt("Copie o resumo:", summary);
+        }
+      });
+    </script>
+  </body>
+</html>
+        """,
+        order=order,
+    )
+
+
+@app.route("/events/<event_id>/service-order/status", methods=["POST"])
+@require_permission("events.service_order")
+def update_service_order_status(event_id: str):
+    try:
+        status = normalize_service_order_status(request.form.get("status"))
+        existing_order = service_order_for_event(event_id)
+        before_status = normalize_service_order_status((existing_order or {}).get("status")) if existing_order else ""
+        order = save_service_order_from_event(
+            event_id,
+            status=status,
+            history_action="alteracao_status",
+            detail=f"Status da OS alterado para {service_order_status_label(status)}.",
+        )
+        record_audit("status", "events", event_id, "Status da OS atualizado.", before={"status": before_status}, after={"status": status})
+        flash(f"Status da OS atualizado para {service_order_status_label(status)}.", "success")
+    except Exception as exc:  # noqa: BLE001
+        flash_action_error(exc, "service_order")
+    return redirect(url_for("index", _anchor=f"event-{clean_text(event_id)}"))
+
+
+@app.route("/events/<event_id>/service-order/confirm", methods=["POST"])
+@require_permission("events.service_order")
+def confirm_service_order(event_id: str):
+    try:
+        step = clean_text(request.form.get("step"))
+        notes = clean_text(request.form.get("notes"))
+        order = confirm_service_order_step(event_id, step, notes)
+        step_meta = next((item for item in SERVICE_ORDER_CONFIRMATION_STEPS if item["key"] == normalize_status_key(step)), {})
+        record_audit("field_confirmation", "events", event_id, f"OS: {step_meta.get('label', step)} confirmada.", after=order)
+        flash(f"Confirmação registrada: {step_meta.get('label', step)}.", "success")
+    except Exception as exc:  # noqa: BLE001
+        flash_action_error(exc, "service_order")
+    return redirect(url_for("index", _anchor=f"event-{clean_text(event_id)}"))
 
 
 @app.route("/events/<event_id>/financial", methods=["POST"])
@@ -14341,6 +17169,7 @@ register_finance_routes(
         generate_monthly_contract_receivables=generate_monthly_contract_receivables,
         load_financial_entries=load_financial_entries,
         load_financial_receivables=load_financial_receivables,
+        normalize_receivable_status=normalize_receivable_status,
         now_iso=now_iso,
         parse_decimal=parse_decimal,
         record_audit=record_audit,
@@ -14500,10 +17329,28 @@ def update_event_status(event_id: str):
         linked_client_ids = set(target.get("client_ids") or [])
         linked_equipment = [
             item for item in inventory
-            if clean_text(item.get("linked_client_id")) in linked_client_ids and item.get("status") in {"em_rota", "instalado", "retirada_pendente"}
+            if clean_text(item.get("linked_client_id")) in linked_client_ids
+            and normalize_equipment_status(item.get("status") or item.get("condition")) == "em_operacao"
         ]
         if linked_equipment:
-            flash_action_error(ValueError("Não é possível finalizar o evento enquanto houver equipamento em rota, instalado ou com retirada pendente. Confirme o retorno dos equipamentos antes de encerrar."), "event")
+            flash_action_error(ValueError("Não é possível finalizar o evento enquanto houver equipamento em operação. Confirme o retorno dos equipamentos antes de encerrar."), "event")
+            return redirect(url_for("index"))
+        linked_vehicle_ids = {clean_text(item) for item in (target.get("vehicle_ids") or []) if clean_text(item)}
+        open_assignments = [
+            item for item in load_fleet_vehicle_assignments()
+            if clean_text(item.get("status")) == "entregue"
+            and (clean_text(item.get("route_id")) == event_id or clean_text(item.get("vehicle_id")) in linked_vehicle_ids)
+            and not clean_text(item.get("deleted_at"))
+        ]
+        if open_assignments:
+            flash_action_warning(
+                "Checklist de retorno pendente",
+                "A responsabilidade do veículo ainda está aberta. Registre a devolução antes de concluir o evento.",
+                next_step="Abra Checklists e operação, conclua o retorno e tente encerrar novamente.",
+                target_href="/fleet/checklists#entregas",
+                target_tab="",
+                action="Abrir retornos",
+            )
             return redirect(url_for("index"))
     target["status"] = new_status
     save_events(events)
@@ -14527,6 +17374,12 @@ def validate_operation():
         vehicles_snapshot=vehicles_snapshot,
         route_data=load_route_data(),
     )
+    fleet_issues = fleet_route_departure_issues(selected_event, vehicles_snapshot)
+    if fleet_issues:
+        validation_payload["pending_items"] = list(validation_payload.get("pending_items") or []) + [
+            f"Veículo {item['vehicle_id']}: {item['reason']}" for item in fleet_issues
+        ]
+        validation_payload["is_routable"] = False
     save_operation_validation(validation_payload)
     record_audit("validate", "operations", selected_event_id, "Validação operacional executada.", after=validation_payload)
     if validation_payload.get("is_routable"):
@@ -14558,6 +17411,13 @@ def preview_file(filename: str):
 @require_permission("dashboard.view")
 def uploaded_asset(filename: str):
     return send_from_directory(UPLOADS_DIR / "assets", filename, as_attachment=False)
+
+
+@app.route("/service-worker.js", methods=["GET"])
+def service_worker():
+    response = send_from_directory(app.static_folder, "service-worker.js", mimetype="application/javascript")
+    response.headers["Service-Worker-Allowed"] = "/"
+    return response
 
 
 if __name__ == "__main__":
